@@ -4,9 +4,9 @@
 
 import 'dart:math' as math;
 
-/// The head alone (`assets/pendant/whale_girl.png`). The artwork is cut
-/// straight down its right and bottom edges, which is what the widget turns
-/// towards the screen edge it is parked on.
+/// The head alone (`assets/pendant/head.png`). The artwork is cut straight
+/// down its bottom edge and sits flush in the bottom right corner of its box,
+/// which is what the widget turns towards the screen edge it is parked on.
 const pendantArtHead = 'dsniang1';
 
 /// A picture the user picked.
@@ -26,7 +26,7 @@ const pendantSoundCustom = 'custom';
 
 /// Picks the asset in the pendant folder for a built-in [art] key.
 String? pendantArtAsset(String art) => switch (art) {
-  pendantArtHead => 'assets/pendant/whale_girl.png',
+  pendantArtHead => 'assets/pendant/head.png',
   _ => null,
 };
 

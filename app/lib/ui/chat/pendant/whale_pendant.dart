@@ -352,7 +352,7 @@ class _WhalePendantState extends ConsumerState<WhalePendant> {
   }
 
   Widget _builtinArt(AppSettings settings, bool mirrored) {
-    final asset = pendantArtAsset(settings.pendantArt) ?? 'assets/pendant/whale_girl.png';
+    final asset = pendantArtAsset(settings.pendantArt) ?? 'assets/pendant/head.png';
     return Transform.flip(
       flipX: mirrored,
       child: Image.asset(

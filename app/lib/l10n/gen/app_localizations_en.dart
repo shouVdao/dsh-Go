@@ -3027,6 +3027,15 @@ class L10nEn extends L10n {
   String get botsPetOverlayFramingHint => 'Changing the framing reloads the character';
 
   @override
+  String get botsPetOverlaySize => 'Overlay size';
+
+  @override
+  String get botsPetOverlaySizeHint => 'Only the pet outside the app. The size on the page is adjusted separately';
+
+  @override
+  String get botsPetOverlayCustomSize => 'Custom overlay size';
+
+  @override
   String get botsPetSwitchDisabled => 'Switch disabled';
 
   @override
@@ -3070,10 +3079,212 @@ class L10nEn extends L10n {
       'Bring your own pixel pet: a zip with pack.json and PNG frame sheets; the format is in docs/design/pets.md in the repository. Long-press an imported pet to delete it.';
 
   @override
-  String get botsPetMake => 'Make a pet with AI';
+  String get botsPetConvertEntry => 'Convert a Live2D model';
 
   @override
-  String get botsPetMakeSubtitle => 'Turn GIFs, stickers or a theme into a pet pack';
+  String get botsPetConvertEntrySub => 'Turn a Live2D model from elsewhere into a pet pack or a companion room pack';
+
+  @override
+  String get botsPetConvertPick => 'Choose the model zip';
+
+  @override
+  String get botsPetConvertPickHint =>
+      'Zip the model\'s folder: the model files at the top, or inside a single folder.';
+
+  @override
+  String get botsPetConvertPickSubtitle => 'Nothing chosen yet';
+
+  @override
+  String get botsPetConvertWorking => 'Reading the model…';
+
+  @override
+  String get botsPetConvertModel => 'Model';
+
+  @override
+  String get botsPetConvertFiles => 'Files';
+
+  @override
+  String botsPetConvertCount(int count, String size) {
+    return '$count · $size';
+  }
+
+  @override
+  String get botsPetConvertTextures => 'Textures';
+
+  @override
+  String get botsPetConvertMotions => 'Motions';
+
+  @override
+  String get botsPetConvertExpressions => 'Expressions';
+
+  @override
+  String get botsPetConvertMotionList => 'What the model can do';
+
+  @override
+  String get botsPetConvertPhysicsOnly => 'Only moves physics, barely visible';
+
+  @override
+  String get botsPetConvertLoop => 'loops';
+
+  @override
+  String get botsPetConvertOnce => 'plays once';
+
+  @override
+  String get botsPetConvertMap => 'The motion for each state';
+
+  @override
+  String get botsPetConvertMapDone => 'Every state has one. To trade two around, use Swap.';
+
+  @override
+  String botsPetConvertMissing(String names) {
+    return 'Not implemented yet: $names';
+  }
+
+  @override
+  String get botsPetConvertNone => 'Leave it out';
+
+  @override
+  String get botsPetConvertEvents => 'What a tap plays';
+
+  @override
+  String get botsPetConvertNoMotions => 'This model has no motions of its own; only the poster shows.';
+
+  @override
+  String botsPetConvertIgnored(int count) {
+    return '$count motions go unused';
+  }
+
+  @override
+  String get botsPetConvertAuto => 'Match by name';
+
+  @override
+  String get botsPetConvertSwap => 'Swap two states';
+
+  @override
+  String get botsPetConvertSwapPick => 'Pick the state to move first';
+
+  @override
+  String botsPetConvertSwapPick2(String name) {
+    return 'Pick the state to trade with $name';
+  }
+
+  @override
+  String get botsPetConvertPet => 'Build the pet and switch to it';
+
+  @override
+  String get botsPetConvertPetHint => 'The model folder goes in too; the phone needs the Live2D runtime installed';
+
+  @override
+  String get botsPetConvertRoom => 'Build a companion room pack';
+
+  @override
+  String get botsPetConvertRoomHint => 'Saved to Download, install it from the companion room';
+
+  @override
+  String botsPetConvertPetDone(String name) {
+    return '$name is your pet now';
+  }
+
+  @override
+  String botsPetConvertRoomDone(String path) {
+    return 'Saved to $path; install it from Companion › Install a pack';
+  }
+
+  @override
+  String botsPetConvertFailed(String detail) {
+    return 'Couldn\'t do it: $detail';
+  }
+
+  @override
+  String botsPetConvertMapping(String problem) {
+    return 'The states aren\'t ready: $problem';
+  }
+
+  @override
+  String get botsPetConvertNeedIdle => 'Idle still needs a motion: it plays whenever nothing else happens';
+
+  @override
+  String get botsPetConvertChooseMotion => 'Pick a motion';
+
+  @override
+  String get botsPetConvertPreview => 'Play';
+
+  @override
+  String botsPetConvertPreviewTitle(String name) {
+    return 'Playing $name';
+  }
+
+  @override
+  String get botsPetConvertPreviewHint =>
+      'Playing needs the Live2D runtime on the phone (a complete companion-room pack). Nothing here is installed or changed.';
+
+  @override
+  String botsPetConvertTooLarge(String size) {
+    return 'Too big: $size';
+  }
+
+  @override
+  String botsPetConvertTooLargeHint(String cap) {
+    return 'Conversion reads zips up to $cap: anything larger runs out of memory before the first check. Have an AI shrink it first, then come back.';
+  }
+
+  @override
+  String get botsPetConvertTooLargeCopy => 'Copy the hand-off for an AI';
+
+  @override
+  String get botsPetConvertTooLargeCopied => 'Copied: paste it to an AI';
+
+  @override
+  String get botsPetConvertTooLargePrompt =>
+      'Please shrink this Live2D model to under 160 MB so dsh-Go\'s converter can read it: downscale 4096 textures to 2048 or 1024; drop .mp3 and .wav; keep only *.model3.json, *.moc3, *.physics3.json, *.pose3.json, *.cdi3.json, *.motion3.json, *.exp3.json and the textures; unused motions and expressions can go too; repack it as one zip with those files at the root (or inside a single folder).';
+
+  @override
+  String get botsPetStateIdle => 'Idle';
+
+  @override
+  String get botsPetStateThinking => 'Thinking';
+
+  @override
+  String get botsPetStateWorking => 'Working';
+
+  @override
+  String get botsPetStateJuggling => 'Juggling';
+
+  @override
+  String get botsPetStateSweeping => 'Sweeping';
+
+  @override
+  String get botsPetStateNotification => 'Notification';
+
+  @override
+  String get botsPetStateAttention => 'Attention';
+
+  @override
+  String get botsPetStateError => 'Error';
+
+  @override
+  String get botsPetStateCarrying => 'Carrying';
+
+  @override
+  String get botsPetStateSleeping => 'Sleeping';
+
+  @override
+  String get botsPetStateWaking => 'Waking';
+
+  @override
+  String get botsPetReactionTapLeft => 'Tap left';
+
+  @override
+  String get botsPetReactionTapRight => 'Tap right';
+
+  @override
+  String get botsPetReactionTickle => 'Tickle';
+
+  @override
+  String get botsPetReactionAnnoyed => 'Annoyed';
+
+  @override
+  String get botsPetReactionDrag => 'Dragged';
 
   @override
   String botsPetImportDone(String name) {
@@ -3156,6 +3367,18 @@ class L10nEn extends L10n {
 
   @override
   String get botsPetImportTooLarge => 'This pet pack is too big';
+
+  @override
+  String botsPetImportLive2dModel(String detail) {
+    return 'The Live2D model is missing or unreadable: $detail';
+  }
+
+  @override
+  String get botsPetImportLive2dPoster => 'The poster.png is missing, isn\'t a PNG, or doesn\'t match the canvas size';
+
+  @override
+  String get botsPetExportLive2d =>
+      'This pet is a Live2D one: its model folder can\'t fit in a pet card. Exporting would give you only the poster, so it\'s turned off for now.';
 
   @override
   String get botsPetImportStorage => 'Couldn\'t save it on the phone. Try again';
@@ -6073,7 +6296,7 @@ class L10nEn extends L10n {
 
   @override
   String get companionPackLegacyModel =>
-      'This is an old Cubism 2 model (.moc and model.json); the runtime on the phone only reads .moc3 from Cubism 3 on. Open it in Cubism Editor, export it as moc3 and import that.';
+      'The pack has a .moc but no model.json. A Cubism 2 model needs model.json, the .moc and its textures together; Cubism 2 is supported now — the descriptor is what is missing.';
 
   @override
   String companionFailedMocVersion(String version, String latest) {
@@ -11507,6 +11730,93 @@ class L10nEn extends L10n {
   String get nearbyChange => 'Change';
 
   @override
+  String get pendantBalance => 'Balance';
+
+  @override
+  String get pendantNoKey => 'No API key yet';
+
+  @override
+  String get pendantOffline => 'Not available now';
+
+  @override
+  String get pendantInvalidKey => 'Key rejected';
+
+  @override
+  String get pendantChecking => 'Checking…';
+
+  @override
+  String get pendantGranted => 'Bonus';
+
+  @override
+  String get pendantToppedUp => 'Top-up';
+
+  @override
+  String get pendantTopUp => 'Top up';
+
+  @override
+  String get pendantLow => 'Running low';
+
+  @override
+  String get pendantValley => 'Off-peak';
+
+  @override
+  String get pendantPeak => 'Peak';
+
+  @override
+  String get pendantTitle => 'Balance whale';
+
+  @override
+  String get pendantArtTitle => 'Character';
+
+  @override
+  String get pendantArtHead => 'Built-in head';
+
+  @override
+  String get pendantArtCustom => 'Your picture';
+
+  @override
+  String get pendantArtPick => 'Pick a picture…';
+
+  @override
+  String get pendantSoundTitle => 'Sound';
+
+  @override
+  String get pendantSoundDuck => 'Rubber duck';
+
+  @override
+  String get pendantSoundFx1 => 'Sound one';
+
+  @override
+  String get pendantSoundOff => 'Silent';
+
+  @override
+  String get pendantSoundCustom => 'Your clip';
+
+  @override
+  String get pendantSoundPick => 'Pick a clip…';
+
+  @override
+  String get pendantLinesTitle => 'Bubble lines';
+
+  @override
+  String get pendantLinesHint => 'One per line; a tapped bubble says one at random';
+
+  @override
+  String get pendantLinesEdit => 'Edit lines';
+
+  @override
+  String get pendantLinesReset => 'Restore defaults';
+
+  @override
+  String get pendantResetPlace => 'Back to the lower left';
+
+  @override
+  String get pendantPickFailed => 'Could not read that file';
+
+  @override
+  String get pendantPickUnsupported => 'Could not read that picture — try PNG, JPEG, or WebP';
+
+  @override
   String get performanceTitle => 'Performance';
 
   @override
@@ -14850,6 +15160,25 @@ class L10nEn extends L10n {
   String get pluginsColors => 'Colors';
 
   @override
+  String get pluginsLook => 'Material and text';
+
+  @override
+  String get pluginsLookHint =>
+      'Opacity and blur affect the glass panels and cards; the text color only changes the text.';
+
+  @override
+  String get pluginsOpacity => 'Opacity';
+
+  @override
+  String get pluginsBlur => 'Blur';
+
+  @override
+  String get pluginsFontColor => 'Text color';
+
+  @override
+  String get pluginsFollowTheme => 'Follow theme';
+
+  @override
   String get pluginsFeatureIcons => 'Feature icons';
 
   @override
@@ -17985,6 +18314,9 @@ class L10nEn extends L10n {
   String get searchKwTheme => 'appearance,colors,colours,accent,icons';
 
   @override
+  String get searchKwLook => 'opacity,transparency,blur,frosted glass,panel,text color,font color';
+
+  @override
   String get searchKwPets => 'pet,pets,companion,whale,overlay';
 
   @override
@@ -18140,6 +18472,9 @@ class L10nEn extends L10n {
 
   @override
   String get searchKwPetSize => 'pet size';
+
+  @override
+  String get searchKwPetOverlaySize => 'overlay size,floating pet size';
 
   @override
   String get searchKwPetQuiet => 'quiet,pet quiet';
@@ -19918,7 +20253,34 @@ class L10nEn extends L10n {
   String get hubChatSuggestionsHint => 'Show chat suggestions on the start page';
 
   @override
+  String get hubChatTips => 'Usage tips';
+
+  @override
+  String get hubChatTipsHint => 'Show usage tips at the bottom of the start page';
+
+  @override
+  String get searchKwChatTips => 'start page,empty page,new chat,tips,usage tips,tip line';
+
+  @override
+  String get hubChatTips => 'Usage tips';
+
+  @override
+  String get hubChatTipsHint => 'Show usage tips at the bottom of the start page';
+
+  @override
+  String get hubPendant => 'Balance whale';
+
+  @override
+  String get hubPendantHint => 'Show the balance whale above the composer; drag it to the other end';
+
+  @override
+  String get searchKwChatTips => 'start page,empty page,new chat,tips,usage tips,tip line';
+
+  @override
   String get searchKwChatSuggestions => 'start page,empty page,new chat,chat suggestions,suggestion cards';
+
+  @override
+  String get searchKwPendant => 'balance,whale,pendant,top up,wallet,recharge';
 
   @override
   String get phoneStartupFailureStopping => 'Startup failed; stopping';
@@ -27481,6 +27843,12 @@ class L10nEn extends L10n {
   String get wallpaperCustom => 'Custom';
 
   @override
+  String get wallpaperVideo => 'Looping video';
+
+  @override
+  String get wallpaperJson => '.json wallpaper';
+
+  @override
   String get wallpaperFrame => 'Reposition';
 
   @override
@@ -27496,11 +27864,44 @@ class L10nEn extends L10n {
   String get wallpaperReplace => 'Replace picture';
 
   @override
+  String get wallpaperVideoReplace => 'Replace video';
+
+  @override
+  String get wallpaperVideoChoose => 'Choose a video';
+
+  @override
+  String get wallpaperVideoScale => 'Scaling';
+
+  @override
+  String get wallpaperVideoFill => 'Fill';
+
+  @override
+  String get wallpaperVideoCenter => 'Fit';
+
+  @override
+  String get wallpaperVideoFrame => 'Adjust position';
+
+  @override
+  String get wallpaperJsonReplace => 'Replace .json wallpaper';
+
+  @override
+  String get wallpaperJsonTime => 'Follows the clock';
+
+  @override
+  String get wallpaperJsonTimeHint => 'Day, dusk and night each have their own animation';
+
+  @override
+  String get wallpaperJsonSample => 'Sample scene';
+
+  @override
+  String get wallpaperJsonPackage => 'Scene package';
+
+  @override
   String get wallpaperPreview => 'Preview';
 
   @override
   String get wallpaperFooter =>
-      'Shown on home, in chats and in the drawer. Lighten applies in light mode, Dim in dark mode; text always stays clear. PNG, JPEG or WebP, up to 15 MB.';
+      'Shown on home, in chats and in the drawer. Lighten applies in light mode, Dim in dark mode; text always stays clear. PNG, JPEG or WebP, up to 15 MB. Looping video: MP4 or WebM, up to 300 MB. .json wallpaper: see docs\\json-wallpaper.md.';
 
   @override
   String get wallpaperChanged => 'Wallpaper changed';
@@ -27516,6 +27917,36 @@ class L10nEn extends L10n {
 
   @override
   String get wallpaperUnavailable => 'Couldn’t open your photos';
+
+  @override
+  String get wallpaperVideoTooLarge => 'The video is over 300 MB';
+
+  @override
+  String get wallpaperVideoUnsupported => 'Use an MP4 or WebM video';
+
+  @override
+  String get wallpaperVideoUnreadable => 'Couldn’t read this video';
+
+  @override
+  String get wallpaperJsonTooLarge => 'The .json file is over 20 MB';
+
+  @override
+  String get wallpaperJsonPackageTooLarge => 'The scene package is over 300 MB';
+
+  @override
+  String get wallpaperJsonUnreadable => 'Couldn’t read this .json file';
+
+  @override
+  String get wallpaperJsonInvalid => 'Something in this .json wallpaper is off';
+
+  @override
+  String get wallpaperPeriodDay => 'Day';
+
+  @override
+  String get wallpaperPeriodDusk => 'Dusk';
+
+  @override
+  String get wallpaperPeriodNight => 'Night';
 
   @override
   String get wallpaperBroken => 'Can’t be read';
@@ -27546,7 +27977,8 @@ class L10nEn extends L10n {
   String get wallpaperSampleTool => 'Checked 3 weather sources';
 
   @override
-  String get searchKwWallpaper => 'background,background image,chat background,custom background,backdrop,blur,photo';
+  String get searchKwWallpaper =>
+      'background,background image,chat background,custom background,backdrop,blur,photo,live wallpaper,video wallpaper,json wallpaper';
 
   @override
   String get webTitle => 'DSH Web';

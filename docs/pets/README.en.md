@@ -148,6 +148,71 @@ Each entry: `sheet` (PNG file name), `frameW`/`frameH` (size of one cell in shee
 
 **Defaults** (when omitted): `minDisplay` = attention 5200 / error 4800 / sweeping 5600 / notification 3200 / carrying 3200 / working 1000 / thinking 1000 (ms); `autoReturn` = attention 5200 / error 4800 / sweeping 300000 / carrying 3200; `sleep.afterMs` 60000; `idlePool.everyMs` mean 120000 / min 45000 / max 300000.
 
+### 3.5 Live2D pets (`type: "live2d"`)
+
+Besides sprite sheets, a pet pack may be a Cubism model (Live2D). It is the same zip and the same `pack.json`: the model goes in `character/`, and the pack may ship one still `poster.png` — when it does not, the app renders one from the stage the first time it shows the model.
+
+**Smallest layout**
+
+```text
+my-pet/
+├── pack.json
+├── poster.png            # still cover (optional); pixel size must equal canvas
+└── character/
+    ├── my-pet.model3.json
+    ├── my-pet.moc3
+    └── textures/texture_00.png
+```
+
+**`pack.json`**
+
+```json
+{
+  "schema": 1,
+  "id": "my-pet",
+  "type": "live2d",
+  "canvas": {"w": 400, "h": 800},
+  "contentBox": {"x": 120, "y": 200, "w": 160, "h": 600},
+  "live2d": {
+    "model": "my-pet.model3.json",
+    "poster": "poster.png",
+    "states": {
+      "idle": "Idle",
+      "thinking": "Thinking",
+      "working": "Work",
+      "juggling": "Work",
+      "sweeping": "Sweep",
+      "notification": "Notice",
+      "attention": "Happy",
+      "error": "Sad",
+      "carrying": "Carry",
+      "sleeping": "Sleep",
+      "waking": "Wake"
+    },
+    "reactions": {"tapLeft": "Tap", "tapRight": "Tap", "tickle": "Tickle", "drag": "Drag"}
+  }
+}
+```
+
+- `type` must be `"live2d"`; a pack with `type` does not need `animations`.
+- `canvas` / `contentBox` are art pixels as for sprite pets and decide size, bubble position and the hit box. **When the pack carries a cover, `poster.png` must be exactly `canvas` pixels** (not `canvas × scale`).
+- `live2d.model`: the descriptor's path inside `character/`. Cubism 3/4/5: `*.model3.json`; Cubism 2: `model.json` (its `.moc` and textures sit next to it; see `docs/live2d/README.md`).
+- `live2d.poster`: still cover PNG, default `poster.png`. It is what the floating window shows and what the chat shows until the model is ready. **A pack without it still imports**: the app writes a blank cover of the canvas size plus a `.poster-pending` marker, then on the first chat display asks the stage to render one frame offscreen, scales it to `canvas` and writes the real `poster.png`, refreshing the floating window too. Until then the floating window is blank.
+- `live2d.states`: **state name → motion name**, must contain `idle`. A motion name is a motion group in the model (a `Motions` group in `.model3.json`; a `motions` group for Cubism 2), not a file name; one motion may serve several states. A missing state falls back to `live2d.fallback`, then to the `idle` motion.
+- `live2d.reactions`: optional; keys `tapLeft` / `tapRight` / `tickle` / `annoyed` / `drag`, values are motion names. Keys you leave out play no reaction.
+- `live2d.fallback`: optional fallback motion name.
+
+**Give all 11 states a motion** (`idle` is required) — this is the most important thing a Live2D pet must do to match a sprite pet: sprite pets change animations by state, Live2D pets change motions. `idle`, `thinking`, `working`, `juggling`, `sweeping`, `notification`, `carrying` and `sleeping` play as looping motions; `attention`, `error` and `waking` are one-shot, and the app returns to the current state's motion when their display window ends. A missing state only falls back to `idle` — no error, but the pet will look stuck.
+
+**What is deliberately degraded** (so authors do not build it for nothing):
+
+- In the app: no roaming (`roam`), no `idlePool` extras, no `tiers` switching, no `bonus`. Taps, repeated taps and dragging only play what `live2d.reactions` names.
+- The floating window shows only `poster.png`, still. Position, dragging, hits and quiet mode keep working.
+- Export/workshop: sprite pets only for now. A Live2D pet imports and displays locally; submitting it says it is unsupported.
+- A pet pack carries no runtime: the app reuses the runtime installed for the companion room. When there is none, the app asks the person to install a full companion pack first; until then only the poster is shown.
+
+**Limits**: zip ≤ 64 MiB (expanded ≤ 64 MiB); `character/` ≤ 1000 files, ≤ 32 MiB each, ≤ 200 MiB total; allowed extensions `.json` `.moc3` `.moc` `.mtn` `.png` `.jpg` `.jpeg` `.webp` `.wav` `.mp3` `.txt` `.md`; with a `poster.png` the ordinary pet PNG checks apply (≤ 8 MiB, ≤ 4096 px per side), without one `canvas` must still fit the synthetic cover (≤ 4096 px per side, `w × h × 4` ≤ 16 MiB).
+
 ## 4. Sheet rules
 
 ### 4.1 Two coordinate spaces
@@ -206,6 +271,8 @@ The app reduces agent activity into 11 states. **Idle alone is enough**; missing
 
 **Interaction**: tapping the left/right half of the body → `tapLeft`/`tapRight`; three taps within 1.1 s → `tickle`; dragging → `drag`. Reaction animations return to the previous state; while asleep, `waking` plays first.
 
+**Live2D pets**: states map directly to model motions, see §3.5. **Give every state a motion (at least `idle`)**, or that state keeps playing `idle`.
+
 **What never happens**: a stopped turn quietly returns to idle (no error); compaction completion is not celebrated; a disconnect or engine restart never becomes `error`.
 
 ## 6. Import, validation and deletion
@@ -221,6 +288,9 @@ On failure the app shows one of a few messages; the detail carries the validator
 | pack.json has a problem: … | `pack-schema`, `json-*`, `pack-overlay` | Follow §3; `pack-overlay` means the stricter overlay integer/geometry check failed |
 | The zip is missing sheet X | `sheet-missing` | The `sheet` name does not match the actual file |
 | A sheet is wrong: X | `png-*`, `sheet-name`, `sheet-alias`, `sheet-frame-bounds` | PNG incomplete/APNG/illegal name/cells outside the sheet |
+| Live2D model missing or unreadable: X | `model-missing`, `model-json`, `moc`, `model3` | The file named by `live2d.model` is not in the pack (or a moc/texture it references is missing). See §3.5 |
+| Cover poster.png is not a PNG, or a different size from canvas | `poster-png`, `poster-size` | Use a complete PNG whose pixel size is exactly `canvas`; or delete the cover and let the app render one |
+| Cover missing and the canvas is too large to synthesize a blank one | `poster-missing` | `canvas` ≤ 4096 px per side and `w × h × 4` ≤ 16 MiB; or ship a cover |
 | This pet pack is too large | `sheet-size`, `sheet-total-size`, `sheet-count`, `pack-size`, `pack-normalized-size`, `archive-expanded-size`, `archive-member-size`, `archive-entries` | See the limits in §1 |
 | Could not store it on the phone | `storage` | Storage/permission issue; retry |
 
@@ -248,6 +318,7 @@ When there is no `pack.json` but there is a Codex-format `pet.json`, the app con
 There is **no** user-facing "export pet pack" button. When submitting, the client re-exports the selected pet as a canonical zip:
 
 - Only `pack.json` and the PNGs it references; unknown metadata, `codexImport` and local submission receipts are excluded.
+- Live2D pets are not exported or submitted today (the workshop accepts sprite packs only); local import and display still work.
 - The `id` in `pack.json` is rewritten to the submission id; `author`/`license`/`source` are overridden with the form values.
 - The normalized archive is fully validated again; the client upload limit is 50 MiB for the zip, and the workshop works with a 128 MiB expanded budget (the server has its own rules).
 
@@ -292,6 +363,9 @@ There is currently **no** standalone author-facing validator CLI; importing in t
 - [ ] Tapping left/right, three quick taps and dragging trigger `tapLeft`/`tapRight`/`tickle`/`drag`.
 - [ ] Turn on "Show outside the app": the overlay's animations and hit area (body only) work; dragging to an edge snaps; nothing remains after turning it off.
 - [ ] Before submitting, use "look at the packed result" to confirm the final zip and preview.
+- [ ] Live2D pet: the model shows in the chat and follows state changes (missing states should fall back to `idle`); taps, repeated taps and dragging play only what `live2d.reactions` names; "show outside the app" shows only `poster.png`.
+- [ ] A pack without `poster.png`: import succeeds, the floating window is blank for now, and after the first chat display `poster.png` appears in the pet folder, `.poster-pending` is gone and the floating window has its picture.
+- [ ] On a phone without a companion pack yet, a Live2D pet shows only the poster and asks for a full companion pack first.
 
 ## UNVERIFIED
 

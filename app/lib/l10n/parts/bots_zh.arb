@@ -730,6 +730,9 @@
   "botsPetOverlayFramingFull": "全身",
   "botsPetOverlayFramingHalf": "半身",
   "botsPetOverlayFramingHint": "换取景会重新加载她",
+  "botsPetOverlaySize": "悬浮窗大小",
+  "botsPetOverlaySizeHint": "只影响 App 外的宠物；聊天页里的「大小」单独调整",
+  "botsPetOverlayCustomSize": "自定义悬浮窗大小",
   "botsPetSwitchDisabled": "开关点不动",
   "botsPetRestrictedSettings": "允许受限制的设置",
   "botsPetHiddenToday": "今天不再显示",
@@ -744,8 +747,147 @@
   "botsPetSource": "来自 DSH-TUI",
   "botsPetImport": "导入",
   "botsPetImportHint": "导入你自己的像素宠物：一个 zip，里面是 pack.json 和序列帧 PNG，格式见仓库里的 docs/design/pets.md。长按导入的宠物可以删除。",
-  "botsPetMake": "让 AI 做一只宠物",
-  "botsPetMakeSubtitle": "把 GIF、表情包或主题转成宠物包",
+  "botsPetConvertEntry": "转换 Live2D 模型",
+  "botsPetConvertEntrySub": "把外来的 Live2D 模型做成宠物包或伙伴小屋素材包",
+  "botsPetConvertPick": "选择模型压缩包",
+  "botsPetConvertPickHint": "把 Live2D 模型的文件夹打成 zip：根目录直接是模型文件，或者外面只套一层文件夹。",
+  "botsPetConvertPickSubtitle": "还没选",
+  "botsPetConvertWorking": "正在读取模型…",
+  "botsPetConvertModel": "模型",
+  "botsPetConvertFiles": "文件",
+  "botsPetConvertCount": "{count} 个 · {size}",
+  "@botsPetConvertCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTextures": "贴图",
+  "botsPetConvertMotions": "动作",
+  "botsPetConvertExpressions": "表情",
+  "botsPetConvertMotionList": "模型自带的动作",
+  "botsPetConvertPhysicsOnly": "只动物理参数，几乎看不出在动",
+  "botsPetConvertLoop": "循环",
+  "botsPetConvertOnce": "只播一次",
+  "botsPetConvertMap": "每个状态用哪个动作",
+  "botsPetConvertMapDone": "每个状态都挑好了。想换位置，用下面的「互换」。",
+  "botsPetConvertMissing": "还没实现的：{names}",
+  "@botsPetConvertMissing": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertNone": "不实现",
+  "botsPetConvertEvents": "点她时的反应",
+  "botsPetConvertNoMotions": "这个模型没有自带动作，只能用封面待着。",
+  "botsPetConvertIgnored": "有 {count} 个动作没用上",
+  "@botsPetConvertIgnored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "botsPetConvertAuto": "按名字自动匹配",
+  "botsPetConvertSwap": "互换两个状态",
+  "botsPetConvertSwapPick": "先选要换走的状态",
+  "botsPetConvertSwapPick2": "再选要和「{name}」互换的状态",
+  "@botsPetConvertSwapPick2": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertPet": "生成宠物包并换上",
+  "botsPetConvertPetHint": "模型文件夹会一起打进去，手机上要先装过 Live2D 运行库",
+  "botsPetConvertRoom": "生成伙伴小屋包",
+  "botsPetConvertRoomHint": "存到手机的 Download，去伙伴小屋安装",
+  "botsPetConvertPetDone": "「{name}」已经是你的宠物了",
+  "@botsPetConvertPetDone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertRoomDone": "已存到 {path}，去伙伴小屋 › 安装素材包导入",
+  "@botsPetConvertRoomDone": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertFailed": "没做成：{detail}",
+  "@botsPetConvertFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertMapping": "状态动作还没配好：{problem}",
+  "@botsPetConvertMapping": {
+    "placeholders": {
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertNeedIdle": "「待机」还没有动作：她空着的时候一直用它",
+  "botsPetConvertChooseMotion": "挑一个动作",
+  "botsPetConvertPreview": "试播",
+  "botsPetConvertPreviewTitle": "试播「{name}」",
+  "@botsPetConvertPreviewTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertPreviewHint": "试播要用手机里的 Live2D 运行库（伙伴小屋的完整素材包）。这里只是看着玩，不会改动模型，也不会安装。",
+  "botsPetConvertTooLarge": "模型太大：{size}",
+  "@botsPetConvertTooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTooLargeHint": "转换最多读 {cap} 的压缩包：再大手机还没开始读就会先没内存。先用 AI 把它压小，再回来选。",
+  "@botsPetConvertTooLargeHint": {
+    "placeholders": {
+      "cap": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTooLargeCopy": "复制给 AI 的压小说明",
+  "botsPetConvertTooLargeCopied": "已复制，发给 AI 就行",
+  "botsPetConvertTooLargePrompt": "请你把这个 Live2D 模型压小到 160 MB 以内，好让 dsh-Go 的转换器能读：把 4096 的贴图降到 2048 或 1024；删掉 .mp3 和 .wav；只保留 *.model3.json、*.moc3、*.physics3.json、*.pose3.json、*.cdi3.json、*.motion3.json、*.exp3.json 和贴图；用不到的表情和动作也可以删；最后重新打成一个 zip，根目录直接放这些文件（或者只套一层文件夹）。",
+  "botsPetStateIdle": "待机",
+  "botsPetStateThinking": "思考",
+  "botsPetStateWorking": "工作",
+  "botsPetStateJuggling": "同时做几件事",
+  "botsPetStateSweeping": "清理",
+  "botsPetStateNotification": "有新消息",
+  "botsPetStateAttention": "在叫你",
+  "botsPetStateError": "出错",
+  "botsPetStateCarrying": "搬东西",
+  "botsPetStateSleeping": "睡觉",
+  "botsPetStateWaking": "醒来",
+  "botsPetReactionTapLeft": "点左边",
+  "botsPetReactionTapRight": "点右边",
+  "botsPetReactionTickle": "挠痒",
+  "botsPetReactionAnnoyed": "被惹到",
+  "botsPetReactionDrag": "被拖动",
   "botsPetImportDone": "「{name}」来了",
   "botsPetCodexTitle": "「{name}」是从 Codex 宠物转过来的",
   "botsPetCodexBody": "大部分照原样，有几处不完全一样：",
@@ -811,6 +953,16 @@
     }
   },
   "botsPetImportTooLarge": "这个宠物包太大了",
+  "botsPetImportLive2dModel": "Live2D 模型缺失或读不了：{detail}",
+  "@botsPetImportLive2dModel": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetImportLive2dPoster": "封面图 poster.png 缺失、不是 PNG，或者尺寸和 canvas 不一致",
+  "botsPetExportLive2d": "这只宠物是 Live2D 的，模型文件夹没办法打进宠物卡片。导出后只会得到一张封面图，所以这里先不导出。",
   "botsPetImportStorage": "没能存到手机上，再试一次",
   "botsPetRemoveTitle": "删除「{name}」？",
   "@botsPetRemoveTitle": {

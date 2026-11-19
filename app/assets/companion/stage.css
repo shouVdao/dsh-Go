@@ -386,3 +386,20 @@ html[data-mode='float'] #stage {
   transition: none;
   pointer-events: none;
 }
+
+/* Pet mode: the chat's pet layer paints its own backdrop, so this page shows
+   only the character, on a transparent stage, and takes no touches (Flutter
+   owns the tap, drag and long-press). */
+html[data-pet],
+html[data-pet] body {
+  background: transparent;
+}
+html[data-pet] .scene,
+html[data-pet] .props,
+html[data-pet] #fx,
+html[data-pet] .vignette {
+  display: none;
+}
+html[data-pet] #stage {
+  pointer-events: none;
+}

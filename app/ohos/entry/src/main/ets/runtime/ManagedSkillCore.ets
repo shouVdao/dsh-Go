@@ -101,7 +101,7 @@ export class ManagedSkillRequest {
         typeof root !== 'string' || root.length === 0 || root.length > 4096 ||
         typeof token !== 'string' || token.length === 0 || token.length > 4096 ||
         typeof generation !== 'number' || !Number.isSafeInteger(generation) || generation < 1 ||
-        typeof name !== 'string' || !['dsh-go-ui', 'dsh-go-plugin', 'dsh-go-guide', 'dsh-go-support'].includes(name) ||
+        typeof name !== 'string' || !['dsh-go-ui', 'dsh-go-plugin', 'dsh-go-guide', 'dsh-go-support', 'companion-adapt', 'pet-theme'].includes(name) ||
         !(files instanceof Map) || files.size < 1 || files.size > ManagedSkillRequest.MAX_FILES) return null;
     const checked = new Map<string, string>();
     let units = 0;

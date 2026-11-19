@@ -11,10 +11,10 @@ The Companion room is a fixed Live2D stage: the app owns the stage code and the 
 
 | Item | Conclusion | Source |
 |---|---|---|
-| Runtime | Official **Cubism Web Framework 5-r.5 + Core 6.0.1**, shipped with the pack/app. Authors cannot replace or bundle their own | `docs/design/companion.md` §3, `app/assets/companion/stage.js` |
-| Model format | **.moc3 only**; anything exported by Cubism 3 or later goes through this path | `app/lib/companion/companion_pack.dart` |
+| Runtime | Cubism 3+: official **Cubism Web Framework 5-r.5 + Core 6.0.1**, shipped with the pack/app, not replaceable; Cubism 2: the app's own `live2d.min.js` (injected at build time; authors do not ship it) | `docs/design/companion.md` §3, `app/assets/companion/stage.js` |
+| Model format | Cubism 3 and later: `.moc3` + `*.model3.json`; Cubism 2: `.moc` + `model.json` (see §2.5) | `app/lib/companion/companion_pack.dart`, `stage.js` `LegacyModel` |
 | moc version | moc3 format enum **1–6** (Core 6.0.1 has latestMocVersion 6). Newer versions fail to load with "newer Cubism… reads up to N" | `stage.js` header check, `tooling/companion/fixtures/live2d-core-sources-v1.json`, `docs/design/workshop-worker.md` |
-| Cubism 2 | **Not supported**. `.moc` + `model.json` is rejected with a message to re-export as moc3 | `companion_zh.arb` / `companion_en.arb`, `companionPackLegacyModel` |
+| Cubism 2 | **Supported**: `.moc` + `model.json` import and display; physics, pose, expression tables and eye blinking do not run (see §2.5); cannot be submitted to the workshop | `stage.js` `resolveCubism2` / `LegacyModel` |
 | Outfits/switches | Model parameters; the AI fitting never drives clothing, watermarks, visibility switches | fitting contract and `stage.js` protected names |
 | Multiple models | A pack may hold several models; the stage uses the one `character.json`'s `model` names (else the first `.model3.json`) | `stage.js` `resolveModelFile` |
 
@@ -36,8 +36,8 @@ my-model.zip
 
 Rules (enforced in `companion_pack.dart`'s install path):
 
-- A `.model3.json` is **required**; without it you get "No Live2D model (.model3.json) found in the pack."
-- `character/` accepts only: `.json .moc3 .png .jpg .jpeg .webp .wav .mp3 .txt .md`. `.cmo3`, `.psd`, `.clip` etc. are skipped silently (not refused, not kept).
+- A model descriptor is **required**: `*.model3.json` (Cubism 3+), or `model.json` / `*.model.json` with a sibling `.moc` (Cubism 2, see §2.5). Without one you get "No Live2D model (.model3.json) found in the pack."
+- `character/` accepts only: `.json .moc3 .moc .mtn .png .jpg .jpeg .webp .wav .mp3 .txt .md`. `.cmo3`, `.psd`, `.clip` etc. are skipped silently (not refused, not kept).
 - Paths must be safe relative paths: no `..`, no leading `/`, no backslashes or NUL bytes; symlinks are refused.
 - File names must not collide after normalisation (case, Unicode aliases). Avoid `A.png` and `a.PNG` in one pack.
 - Limits: **400 MB expanded, 4000 files** for local import. Over that: "This asset pack is too large."
@@ -96,6 +96,27 @@ Each `tracks` entry is a `[time 0–1, parameter value]` polyline added on top o
 - `moc` must be the **SHA-256 of the moc3 bytes** (lowercase hex, hashing file content, not the path). The app compares it with `sha256(moc3)`; on mismatch the whole fitting is removed and re-fitted.
 - Fields follow `app-local-adapter-v1` (§4). Invalid items are dropped, but **import does not validate it** — the stage will apply what it can, so check it yourself.
 
+### 2.5 Cubism 2 models (`.moc` + `model.json`)
+
+Cubism 2 exports import directly; there is no need to convert to moc3 first. Put the descriptor, the `.moc` and the textures in the zip:
+
+```text
+haru.zip
+├─ haru.model.json      # or model.json
+├─ haru.moc
+├─ haru.1024/texture_00.png
+└─ optional: motions/*.mtn, physics.json, pose.json, expressions/*.json
+```
+
+Rules:
+
+- The descriptor is `model.json` or `*.model.json`; `model` names the `.moc`, `textures` the images, `motions` maps a group name to `[{file, fade_in, fade_out}]`.
+- A `.model3.json` wins when present; the Cubism 2 path is used only when the pack has a legacy descriptor. A lone `.moc` without a descriptor is refused: "the pack has only a .moc, no model.json".
+- Touch zones: `character.json`'s `zones` win; without them the stage uses `model.json`'s `hit_areas` (resolve `id` to a drawable, take its bounds).
+- Runtime: the Cubism 2 core `live2d.min.js` is injected by the app build, **authors do not ship or replace it**; it is not part of the pack's `runtime/`, so the runtime digest check is unaffected.
+- Degradations (the Cubism 2 core has no public API for them): physics, pose, the descriptor's expression table and automatic blinking are not executed; emotions and actions still reach the model through standard parameter names (`PARAM_ANGLE_X`, `PARAM_MOUTH_OPEN_Y`, …). Motion groups from `model.json` are listed on the "motions and expressions" page and can be previewed.
+- Workshop: a Cubism 2 character **cannot be submitted** (the server contract takes moc3 only); local import and display work.
+
 ## 3. Importing into the app
 
 Path: **Switch host → Companion room**.
@@ -112,7 +133,7 @@ Common errors:
 |---|---|---|
 | This file can't be opened… | Corrupt zip / not a zip | Re-zip; avoid archivers that add junk files |
 | No Live2D model (.model3.json) found | Model folder missing, or nested one level too deep | Make the zip root the model contents |
-| This is an old Cubism 2 model | `.moc` + `model.json` | Re-export as moc3 in Cubism Editor |
+| The pack has only a .moc, no model.json | The Cubism 2 descriptor is missing | Zip the `model.json` (or `*.model.json`) together with the `.moc`, see §2.5 |
 | … exported by a newer Cubism (moc version N) | moc enum above the Core limit (6) | Export an older version in the editor |
 | This pack only has a character and there's no runtime… | character-only pack, no full pack installed | Install the full/official pack first |
 | The runtime in this pack doesn't match… | Bundled runtime digest differs | Remove `runtime/`; ship `character/` only |
@@ -190,6 +211,14 @@ Semantics: `set(v) = clamp(v*scale + offset, nativeMin, nativeMax)`; `add(d) = c
 
 **Author advice**: give `.exp3.json`/`.motion3.json` meaningful file names and `Name`s (`wave`, `blush`, `挥手`), not `01` or `X X`; don't turn outfit/visibility switches into expressions; keep idle loops out of the expression/motion lists.
 
+**Want a pet out of the same model too**: use `app/tool/live2d_pet_kit.py` (the `pet-theme` skill calls it).
+`report` lists the motions and any descriptor problems, `room` builds a room pack the user can preview
+move by move, and `pet --mapping` builds the pet pack (`states` values are the motion keys shown here:
+one motion per group → the group name, several → `group_1`/`group_2`, an unregistered `.motion3.json` →
+its file name). A pet pack no longer requires `poster.png`: without one the app renders it on first
+display — see `docs/pets/README.en.md` §3.5. The flow, the fixed decisions and the mandatory
+"unimplemented states and events" report are in `docs/design/pets.md` §3.9.
+
 ## 6. Author self-checks
 
 **In the app (all authors)**
@@ -219,7 +248,7 @@ Semantics: `set(v) = clamp(v*scale + offset, nativeMin, nativeMax)`; `add(d) = c
 
 ## 8. Explicitly unsupported / refused
 
-- Cubism 2 (`.moc`/`model.json`), custom or replaced runtimes, any scripts or HTML (`character/` accepts data files only).
+- Not supported: custom or replaced runtimes, any scripts or HTML (`character/` accepts data files only); Cubism 2 physics/pose/expression tables and workshop submissions (local display works, see §2.5).
 - Pixel-level automatic verification, screenshot-based multi-round repair, automatic "up to three rounds" scheduling: not implemented.
 - Full-mode (host agent) fitting page wiring: the contract and skill exist, page orchestration doesn't; current AI fitting runs in light mode (app calls DeepSeek directly).
 - Online model validation/upload service: none.

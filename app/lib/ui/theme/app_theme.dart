@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'accent.dart';
 import 'app_icons.dart';
 import 'ink_glow.dart';
+import 'oklch.dart';
 import 'page_transitions.dart';
 import 'palette.dart';
 import 'semantic_colors.dart';
@@ -25,6 +26,11 @@ import 'typography.dart';
 /// [glassBlur] 关掉后所有玻璃改用近乎不透明的填充(设置里的"减少透明效果",
 /// 或性能探测判定为低端机时)。
 ///
+/// [glassOpacity] 与 [glassBlurAmount] 是设置 › 主题里的材质滑杆:前者乘进
+/// 每层玻璃的透明度,后者乘进模糊半径。
+///
+/// [fontColor] 只取色相与彩度,明度由 [textInkFor] 按明暗另算。
+///
 /// [glyphLocale] pins the locale CJK glyphs are picked by (the English UI
 /// passes zh_CN so Chinese content keeps Chinese shapes).
 ///
@@ -34,35 +40,60 @@ import 'typography.dart';
 ThemeData buildLightTheme({
   AppAccent accent = AppAccent.mist,
   bool glassBlur = true,
+  double glassOpacity = 1,
+  double glassBlurAmount = 1,
+  Color? fontColor,
   Locale? glyphLocale,
   bool instantPages = false,
   bool fluid = false,
-}) => _build(
-  DshPalette.lightScheme(accent),
-  DshColors.forAccent(Brightness.light, accent),
-  DshSurfaces.light(accent, blurEnabled: glassBlur),
-  accent,
-  glyphLocale,
-  instantPages,
-  fluid,
-);
+}) {
+  final scheme = DshPalette.lightScheme(accent);
+  return _build(
+    _withInk(scheme, fontColor, Brightness.light),
+    DshColors.forAccent(Brightness.light, accent),
+    DshSurfaces.light(accent, blurEnabled: glassBlur, opacity: glassOpacity, blurAmount: glassBlurAmount),
+    accent,
+    glyphLocale,
+    instantPages,
+    fluid,
+  );
+}
 
 /// 深色主题。
 ThemeData buildDarkTheme({
   AppAccent accent = AppAccent.mist,
   bool glassBlur = true,
+  double glassOpacity = 1,
+  double glassBlurAmount = 1,
+  Color? fontColor,
   Locale? glyphLocale,
   bool instantPages = false,
   bool fluid = false,
-}) => _build(
-  DshPalette.darkScheme(accent),
-  DshColors.forAccent(Brightness.dark, accent),
-  DshSurfaces.dark(accent, blurEnabled: glassBlur),
-  accent,
-  glyphLocale,
-  instantPages,
-  fluid,
-);
+}) {
+  final scheme = DshPalette.darkScheme(accent);
+  return _build(
+    _withInk(scheme, fontColor, Brightness.dark),
+    DshColors.forAccent(Brightness.dark, accent),
+    DshSurfaces.dark(accent, blurEnabled: glassBlur, opacity: glassOpacity, blurAmount: glassBlurAmount),
+    accent,
+    glyphLocale,
+    instantPages,
+    fluid,
+  );
+}
+
+/// 正文墨色:保留用户挑的色相与彩度,明度落到该明暗下可读的一档
+/// (浅色 0.32、深色 0.88),所以换明暗、换配色都不会让字读不清。
+Color textInkFor({required double hue, required double chroma, required Brightness brightness}) =>
+    Oklch(brightness == Brightness.dark ? 0.88 : 0.32, chroma.clamp(0.0, 0.2), hue).toColor();
+
+/// [scheme] 的正文墨色换成用户挑的颜色;没挑就原样返回。次要文字仍跟配色,
+/// 层级和对比度才不会塌。
+ColorScheme _withInk(ColorScheme scheme, Color? pick, Brightness brightness) {
+  if (pick == null) return scheme;
+  final o = Oklch.fromColor(pick);
+  return scheme.copyWith(onSurface: textInkFor(hue: o.h, chroma: o.c, brightness: brightness));
+}
 
 /// 边到边(edge-to-edge)的系统栏样式:状态栏、导航栏全透明,图标随明暗。
 ///

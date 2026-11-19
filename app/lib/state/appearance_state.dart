@@ -27,6 +27,9 @@ class AppearanceSettings {
     this.source = AccentSource.preset,
     this.presetId = 'mist',
     this.customColor = defaultCustom,
+    this.glassOpacity = 1,
+    this.glassBlur = 1,
+    this.fontColor,
     this.loaded = false,
   });
 
@@ -37,25 +40,54 @@ class AppearanceSettings {
 
   /// 自定义色(ARGB),守卫之前的原色。
   final int customColor;
+
+  /// 玻璃面板与卡片的不透明度(0.2–1):1 是主题原本的填充。只改材质,
+  /// 文字与内容不跟着变淡。
+  final double glassOpacity;
+
+  /// 玻璃的模糊量(0–1):1 是主题原本的 σ,0 不模糊(面板仍然半透)。
+  final double glassBlur;
+
+  /// 正文的墨色(ARGB);null = 跟随主题。只带色相与彩度,明度按明暗
+  /// 另算(见 `textInkFor`),所以换明暗不会读不清。
+  final int? fontColor;
+
   final bool loaded;
 
   /// 自定义色的初值:一抹灰调的苔绿(色相 140°),第一次打开时和六套预设
   /// 都不撞。
   static const defaultCustom = 0xFF5F7A55;
 
-  AppearanceSettings copyWith({AccentSource? source, String? presetId, int? customColor, bool? loaded}) =>
-      AppearanceSettings(
-        source: source ?? this.source,
-        presetId: presetId ?? this.presetId,
-        customColor: customColor ?? this.customColor,
-        loaded: loaded ?? this.loaded,
-      );
+  /// 不透明度滑杆的下限:再低就分不清面板和内容了。
+  static const minOpacity = 0.2;
+
+  AppearanceSettings copyWith({
+    AccentSource? source,
+    String? presetId,
+    int? customColor,
+    double? glassOpacity,
+    double? glassBlur,
+    int? fontColor,
+    bool clearFontColor = false,
+    bool? loaded,
+  }) => AppearanceSettings(
+    source: source ?? this.source,
+    presetId: presetId ?? this.presetId,
+    customColor: customColor ?? this.customColor,
+    glassOpacity: glassOpacity ?? this.glassOpacity,
+    glassBlur: glassBlur ?? this.glassBlur,
+    fontColor: clearFontColor ? null : (fontColor ?? this.fontColor),
+    loaded: loaded ?? this.loaded,
+  );
 }
 
 class AppearanceController extends Notifier<AppearanceSettings> {
   static const _sourceKey = 'appearance.accent_source';
   static const _presetKey = 'appearance.preset';
   static const _customKey = 'appearance.custom_color';
+  static const _glassOpacityKey = 'appearance.glass_opacity';
+  static const _glassBlurKey = 'appearance.glass_blur';
+  static const _fontColorKey = 'appearance.font_color';
 
   /// 当前配色的浅色主色(ARGB),给原生通知的强调色读
   /// (`DynamicColorPlugin.kt` 的 `ThemeAccent`)。
@@ -77,6 +109,9 @@ class AppearanceController extends Notifier<AppearanceSettings> {
         source: source,
         presetId: AppAccent.preset(prefs.getString(_presetKey)).id,
         customColor: prefs.getInt(_customKey) ?? AppearanceSettings.defaultCustom,
+        glassOpacity: (prefs.getDouble(_glassOpacityKey) ?? 1).clamp(AppearanceSettings.minOpacity, 1.0),
+        glassBlur: (prefs.getDouble(_glassBlurKey) ?? 1).clamp(0.0, 1.0),
+        fontColor: prefs.getInt(_fontColorKey),
         loaded: true,
       );
     } catch (_) {
@@ -115,6 +150,28 @@ class AppearanceController extends Notifier<AppearanceSettings> {
 
   /// 关掉跟随壁纸:回到上一次的预设。
   Future<void> leaveWallpaper() => selectPreset(state.presetId);
+
+  Future<void> setGlassOpacity(double value) {
+    final next = value.clamp(AppearanceSettings.minOpacity, 1.0);
+    return _save(state.copyWith(glassOpacity: next), (p) => p.setDouble(_glassOpacityKey, next));
+  }
+
+  Future<void> setGlassBlur(double value) {
+    final next = value.clamp(0.0, 1.0);
+    return _save(state.copyWith(glassBlur: next), (p) => p.setDouble(_glassBlurKey, next));
+  }
+
+  /// null = 跟随主题(删掉偏好)。
+  Future<void> setFontColor(int? color) => _save(
+    state.copyWith(fontColor: color, clearFontColor: color == null),
+    (p) async {
+      if (color == null) {
+        await p.remove(_fontColorKey);
+      } else {
+        await p.setInt(_fontColorKey, color);
+      }
+    },
+  );
 }
 
 final appearanceProvider = NotifierProvider<AppearanceController, AppearanceSettings>(AppearanceController.new);

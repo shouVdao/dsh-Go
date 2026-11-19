@@ -669,6 +669,9 @@ final petScopedStateProvider = Provider.family<PetState, PetScope>((ref, scope) 
     packId: prefs.packId,
     size: prefs.size,
     bodyHeight: prefs.bodyHeight,
+    // The page's size above; the floating window has its own (null: follow).
+    overlaySize: prefs.overlaySize,
+    overlayBodyHeight: prefs.overlaySize == null ? null : prefs.overlayBodyHeight,
     quiet: prefs.quiet,
     reduceMotion: ref.watch(performanceDefaultsProvider.select((p) => p.reduceMotion)),
     canStop: signals.runs.any((r) => PetTarget(r.host, r.root) == petTarget(global, signals) && r.host == activeHost),

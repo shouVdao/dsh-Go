@@ -73,6 +73,7 @@ const _ownTitle = {'page:account'};
 const _sections = {
   'dark-mode',
   'accent',
+  'look',
   'tile-style',
   'app-icon',
   'launch-screen',
@@ -247,7 +248,7 @@ void main() {
       SettingsPageId.pets,
       () => _app(tester, const PetSettingsPage(), _running()),
       // Once 「App 外显示」 is on.
-      absent: {'pet-display-when', 'pet-overlay-shows', 'pet-overlay-framing'},
+      absent: {'pet-display-when', 'pet-overlay-shows', 'pet-overlay-size', 'pet-overlay-framing'},
     );
   });
 

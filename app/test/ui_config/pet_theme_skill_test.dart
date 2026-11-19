@@ -20,6 +20,7 @@ void main() {
     expect(bundle.files.keys, containsAll([
       'SKILL.md',
       ['scripts', 'pet_theme_convert.py'].join('/'),
+      ['scripts', 'live2d_pet_kit.py'].join('/'),
       ['scripts', 'pet_svg_frames.py'].join('/'),
       ['scripts', 'make_pet_pack.py'].join('/'),
       ['scripts', 'pet_pack_check.py'].join('/'),
@@ -28,11 +29,19 @@ void main() {
     expect(isManagedUiSkill(bundle.skillMd), isTrue);
     expect(bundle.skillMd, contains('name: pet-theme'));
     expect(bundle.skillMd, contains('pet_theme_convert.py'));
+    // A foreign Live2D model is converted by the kit, not by hand.
+    expect(bundle.skillMd, contains('live2d_pet_kit.py'));
+    expect(bundle.skillMd, contains('没实现的状态'));
   });
 
   test('the shipped scripts are the app/tool originals, not forks', () async {
     final bundle = await loadUiSkillBundle(readAssetFromDisk, petThemeSkillName);
-    for (final name in ['pet_theme_convert.py', 'pet_svg_frames.py', 'make_pet_pack.py']) {
+    for (final name in [
+      'pet_theme_convert.py',
+      'live2d_pet_kit.py',
+      'pet_svg_frames.py',
+      'make_pet_pack.py',
+    ]) {
       expect(
         bundle.files[['scripts', name].join('/')],
         File(['tool', name].join('/')).readAsStringSync(),
@@ -49,6 +58,7 @@ void main() {
     final installed = Directory([root.path, 'root', '.dsh', 'skills', petThemeSkillName].join('/'));
     expect(File([installed.path, 'SKILL.md'].join('/')).existsSync(), isTrue);
     expect(File([installed.path, 'scripts', 'pet_theme_convert.py'].join('/')).existsSync(), isTrue);
+    expect(File([installed.path, 'scripts', 'live2d_pet_kit.py'].join('/')).existsSync(), isTrue);
     expect(File([installed.path, 'scripts', 'pet_pack_check.py'].join('/')).existsSync(), isTrue);
   });
 }

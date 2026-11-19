@@ -74,6 +74,7 @@
   - 判说完：smart-turn v3.2，停顿 200 ms 就看最近 8 秒判断说完没有。说完了立刻结束（原来要等 700 ms）；没说完就继续听，静音满 3 s 强制结束。
   - 两个模型随 APK（约 11 MB），用 ONNX Runtime 跑，判停推理在工作线程。
   - 加载不了时退回原来的能量门；某次停顿判停推理出错，这次停顿按能量门的 700 ms 结束，日志记一次。
+  - **崩溃熔断**（2026-11-18）：ONNX Runtime 推理失败时构造异常会走一条 JNI 路径（`checkOrtStatus` 里 `GetMethodID` 拿到空类），CheckJNI 直接 abort 整个进程，Kotlin 的 `catch` 拦不住。所以 `SpeechGates.create` 一开始建模型就写一次 `.trying` 标记，整通通话结束才清（`SpeechGates.settled()`，由 `SpeechPlugin.startCall` 传给 `CallCapture` 的 `onStop`）。中途真 abort 了，标记留在下次启动，判停整体退回能量门——最坏每个版本崩一次，不会每次通话都崩。
 - **实时字幕**（第三期，`ui/speech/call/call_live.dart`，后端见 [streaming-asr.md](streaming-asr.md)）：
   - 设置 › 语音 › 实时字幕里可下载流式识别模型（约 198 MB，sherpa-onnx 中英 zipformer，只在手机上跑）。只有字幕和插话判断在手机上；选了云端识别，录音照样上传给它。
   - 下载后，通话时从同一路收音分出 PCM 给它，你说话时字幕一边说一边出。

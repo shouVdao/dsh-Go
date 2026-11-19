@@ -2,5 +2,14 @@
   "hubStartPage": "起始页",
   "hubChatSuggestions": "聊天建议",
   "hubChatSuggestionsHint": "显示起始页的聊天建议",
-  "searchKwChatSuggestions": "起始页,空白页,新对话,聊天建议,建议卡片"
+  "hubChatTips": "使用提示",
+  "hubChatTipsHint": "显示起始页底部的使用提示",
+  "searchKwChatTips": "起始页,空白页,新对话,提示,使用提示,底部提示",
+  "hubChatTips": "使用提示",
+  "hubChatTipsHint": "显示起始页底部的使用提示",
+  "hubPendant": "余额小鲸鱼",
+  "hubPendantHint": "在输入框上方显示余额挂件，可拖到另一侧",
+  "searchKwChatTips": "起始页,空白页,新对话,提示,使用提示,底部提示",
+  "searchKwChatSuggestions": "起始页,空白页,新对话,聊天建议,建议卡片",
+  "searchKwPendant": "余额,余额挂件,小鲸鱼,充值,钱包,挂件"
 }

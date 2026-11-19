@@ -109,6 +109,9 @@ class WallpaperRenderer {
   _Decoded? _source;
   Future<void> _queue = Future<void>.value();
 
+  /// Which bake is wanted; a queued bake with an older number is dropped unseen.
+  int _generation = 0;
+
   /// How many times a picture was decoded, and how many bakes were asked for (tests).
   @visibleForTesting
   int decodes = 0;
@@ -119,10 +122,23 @@ class WallpaperRenderer {
   /// null when the picture can't be read. The caller owns the image.
   Future<ui.Image?> bake(CustomWallpaper wallpaper, WallpaperFrame frame, {double? density}) {
     bakes++;
+    // Only the newest request matters: a bake that a newer one superseded is dropped
+    // before it decodes, so a drag or a resize can't queue a minute of full-screen work.
+    final generation = ++_generation;
     final done = Completer<ui.Image?>();
     _queue = _queue.then((_) async {
+      if (generation != _generation) {
+        done.complete(null);
+        return;
+      }
       try {
-        done.complete(await _bake(wallpaper, frame, density));
+        final image = await _bake(wallpaper, frame, density);
+        if (generation != _generation) {
+          image?.dispose();
+          done.complete(null);
+          return;
+        }
+        done.complete(image);
       } catch (error) {
         debugPrint('wallpaper: bake failed: $error');
         done.complete(null);

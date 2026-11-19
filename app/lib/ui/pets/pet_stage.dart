@@ -39,6 +39,7 @@ import 'pet_bubble.dart';
 import 'pet_menu.dart';
 import 'pet_perch.dart';
 import 'pet_sprite.dart';
+import 'pet_live2d_view.dart';
 
 /// Geometry and timing shared with the tests.
 abstract final class PetMetrics {
@@ -330,6 +331,11 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   // ── One-offs ──
   PetAnimation? _reaction;
   Timer? _reactionTimer;
+
+  /// A Live2D pet's reaction key, cleared soon after it so the same tap can
+  /// play the same motion again.
+  String? _live2dReaction;
+  Timer? _live2dReactionTimer;
   PetAnimation? _variant;
   Timer? _variantTimer;
   Timer? _idleTimer;
@@ -618,12 +624,13 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
   bool get _reduced => AppMotion.reduced(context);
 
-  /// Idle: now and then an idle extra, now and then a walk.
+  /// Idle: now and then an idle extra, now and then a walk. A Live2D pet has
+  /// no walk and no extra sprite frames: its idle motion is the state itself.
   void _armIdle() {
     _idleTimer?.cancel();
     _roamTimer?.cancel();
     final pack = _pack;
-    if (_reduced || pack == null) return;
+    if (_reduced || pack == null || pack.live2d != null) return;
     _idleTimer = Timer(pack.idleEvery.draw(PetLayer.random.nextDouble()), _idleTick);
     _armRoam();
   }
@@ -637,7 +644,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   void _idleTick() {
     if (!mounted || !_active) return;
     final pack = _pack;
-    if (pack == null || _lastState != PetStateName.idle) return;
+    if (pack == null || pack.live2d != null || _lastState != PetStateName.idle) return;
     final pool = pack.idles;
     if (pool.isEmpty) return;
     if (_walking || _reaction != null || _dragging || !_visible) {
@@ -676,7 +683,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (!mounted || !_active) return;
     final spot = _spot;
     final pack = _pack;
-    if (spot == null || pack == null || _lastState != PetStateName.idle) return;
+    if (spot == null || pack == null || pack.live2d != null || _lastState != PetStateName.idle) return;
     final bubbleUp = ref.read(petScopedStateProvider(_scope)).bubble != null;
     if (_dragging || _reaction != null || _typing || (widget.scrolling?.value ?? false) || bubbleUp || !_visible) {
       _armRoam();
@@ -737,6 +744,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   void _clearReaction() {
     _reactionTimer?.cancel();
     _reaction = null;
+    _live2dReactionTimer?.cancel();
+    _live2dReaction = null;
   }
 
   // ── Touch ──────────────────────────────────────────────────────────────────
@@ -759,27 +768,50 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     _taps
       ..removeWhere((t) => now.difference(t) > PetMetrics.tickleWithin)
       ..add(now);
-    if (_taps.length >= PetMetrics.annoyedTaps && pack.reactions.containsKey('annoyed')) {
+    final live2d = pack.live2d;
+    final canAnnoy = live2d != null ? live2d.reactions.containsKey('annoyed') : pack.reactions.containsKey('annoyed');
+    if (_taps.length >= PetMetrics.annoyedTaps && canAnnoy) {
       // Tapped through a whole tickle and on: that is enough.
       _taps.clear();
       HapticFeedback.heavyImpact();
-      _play(pack.reactionOutOf('annoyed', PetLayer.random));
+      _playReaction('annoyed');
       return;
     }
     if (_taps.length >= PetMetrics.tickleTaps) {
       // Tapping on keeps the tickle going.
       HapticFeedback.lightImpact();
-      _play(pack.reactionOutOf('tickle', PetLayer.random));
+      _playReaction('tickle');
       return;
     }
-    final tickling = _reaction;
-    if (tickling != null && (pack.reactions['tickle']?.contains(tickling.name) ?? false)) {
-      _play(pack.reactionOutOf('tickle', PetLayer.random));
+    final tickling = live2d != null
+        ? _live2dReaction == 'tickle'
+        : (pack.reactions['tickle']?.contains(_reaction?.name) ?? false);
+    if (tickling) {
+      _playReaction('tickle');
       return;
     }
     HapticFeedback.selectionClick();
     final left = details.localPosition.dx < pack.anchorX * _scale;
-    _play(pack.reactionOutOf(left ? 'tapLeft' : 'tapRight', PetLayer.random));
+    _playReaction(left ? 'tapLeft' : 'tapRight');
+  }
+
+  /// A reaction: a sprite animation, or a Live2D motion the view plays once.
+  void _playReaction(String key) {
+    final pack = _pack;
+    if (pack == null) return;
+    final live2d = pack.live2d;
+    if (live2d != null) {
+      if (!live2d.reactions.containsKey(key)) return;
+      _live2dReactionTimer?.cancel();
+      setState(() => _live2dReaction = key);
+      // Cleared soon, so the same tap plays the same motion again; the view
+      // goes back to the state's own motion by itself.
+      _live2dReactionTimer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) setState(() => _live2dReaction = null);
+      });
+      return;
+    }
+    _play(pack.reactionOutOf(key, PetLayer.random));
   }
 
   void _onDragStart(DragStartDetails details) {
@@ -842,6 +874,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
+
+  /// The body's first frame is on screen: fade it in (sprite or poster).
+  void _onBodyShown() {
+    if (_ready) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_ready) setState(() => _ready = true);
+    });
+  }
 
   /// [origin] moved so the canvas's top-left lands on a device pixel.
   Offset _snap(PerchSpot spot, Offset origin) {
@@ -952,20 +992,29 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
                   child: SizedBox.fromSize(
                     key: const ValueKey('pet-body'),
                     size: canvas,
-                    child: PetSprite(
-                      pack: pack,
-                      anim: anim,
-                      scale: s,
-                      flip: flip,
-                      paused: pauseSprite,
-                      onShown: () {
-                        if (_ready) return;
-                        // Shown during a frame: ready right after it.
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted && !_ready) setState(() => _ready = true);
-                        });
-                      },
-                    ),
+                    child: pack.live2d == null
+                        ? PetSprite(
+                            pack: pack,
+                            anim: anim,
+                            scale: s,
+                            flip: flip,
+                            paused: pauseSprite,
+                            onShown: _onBodyShown,
+                          )
+                        : PetLive2dView(
+                            pack: pack,
+                            state: pet.state,
+                            reaction: _live2dReaction,
+                            paused: pauseSprite || !shown,
+                            child: PetSprite(
+                              pack: pack,
+                              anim: anim,
+                              scale: s,
+                              flip: flip,
+                              paused: pauseSprite,
+                              onShown: _onBodyShown,
+                            ),
+                          ),
                   ),
                 ),
               ),

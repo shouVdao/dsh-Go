@@ -18,6 +18,11 @@
   const Fw = window.CubismFw;
   const query = new URLSearchParams(location.search);
   const FLOAT = query.get('mode') === 'float';
+  // Pet mode: the pet layer in the chat page brings its own backdrop, so only
+  // the character is drawn, on a transparent stage, and the page's own idle
+  // life (marks, props, floating) is left out.
+  const PET = query.get('mode') === 'pet';
+  if (PET) document.documentElement.dataset.pet = '1';
   const floatAbort = FLOAT ? new AbortController() : null;
   let floatDisposed = false;
   let loadingModel = null;
@@ -28,7 +33,9 @@
   let REDUCED = query.get('reduceMotion') === '1';
   // Float draws at the screen's own density: its viewport is at most 640 view px tall, and a
   // 1x buffer stretched over a 3x screen reads as out of focus.
-  const DPR_CAP = FLOAT ? 4 : 2;
+  // A pet is only tens of dp wide, so a buffer at the screen's own density costs nothing; the
+  // room keeps 2, which is what its parallax layers and props are drawn for.
+  const DPR_CAP = FLOAT ? 4 : PET ? 3 : 2;
   // Clip masks: the renderer packs them into textures of four channels, at
   // most 36 different masks in one texture, 32 each when there are several.
   // A model that needs more (a detailed one: 49 for 大肥鱼 4096) gets more
@@ -624,6 +631,17 @@
     playMotion(name) {
       const motion = this.motions.get(name);
       if (!motion) return false;
+      motion.setLoop(false);
+      this._motionManager.startMotionPriority(motion, false, 2);
+      return true;
+    }
+
+    /** Plays a motion over and over, for a state that lasts (a pet's idle). */
+    setLoopMotion(name) {
+      const motion = this.motions.get(name);
+      if (!motion) return false;
+      motion.setLoop(true);
+      if (typeof motion.setLoopFadeIn === 'function') motion.setLoopFadeIn(false);
       this._motionManager.startMotionPriority(motion, false, 2);
       return true;
     }
@@ -709,6 +727,453 @@
     gl.bindTexture(gl.TEXTURE_2D, null);
     bitmap.close();
     return texture;
+  }
+
+  // ── Cubism 2 models (.moc + model.json) ─────────────────────────────────
+  // Before Cubism 3 a model shipped a `.moc` binary and a `model.json` that
+  // named its textures, motions and hit areas. The Cubism 2 WebGL core can
+  // draw it but has no framework around it, so this backend wraps the core in
+  // the same surface `StageModel` offers; gaze, moods, emotions, actions and
+  // the render loop above stay shared. The core itself is not part of the
+  // runtime pack: it is injected on first use, only when a pack needs it.
+
+  const CUBISM2_CORE = new URL('live2d.min.js', location.href).href;
+
+  function loadCubism2Script(url) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('cubism2'));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function loadCubism2() {
+    if (window.Live2DModelWebGL) return;
+    await loadCubism2Script(CUBISM2_CORE);
+    if (!window.Live2DModelWebGL) throw new Error('cubism2');
+  }
+
+  /**
+   * A Cubism 2 pack is one with a `model.json` whose `model` names a `.moc`.
+   * A `*.model3.json` wins when both are present; naming `model.json` in
+   * character.json overrides even that.
+   */
+  async function resolveCubism2(config) {
+    const named = typeof config.model === 'string' ? config.model : null;
+    const files = await packIndex();
+    const isModelJson = (file) => /(?:^|\/)(?:[^/]*\.)?model\.json$/i.test(file);
+    let file = null;
+    if (named && /\.moc$/i.test(named)) {
+      const dir = named.replace(/[^/]*$/, '');
+      const stem = named.split('/').pop().replace(/\.moc$/i, '');
+      file = files.find((f) => f.toLowerCase() === `${dir}model.json`.toLowerCase())
+          ?? files.find((f) => f.toLowerCase() === `${dir}${stem}.model.json`.toLowerCase())
+          ?? null;
+    } else if (named && isModelJson(named)) file = named;
+    else if (!files.some((f) => f.toLowerCase().endsWith('.model3.json'))) file = files.find(isModelJson) ?? null;
+    if (!file) return null;
+    const base = new URL(file, CHARACTER);
+    let json = null;
+    try {
+      const response = await fetch(base.href, { cache: 'no-store', signal: floatAbort?.signal });
+      json = response.ok ? await response.json() : null;
+    } catch {
+      return null;
+    }
+    const moc = typeof json?.model === 'string' ? json.model : '';
+    if (!/\.moc$/i.test(moc)) return null;
+    return { file, base: base.href, json, moc: new URL(moc, base).href };
+  }
+
+  const matrixArray = (matrix) =>
+    (typeof matrix.getArray === 'function' ? matrix.getArray() : matrix._tr ?? matrix._data);
+
+  /** The moc's pixels into the stage's model space (x right, y up, -1..1). */
+  function cubism2Matrix(width, height) {
+    // Same convention as CubismModelMatrix: height two, centred both ways.
+    // The projection below then applies zoom and the canvas aspect.
+    const scale = 2 / height;
+    const matrix = new Fw.CubismMatrix44();
+    matrix.setMatrix(new Float32Array([
+      scale, 0, 0, 0,
+      0, -scale, 0, 0,
+      0, 0, 1, 0,
+      -scale * width / 2, scale * height / 2, 0, 1,
+    ]));
+    return matrix;
+  }
+
+  const idName = (id) => (typeof id === 'string' ? id : id?.getString?.() ?? String(id));
+
+  /**
+   * The handful of Cubism Core methods `StageModel`'s rules use, over the
+   * Cubism 2 model context. Parameter names are the moc's own (PARAM_ANGLE_X
+   * and the like); `squashId` makes them match her standard names.
+   */
+  class LegacyCore {
+    constructor(raw) {
+      this._raw = raw;
+      this._ctx = raw.getModelContext();
+      const params = Array.isArray(this._ctx?._$pb) ? this._ctx._$pb : [];
+      const defined = Number.isInteger(this._ctx?._$qo) ? this._ctx._$qo : params.length;
+      const table = { ids: [], minimumValues: [], maximumValues: [], defaultValues: [] };
+      for (let i = 0; i < Math.min(defined, params.length); i++) {
+        const id = params[i]?.id;
+        if (typeof id !== 'string') continue;
+        table.ids.push(id);
+        table.minimumValues.push(this._ctx.getParamMin(i));
+        table.maximumValues.push(this._ctx.getParamMax(i));
+        table.defaultValues.push(this._ctx.getParamFloat(i));
+      }
+      this._index = new Map(table.ids.map((id, i) => [id, i]));
+      this._count = table.ids.length;
+      this._drawables = Array.isArray(this._ctx?._$aS) ? this._ctx._$aS.length : 0;
+      this._structure = {
+        parameters: { ...table, count: this._count },
+        drawables: { count: this._drawables },
+        parts: { count: 0, ids: [] },
+      };
+      this._base = this._values();
+    }
+
+    getModel() {
+      return this._structure;
+    }
+
+    getParameterCount() {
+      return this._count;
+    }
+
+    getParameterIndex(id) {
+      const index = this._index.get(idName(id));
+      return index === undefined ? this._count : index;
+    }
+
+    getDrawableCount() {
+      return this._drawables;
+    }
+
+    _values() {
+      const values = new Array(this._count);
+      for (let i = 0; i < this._count; i++) values[i] = this._ctx.getParamFloat(i);
+      return values;
+    }
+
+    setParameterValueById(id, value, weight = 1) {
+      const index = this._index.get(idName(id));
+      if (index === undefined) return;
+      const current = this._ctx.getParamFloat(index);
+      this._ctx.setParamFloat(index, current * (1 - weight) + value * weight);
+    }
+
+    addParameterValueById(id, value) {
+      const index = this._index.get(idName(id));
+      if (index === undefined) return;
+      this._ctx.setParamFloat(index, this._ctx.getParamFloat(index) + value);
+    }
+
+    setParameterValueByIndex(index, value, weight = 1) {
+      if (!(index >= 0 && index < this._count)) return;
+      const current = this._ctx.getParamFloat(index);
+      this._ctx.setParamFloat(index, current * (1 - weight) + value * weight);
+    }
+
+    /** The frame's base: where adapt() left the model (defaults plus pose). */
+    loadParameters() {
+      for (let i = 0; i < this._count; i++) this._ctx.setParamFloat(i, this._base[i]);
+    }
+
+    saveParameters() {
+      this._base = this._values();
+    }
+  }
+
+  /** Whether a point (model space) falls in one of a drawable's triangles. */
+  function legacyDrawableHit(raw, index, x, y, width, height) {
+    const points = raw.getTransformedPoints(index);
+    const indices = raw.getIndexArray(index);
+    if (!points || !indices) return false;
+    const scale = 2 / height;
+    const at = (i) => [
+      scale * points[i * 2] - scale * width / 2,
+      scale * height / 2 - scale * points[i * 2 + 1],
+    ];
+    for (let i = 0; i + 2 < indices.length; i += 3) {
+      const [ax, ay] = at(indices[i]);
+      const [bx, by] = at(indices[i + 1]);
+      const [cx, cy] = at(indices[i + 2]);
+      const d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by);
+      const d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy);
+      const d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay);
+      const negative = d1 < 0 || d2 < 0 || d3 < 0;
+      const positive = d1 > 0 || d2 > 0 || d3 > 0;
+      if (!(negative && positive)) return true;
+    }
+    return false;
+  }
+
+  class LegacyModel {
+    constructor() {
+      this.expressions = new Map();
+      // Motion groups from model.json, by name; Cubism 2 motions are one-shot.
+      this.motions = new Map();
+      this.tailIds = [];
+      this.alias = new Map();
+      this.ruleAlias = new Map();
+      this.missing = [];
+      this.hitAreas = [];
+      this.hitZones = [];
+      this.textureSizes = [];
+      this.display = null;
+      this.masks = null;
+      this.mocFile = '';
+      this.mocVersion = 2;
+      // model.json hit areas: the drawable each zone tests and the zone it maps to.
+      this._hitDrawables = [];
+      this.renderer = { setModelColor() {}, isUsingHighPrecisionMask() { return false; } };
+      this._raw = null;
+      this._queue = null;
+      this._width = 0;
+      this._height = 0;
+    }
+
+    /** The model's own ids are strings here: the core takes them directly. */
+    id(name) {
+      return name;
+    }
+
+    set(name, value, weight = 1) {
+      const link = this.alias.get(name);
+      if (!link) return this._model.setParameterValueById(this.id(name), value, weight);
+      for (const id of link.ids) this._model.setParameterValueById(this.id(id), value * link.scale + link.offset, weight);
+    }
+
+    add(name, value) {
+      const link = this.alias.get(name);
+      if (!link) return this._model.addParameterValueById(this.id(name), value);
+      for (const id of link.ids) this._model.addParameterValueById(this.id(id), value * link.scale);
+    }
+
+    has(id) {
+      return typeof id === 'string' && this._model.getParameterIndex(this.id(id)) < this._model.getParameterCount();
+    }
+
+    range(id) {
+      const raw = this._model.getModel().parameters;
+      const i = raw.ids.indexOf(id);
+      return i < 0 ? null : [raw.minimumValues[i], raw.maximumValues[i], raw.defaultValues[i]];
+    }
+
+    /** The same rules as StageModel, with no blink or lip-sync groups to offer. */
+    fitParams() {
+      const raw = this._model.getModel().parameters;
+      const bySquash = new Map();
+      for (const id of raw.ids) if (!bySquash.has(squashId(id))) bySquash.set(squashId(id), id);
+      const link = (name, ids) => {
+        const [low, high] = STANDARD[name];
+        const [min, max] = this.range(ids[0]);
+        const ratio = (max - min) / (high - low);
+        const apart = max <= low || min >= high;
+        const fit = ratio > 0 && (ratio < 0.2 || ratio > 5 || apart);
+        if (!fit && ids.length === 1 && ids[0] === name) return;
+        this.alias.set(name, { ids, scale: fit ? ratio : 1, offset: fit ? min - low * ratio : 0 });
+      };
+      this.missing = [];
+      for (const name of Object.keys(STANDARD)) {
+        const own = bySquash.get(squashId(name));
+        const synonym = (SYNONYMS[name] ?? [])
+          .map((set) => set.map((other) => bySquash.get(squashId(other))))
+          .find((set) => set.every(Boolean));
+        if (own) link(name, [own]);
+        else if (synonym) link(name, synonym);
+        else this.missing.push(name);
+      }
+      this.ruleAlias = new Map(this.alias);
+    }
+
+    adapt(config, extra) {
+      this.alias = new Map(this.ruleAlias);
+      const fromRules = new Set(this.missing);
+      for (const [name, link] of Object.entries(extra?.params ?? {})) {
+        if (!STANDARD[name] || !link) continue;
+        const ids = (Array.isArray(link.id) ? link.id : [link.id]).filter((id) => this.has(id));
+        if (!ids.length) continue;
+        const scale = Number.isFinite(link.scale) && link.scale !== 0 ? link.scale : 1;
+        const offset = Number.isFinite(link.offset) ? link.offset : 0;
+        this.alias.set(name, { ids, scale, offset });
+        fromRules.delete(name);
+      }
+      this.missingNow = [...fromRules];
+      const tail = Array.isArray(extra?.tail) && extra.tail.length ? extra.tail : config.tail;
+      this.tailIds = Array.isArray(tail) ? tail.filter((id) => this.has(id)) : [];
+      const core = this._model;
+      const raw = core.getModel().parameters;
+      for (let i = 0; i < raw.count; i++) core.setParameterValueByIndex(i, raw.defaultValues[i]);
+      for (const pose of [config.pose, extra?.pose]) {
+        for (const [id, value] of Object.entries(pose ?? {})) {
+          if (Number.isFinite(value) && this.has(id)) core.setParameterValueById(this.id(id), value);
+        }
+      }
+      core.saveParameters();
+    }
+
+    get core() {
+      return this._model;
+    }
+
+    get matrix() {
+      return this._modelMatrix;
+    }
+
+    async load(gl, config) {
+      const legacy = await resolveCubism2(config);
+      if (!legacy) throw new Error('model3');
+      await loadCubism2();
+      const header = await fetchBytes(legacy.moc);
+      if (String.fromCharCode(...new Uint8Array(header, 0, 4)) === 'MOC3') throw new Error('moc');
+      const raw = window.Live2DModelWebGL.loadModel(header);
+      if (!raw) throw new Error('moc');
+      raw.setGL(gl);
+      this._raw = raw;
+      this.mocFile = legacy.file;
+      this._width = raw.getCanvasWidth() || 400;
+      this._height = raw.getCanvasHeight() || 400;
+      this._modelMatrix = cubism2Matrix(this._width, this._height);
+      const base = legacy.base;
+      const textures = Array.isArray(legacy.json.textures) ? legacy.json.textures : [];
+      for (let i = 0; i < textures.length; i++) {
+        if (typeof textures[i] !== 'string') continue;
+        raw.setTexture(i, await loadTexture(gl, new URL(textures[i], base).href, this.textureSizes));
+      }
+      raw.setPremultipliedAlpha(true);
+      this._model = new LegacyCore(raw);
+      this._queue = new window.MotionQueueManager();
+      this.hitAreas = [];
+      this.hitZones = [];
+      const areas = Array.isArray(legacy.json.hit_areas) ? legacy.json.hit_areas : [];
+      const zones = [];
+      for (const area of areas) {
+        const drawId = typeof area?.id === 'string' ? area.id : null;
+        if (!drawId) continue;
+        const name = typeof area?.name === 'string' ? area.name : drawId;
+        const index = raw.getDrawDataIndex(drawId);
+        if (index < 0) continue;
+        const points = raw.getTransformedPoints(index);
+        if (!points || !points.length) continue;
+        let left = Infinity;
+        let right = -Infinity;
+        let top = -Infinity;
+        let bottom = Infinity;
+        for (let k = 0; k + 1 < points.length; k += 2) {
+          const x = (2 * points[k]) / this._width - 1;
+          const y = 1 - (2 * points[k + 1]) / this._height;
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+          top = Math.max(top, y);
+          bottom = Math.min(bottom, y);
+        }
+        if (!(right > left && top > bottom)) continue;
+        const kind = HIT_KINDS.find(([pattern]) => pattern.test(`${name} ${drawId}`))?.[1] ?? 'body';
+        this.hitAreas.push({ id: drawId, name });
+        this._hitDrawables.push({ kind, drawId });
+        zones.push({
+          id: kind,
+          from: clamp((1 - top) / 2, 0, 1),
+          to: clamp((1 - bottom) / 2, 0, 1),
+          xFrom: left,
+          xTo: right,
+          area: (right - left) * (top - bottom),
+        });
+      }
+      zones.sort((a, b) => a.area - b.area);
+      this.hitZones = zones.map(({ area, ...zone }) => zone);
+      const groups = legacy.json.motions && typeof legacy.json.motions === 'object' ? legacy.json.motions : {};
+      for (const [group, list] of Object.entries(groups)) {
+        if (!Array.isArray(list)) continue;
+        for (const entry of list) {
+          if (typeof entry?.file !== 'string') continue;
+          try {
+            const motion = window.Live2DMotion.loadMotion(await fetchBytes(new URL(entry.file, base).href));
+            if (!motion) continue;
+            if (typeof motion.setFadeIn === 'function' && Number.isFinite(entry.fade_in)) motion.setFadeIn(entry.fade_in);
+            if (typeof motion.setFadeOut === 'function' && Number.isFinite(entry.fade_out)) motion.setFadeOut(entry.fade_out);
+            this.motions.set(this.motions.has(group) ? `${group}_${this.motions.size}` : group, motion);
+          } catch {
+            // One broken motion must not cost the whole model.
+          }
+        }
+      }
+      this.fitParams();
+      raw.update();
+      this.adapt(config, null);
+    }
+
+    tick(dt, animate) {
+      const core = this._model;
+      core.loadParameters();
+      core.saveParameters();
+      animate.before(this, dt);
+      if (!this._queue.isFinished()) this._queue.updateParam(this._raw, performance.now());
+      animate.after(this, dt);
+      this._raw.update();
+    }
+
+    draw(projection, viewport) {
+      projection.multiplyByMatrix(this._modelMatrix);
+      this._raw.setMatrix(matrixArray(projection));
+      this._raw.draw();
+    }
+
+    hit(x, y) {
+      for (const area of this._hitDrawables) {
+        const index = this._raw.getDrawDataIndex(area.drawId);
+        if (index >= 0 && legacyDrawableHit(this._raw, index, x, y, this._width, this._height)) return true;
+      }
+      return false;
+    }
+
+    startExpression() {
+      // Cubism 2 has no expression files; her emotions still move parameters.
+      return false;
+    }
+
+    playMotion(name) {
+      const motion = this.motions.get(name);
+      if (!motion) return false;
+      motion.setLoop?.(false);
+      this._queue.startMotion(motion, false);
+      return true;
+    }
+
+    /** A pet's state motion: started again on every state change, looping. */
+    setLoopMotion(name) {
+      const motion = this.motions.get(name);
+      if (!motion) return false;
+      motion.setLoop?.(true);
+      motion.setLoopFadeIn?.(false);
+      this._queue.startMotion(motion, false);
+      return true;
+    }
+
+    get moving() {
+      return !this._queue.isFinished();
+    }
+
+    stopMotions() {
+      this._queue.stopAllMotions();
+    }
+
+    setRenderTargetSize() {}
+
+    getRenderer() {
+      return this.renderer;
+    }
+
+    release() {
+      this._raw = null;
+    }
   }
 
   // ── What she is doing ───────────────────────────────────────────────────
@@ -815,6 +1280,11 @@
       const y = Number(query.get('floatY'));
       camera.zoom = zoom > 0 && zoom <= 4 ? zoom : 0.9;
       camera.y = Number.isFinite(y) ? clamp(y, -1, 1) : 0;
+    }
+    if (PET) {
+      // The pet layer sizes the canvas to the character's own box: no room framing.
+      camera.zoom = 1;
+      camera.y = 0;
     }
   }
 
@@ -1033,7 +1503,7 @@
       // Falling asleep and waking.
       // Late at night she drifts off sooner.
       const sleepAfter = document.documentElement.dataset.tod === 'night' ? SLEEP_AFTER_MS / 2 : SLEEP_AFTER_MS;
-      if (!FLOAT && life.mood === 'idle' && now - life.lastTouch > sleepAfter) setMood('sleeping');
+      if (!FLOAT && !PET && life.mood === 'idle' && now - life.lastTouch > sleepAfter) setMood('sleeping');
       life.sleep = ease(life.sleep, life.mood === 'sleeping' ? 1 : 0, 1.6, dt);
 
       // Emotions relax on their own.
@@ -1118,7 +1588,7 @@
         m.add('ParamMouthForm', life.pat);
       }
 
-      if (!FLOAT) homePose(m, now, dt);
+      if (!FLOAT && !PET) homePose(m, now, dt);
 
       // Actions add on top of all that.
       for (const [name, run] of life.actions) {
@@ -1131,7 +1601,7 @@
       }
 
       // Idle flourishes, only when nothing else is going on.
-      if (!FLOAT && !REDUCED && life.mood === 'idle' && !life.pointer && now > life.flourishAt && life.emotion === 'calm') {
+      if (!FLOAT && !PET && !REDUCED && life.mood === 'idle' && !life.pointer && now > life.flourishAt && life.emotion === 'calm') {
         // The first morning visit: a stretch, then a yawn, before anything else.
         const name = life.waking.length ? life.waking.shift() : pick(idleChoices());
         if (name === 'tail') {
@@ -1519,7 +1989,7 @@
     return { distance: Math.hypot(a.x - b.x, a.y - b.y), midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2 };
   }
 
-  if (!FLOAT) canvas.addEventListener('pointerdown', (e) => {
+  if (!FLOAT && !PET) canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     touched();
@@ -1616,7 +2086,7 @@
     }
   }
 
-  if (!FLOAT) canvas.addEventListener('pointermove', (e) => {
+  if (!FLOAT && !PET) canvas.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     touched();
@@ -1684,9 +2154,9 @@
       if (!press) life.pointer = null;
     }, 700);
   }
-  if (!FLOAT) canvas.addEventListener('pointerup', endPointer);
-  if (!FLOAT) canvas.addEventListener('pointercancel', endPointer);
-  if (!FLOAT) canvas.addEventListener('lostpointercapture', endPointer);
+  if (!FLOAT && !PET) canvas.addEventListener('pointerup', endPointer);
+  if (!FLOAT && !PET) canvas.addEventListener('pointercancel', endPointer);
+  if (!FLOAT && !PET) canvas.addEventListener('lostpointercapture', endPointer);
 
   function tap(zone, clientX) {
     const now = performance.now();
@@ -1715,6 +2185,33 @@
 
   // ── Commands from Flutter ───────────────────────────────────────────────
 
+  // Straight-alpha PNG of an RGBA read-back: WebGL hands rows bottom-up, and a
+  // blended frame holds premultiplied colour, which PNG does not.
+  function pngOf(pixels, width, height) {
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const context = out.getContext('2d');
+    const image = context.createImageData(width, height);
+    const data = image.data;
+    const stride = width * 4;
+    for (let y = 0; y < height; y++) {
+      const from = (height - 1 - y) * stride;
+      const to = y * stride;
+      for (let x = 0; x < stride; x += 4) {
+        const alpha = pixels[from + x + 3];
+        data[to + x + 3] = alpha;
+        if (alpha === 0) continue;
+        const scale = 255 / alpha;
+        data[to + x] = Math.min(255, pixels[from + x] * scale);
+        data[to + x + 1] = Math.min(255, pixels[from + x + 1] * scale);
+        data[to + x + 2] = Math.min(255, pixels[from + x + 2] * scale);
+      }
+    }
+    context.putImageData(image, 0, 0);
+    return out.toDataURL('image/png');
+  }
+
   const commands = {
     mood: ({ mood }) => {
       touched();
@@ -1731,6 +2228,56 @@
       else if (actions[name]) playAction(name);
       // Not one of hers: one of the model's own motions, by its name.
       else if (!REDUCED) model?.playMotion(name);
+    },
+    // A pet's state: the pack maps it to one of the model's motions, looping
+    // until the next state. Cubism 3 models restart the motion on every change;
+    // the legacy backend keeps a queue it can loop.
+    state: ({ name }) => {
+      if (!name) return;
+      if (typeof model?.setLoopMotion === 'function') model.setLoopMotion(name);
+      else if (!REDUCED) model?.playMotion(name);
+    },
+    // A pack that shipped the model alone: one still at [w]×[h], drawn into the
+    // stage's own buffer because a pet layer is only tens of dp wide — its
+    // poster cannot come from the canvas on screen. Read back in this task,
+    // like the floating window's (preserveDrawingBuffer stays unnecessary).
+    // `fit: "model"` asks for the model's own canvas proportions instead of the
+    // pack's canvas: a pack written before anyone saw the model (a third-party
+    // folder turned into one) does not know them, and a still at the wrong
+    // aspect bakes the stretch into every pet that shows it.
+    poster: ({ w, h, fit }) => {
+      const modelW = Number(model?.internalModel?.originalWidth) || 0;
+      const modelH = Number(model?.internalModel?.originalHeight) || 0;
+      let width = clamp(Math.round(Number(w)) || 0, 8, 2048);
+      let height = clamp(Math.round(Number(h)) || 0, 8, 2048);
+      if (fit === 'model' && modelW > 0 && modelH > 0) {
+        const scale = Math.min(width / modelW, height / modelH);
+        width = clamp(Math.round(modelW * scale), 8, 2048);
+        height = clamp(Math.round(modelH * scale), 8, 2048);
+      }
+      const saveW = canvas.width;
+      const saveH = canvas.height;
+      try {
+        canvas.width = width;
+        canvas.height = height;
+        model.setRenderTargetSize(width, height);
+        gl.viewport(0, 0, width, height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        model.draw(projection(), [0, 0, width, height]);
+        const pixels = new Uint8Array(width * height * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        post({ type: 'poster', w: width, h: height, modelW, modelH, data: pngOf(pixels, width, height) });
+      } catch (error) {
+        post({ type: 'poster', error: String(error?.message ?? error) });
+      } finally {
+        canvas.width = saveW;
+        canvas.height = saveH;
+        model?.setRenderTargetSize(saveW, saveH);
+      }
     },
     // New reply text arrived: the mouth keeps moving for about as long as
     // reading it aloud would take.
@@ -1802,7 +2349,8 @@
   let fpsAt = performance.now();
   let fps = 0;
   // Share of the full resolution drawn: steps down while frames can't keep
-  // up with what was asked (an old phone, a heavy model), never below half.
+  // up with what was asked (an old phone, a heavy model), never below half —
+  // three quarters for a pet, which is read at a size where half is a blur.
   let quality = 1;
   let slowSeconds = 0;
   let asked = 30;
@@ -1847,17 +2395,20 @@
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     model.draw(projection(), [0, 0, canvas.width, canvas.height]);
-    moodMarks(ts);
-    scene.step(dt, life.body.x.x + tilt.sx * 0.8);
-    parallax(dt);
+    if (!PET) {
+      moodMarks(ts);
+      scene.step(dt, life.body.x.x + tilt.sx * 0.8);
+      parallax(dt);
+    }
     drawn++;
     if (ts - fpsAt > 1000) {
       // A gap (paused, hidden) says nothing about how fast she draws.
       if (ts - fpsAt < 2000) {
         fps = (drawn * 1000) / (ts - fpsAt);
         slowSeconds = fps < Math.min(asked, 60) * 0.7 ? slowSeconds + 1 : 0;
-        if (slowSeconds >= 3 && quality > 0.5) {
-          quality = Math.max(0.5, quality - 0.15);
+        const floor = PET ? 0.75 : 0.5;
+        if (slowSeconds >= 3 && quality > floor) {
+          quality = Math.max(floor, quality - 0.15);
           slowSeconds = 0;
         }
       }
@@ -1986,7 +2537,7 @@
   // Tilting the phone shifts the water a little, then it settles back to
   // however the phone is being held: a window into the water, not a level.
   const tilt = { x: 0, y: 0, sx: 0, sy: 0, beta: null, gamma: null };
-  if (!FLOAT) window.addEventListener('deviceorientation', (e) => {
+  if (!FLOAT && !PET) window.addEventListener('deviceorientation', (e) => {
     if (REDUCED || e.beta == null || e.gamma == null) return;
     if (tilt.beta == null) {
       tilt.beta = e.beta;
@@ -2003,7 +2554,7 @@
   // are a shake, and that makes her dizzy.
   const motion = { push: 0, jolts: [], last: 0, shookAt: -Infinity };
   const JOLT = 14; // m/s²: a deliberate shake, well past walking or setting the phone down.
-  if (!FLOAT) window.addEventListener('devicemotion', (e) => {
+  if (!FLOAT && !PET) window.addEventListener('devicemotion', (e) => {
     if (REDUCED || paused || !model) return;
     const a = e.acceleration?.x != null ? e.acceleration : null;
     if (!a) return;
@@ -2144,7 +2695,7 @@
     const started = performance.now();
     if (REDUCED) document.documentElement.dataset.motion = 'reduced';
     applyTimeOfDay();
-    if (!FLOAT) {
+    if (!FLOAT && !PET) {
       scene.resize();
       window.addEventListener('resize', () => scene.resize());
     }
@@ -2167,7 +2718,9 @@
       canvas.width = canvas.height = 0;
       resize();
 
-      const next = new StageModel();
+      // A Cubism 2 pack (.moc + model.json) needs the legacy backend; everything
+      // else, including a pack that also carries a model3.json, uses Cubism 3.
+      const next = (await resolveCubism2(character)) ? new LegacyModel() : new StageModel();
       if (FLOAT) loadingModel = next;
       await next.load(gl, character);
       if (floatDisposed) { loadingModel = null; next.release(); return; }
@@ -2179,14 +2732,14 @@
       if (!FLOAT) setInterval(applyTimeOfDay, 10 * 60 * 1000);
       setEmotion('calm');
       // A hello, so opening the page is already a small event.
-      if (!FLOAT) playAction('nodSmall');
+      if (!FLOAT && !PET) playAction('nodSmall');
       last = performance.now();
       if (document.hidden) { if (FLOAT) releaseFloat(); else pause(); }
       if (!paused) frame = requestAnimationFrame(render);
       document.documentElement.dataset.ready = '1';
       // Early morning: she's only just up. A stretch, then a yawn, once the
       // greeting has settled.
-      if (!FLOAT && document.documentElement.dataset.tod === 'dawn' && !REDUCED) {
+      if (!FLOAT && !PET && document.documentElement.dataset.tod === 'dawn' && !REDUCED) {
         life.waking = ['stretch', 'yawn'];
         life.flourishAt = performance.now() + 6000;
       }

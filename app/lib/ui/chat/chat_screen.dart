@@ -89,6 +89,7 @@ import '../wallpaper/wallpaper_backdrop.dart';
 import '../workspace/workspace_switcher.dart' show showWorkspaceSheet;
 import '../workspace/workspaces_page.dart';
 import 'balance_widgets.dart';
+import 'pendant/whale_pendant.dart';
 import 'chat_header.dart';
 import 'chat_list.dart';
 import 'composer.dart';
@@ -1839,6 +1840,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                                       suggestions: ref.watch(settingsProvider.select((s) => s.chatSuggestions))
                                           ? defaultSuggestions
                                           : const [],
+                                      // null shows the built-in rotating tips.
+                                      tips: ref.watch(settingsProvider.select((s) => s.chatTips)) ? null : const [],
                                       connecting: connAsync.isLoading,
                                       starting: starting,
                                       tidying: tidying,
@@ -2286,6 +2289,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                       ),
                     ),
                   ),
+                  // The balance whale (设置 › 界面 › 余额小鲸鱼): a native stand-in
+                  // for the upstream widget plugin, on the composer's top edge
+                  // where the pet also stands.
+                  if (ref.watch(settingsProvider.select((s) => s.pendant)))
+                    LayoutId(id: _Slot.pendant, child: WhalePendant(aside: typing))
+                  else
+                    LayoutId(id: _Slot.pendant, child: const SizedBox.shrink()),
                 ],
               ),
             ),
@@ -2550,7 +2560,7 @@ class _HeaderAside extends StatelessWidget {
   }
 }
 
-enum _Slot { body, pluginOverlay, veil, header, palette, composer }
+enum _Slot { body, pluginOverlay, veil, header, palette, composer, pendant }
 
 /// 整页布局:先排输入条区域,挂在它上沿的东西(列表的下沿、底色遮罩、
 /// 斜杠面板)在同一次布局里跟上。
@@ -2595,6 +2605,10 @@ class _ChatLayout extends MultiChildLayoutDelegate {
     final paletteWidth = math.max(0.0, width - 2 * _side);
     final palette = layoutChild(_Slot.palette, BoxConstraints(minWidth: paletteWidth, maxWidth: paletteWidth));
     positionChild(_Slot.palette, Offset(_side, top - _gap - palette.height));
+    // The balance whale stands on the composer's top edge, at the end the
+    // setting remembers; its bubble grows upward over the conversation.
+    final pendant = layoutChild(_Slot.pendant, BoxConstraints(maxWidth: width, maxHeight: math.max(0, top)));
+    positionChild(_Slot.pendant, Offset(0, math.max(0, top - pendant.height)));
     if (uiTraceEnabled) {
       uiTrace('chat', 'slots', {
         'width': size.width,

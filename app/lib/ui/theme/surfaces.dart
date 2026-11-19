@@ -113,6 +113,7 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
     required this.pill,
     this.accent = AppAccent.mist,
     this.blurEnabled = true,
+    this.blurAmount = 1,
   });
 
   /// 页面竖向渐变的顶 / 底。
@@ -145,6 +146,9 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
   /// `BackdropFilter`。由设置里的"减少透明效果"或性能探测决定。
   final bool blurEnabled;
 
+  /// 模糊强度(0–1):1 是各层级原本的 σ,0 不模糊(面板照样半透)。
+  final double blurAmount;
+
   static DshSurfaces of(BuildContext context) => Theme.of(context).extension<DshSurfaces>()!;
 
   GlassStyle glass(GlassTier tier) => switch (tier) {
@@ -156,10 +160,17 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
 
   /// 浅色:晨雾渐变 + 白玻璃。渐变、阴影、实色兜底跟配色的中性色走;
   /// 玻璃本身是白的,高光也是白的 —— 换了配色,玻璃还是玻璃。
-  factory DshSurfaces.light(AppAccent accent, {bool blurEnabled = true}) {
+  factory DshSurfaces.light(
+    AppAccent accent, {
+    bool blurEnabled = true,
+    double opacity = 1,
+    double blurAmount = 1,
+  }) {
     final n = NeutralTones.forAccent(accent);
     final ink = n.shadowInk;
     const white = Color(0xFFFFFFFF);
+    // 拉低不透明度时连实色兜底一起淡:关掉模糊的设备上否则看不出变化。
+    Color dim(Color c) => opacity >= 1 ? c : c.withValues(alpha: c.a * opacity);
     return DshSurfaces(
       backdropTop: n.mistTop,
       backdropBottom: n.mistBottom,
@@ -170,9 +181,10 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
       scrim: n.scrim.withValues(alpha: 0.32),
       accent: accent,
       blurEnabled: blurEnabled,
+      blurAmount: blurAmount,
       chrome: GlassStyle(
-        fill: white.withValues(alpha: 0.70),
-        fallbackFill: n.mistLowest.withValues(alpha: 0.96),
+        fill: dim(white.withValues(alpha: 0.70)),
+        fallbackFill: dim(n.mistLowest.withValues(alpha: 0.96)),
         hairline: ink.withValues(alpha: 0.08),
         rim: white.withValues(alpha: 0.85),
         blurSigma: 18,
@@ -183,8 +195,8 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
         ],
       ),
       sheet: GlassStyle(
-        fill: n.mistLow.withValues(alpha: 0.82),
-        fallbackFill: n.mistLow,
+        fill: dim(n.mistLow.withValues(alpha: 0.82)),
+        fallbackFill: dim(n.mistLow),
         hairline: ink.withValues(alpha: 0.07),
         rim: white.withValues(alpha: 0.90),
         blurSigma: 24,
@@ -192,14 +204,14 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
         shadows: [BoxShadow(color: ink.withValues(alpha: 0.10), blurRadius: 32, offset: const Offset(0, 8))],
       ),
       card: GlassStyle(
-        fill: white.withValues(alpha: 0.62),
-        fallbackFill: white.withValues(alpha: 0.72),
+        fill: dim(white.withValues(alpha: 0.62)),
+        fallbackFill: dim(white.withValues(alpha: 0.72)),
         hairline: ink.withValues(alpha: 0.06),
         rim: white.withValues(alpha: 0.70),
       ),
       pill: GlassStyle(
-        fill: white.withValues(alpha: 0.55),
-        fallbackFill: white.withValues(alpha: 0.66),
+        fill: dim(white.withValues(alpha: 0.55)),
+        fallbackFill: dim(white.withValues(alpha: 0.66)),
         hairline: ink.withValues(alpha: 0.07),
         rim: white.withValues(alpha: 0.75),
       ),
@@ -207,12 +219,18 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
   }
 
   /// 深色:深海石板渐变 + 烟灰玻璃(石板与烟灰跟配色的中性色走)。
-  factory DshSurfaces.dark(AppAccent accent, {bool blurEnabled = true}) {
+  factory DshSurfaces.dark(
+    AppAccent accent, {
+    bool blurEnabled = true,
+    double opacity = 1,
+    double blurAmount = 1,
+  }) {
     final n = NeutralTones.forAccent(accent);
     const white = Color(0xFFFFFFFF);
     const black = Color(0xFF000000);
     // 雾蓝里是 OKLCH(0.30, 0.022, 266):比页面高一档的石板灰。
     final smoke = n.smoke;
+    Color dim(Color c) => opacity >= 1 ? c : c.withValues(alpha: c.a * opacity);
     return DshSurfaces(
       backdropTop: n.nightTop,
       backdropBottom: n.nightBottom,
@@ -223,9 +241,10 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
       scrim: black.withValues(alpha: 0.48),
       accent: accent,
       blurEnabled: blurEnabled,
+      blurAmount: blurAmount,
       chrome: GlassStyle(
-        fill: smoke.withValues(alpha: 0.72),
-        fallbackFill: smoke.withValues(alpha: 0.97),
+        fill: dim(smoke.withValues(alpha: 0.72)),
+        fallbackFill: dim(smoke.withValues(alpha: 0.97)),
         hairline: white.withValues(alpha: 0.09),
         rim: white.withValues(alpha: 0.12),
         blurSigma: 18,
@@ -236,8 +255,8 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
         ],
       ),
       sheet: GlassStyle(
-        fill: n.sheetDark.withValues(alpha: 0.86),
-        fallbackFill: n.sheetDark,
+        fill: dim(n.sheetDark.withValues(alpha: 0.86)),
+        fallbackFill: dim(n.sheetDark),
         hairline: white.withValues(alpha: 0.08),
         rim: white.withValues(alpha: 0.10),
         blurSigma: 24,
@@ -245,14 +264,14 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
         shadows: [BoxShadow(color: black.withValues(alpha: 0.40), blurRadius: 32, offset: const Offset(0, 8))],
       ),
       card: GlassStyle(
-        fill: white.withValues(alpha: 0.05),
-        fallbackFill: white.withValues(alpha: 0.06),
+        fill: dim(white.withValues(alpha: 0.05)),
+        fallbackFill: dim(white.withValues(alpha: 0.06)),
         hairline: white.withValues(alpha: 0.07),
         rim: white.withValues(alpha: 0.06),
       ),
       pill: GlassStyle(
-        fill: white.withValues(alpha: 0.06),
-        fallbackFill: white.withValues(alpha: 0.07),
+        fill: dim(white.withValues(alpha: 0.06)),
+        fallbackFill: dim(white.withValues(alpha: 0.07)),
         hairline: white.withValues(alpha: 0.08),
         rim: white.withValues(alpha: 0.08),
       ),
@@ -274,6 +293,7 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
     GlassStyle? pill,
     AppAccent? accent,
     bool? blurEnabled,
+    double? blurAmount,
   }) {
     return DshSurfaces(
       backdropTop: backdropTop ?? this.backdropTop,
@@ -289,6 +309,7 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
       pill: pill ?? this.pill,
       accent: accent ?? this.accent,
       blurEnabled: blurEnabled ?? this.blurEnabled,
+      blurAmount: blurAmount ?? this.blurAmount,
     );
   }
 
@@ -310,6 +331,7 @@ class DshSurfaces extends ThemeExtension<DshSurfaces> {
       pill: GlassStyle.lerp(pill, other.pill, t),
       accent: t < 0.5 ? accent : other.accent,
       blurEnabled: t < 0.5 ? blurEnabled : other.blurEnabled,
+      blurAmount: lerpDouble(blurAmount, other.blurAmount, t)!,
     );
   }
 }

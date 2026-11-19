@@ -842,6 +842,12 @@ abstract final class Spots {
     keywords: (l) => l.searchKwAccent,
     ohosKeywords: (l) => l.harmonyKwAccent,
   );
+  static final look = SettingSpot(
+    'look',
+    page: SettingsPageId.appearance,
+    title: (l) => l.pluginsLook,
+    keywords: (l) => l.searchKwLook,
+  );
   static final tileStyle = SettingSpot(
     'tile-style',
     page: SettingsPageId.appearance,
@@ -917,10 +923,17 @@ abstract final class Spots {
     keywords: (l) => l.searchKwPetOverlayFraming,
     androidOnly: true,
   );
+  static final petOverlaySize = SettingSpot(
+    'pet-overlay-size',
+    page: SettingsPageId.pets,
+    title: (l) => l.botsPetOverlaySize,
+    keywords: (l) => l.searchKwPetOverlaySize,
+    androidOnly: true,
+  );
   static final petMake = SettingSpot(
     'pet-make',
     page: SettingsPageId.pets,
-    title: (l) => l.botsPetMake,
+    title: (l) => l.botsPetConvertEntry,
     keywords: (l) => l.searchKwPets,
   );
   static final workshop = SettingSpot(
@@ -949,6 +962,45 @@ abstract final class Spots {
     page: SettingsPageId.interface,
     title: (l) => l.hubChatSuggestions,
     keywords: (l) => l.searchKwChatSuggestions,
+  );
+  static final chatTips = SettingSpot(
+    'chat-tips',
+    page: SettingsPageId.interface,
+    title: (l) => l.hubChatTips,
+    keywords: (l) => l.searchKwChatTips,
+  );
+  static final pendant = SettingSpot(
+    'pendant',
+    page: SettingsPageId.appearance,
+    title: (l) => l.pendantTitle,
+    keywords: (l) => l.searchKwPendant,
+  );
+
+  /// 「余额小鲸鱼」's own rows: every settings row carries one, so each is
+  /// reachable and searchable on its own.
+  static final pendantArt = SettingSpot(
+    'pendant-art',
+    page: SettingsPageId.appearance,
+    title: (l) => l.pendantArtTitle,
+    keywords: (l) => l.searchKwPendant,
+  );
+  static final pendantSound = SettingSpot(
+    'pendant-sound',
+    page: SettingsPageId.appearance,
+    title: (l) => l.pendantSoundTitle,
+    keywords: (l) => l.searchKwPendant,
+  );
+  static final pendantLines = SettingSpot(
+    'pendant-lines',
+    page: SettingsPageId.appearance,
+    title: (l) => l.pendantLinesTitle,
+    keywords: (l) => l.searchKwPendant,
+  );
+  static final pendantReset = SettingSpot(
+    'pendant-reset',
+    page: SettingsPageId.appearance,
+    title: (l) => l.pendantResetPlace,
+    keywords: (l) => l.searchKwPendant,
   );
   static final quickPanel = SettingSpot(
     'quick-panel',
@@ -1248,22 +1300,30 @@ final _rows = <SettingSpot>[
   Spots.webSearchKey,
   Spots.darkMode,
   Spots.accent,
+  Spots.look,
   Spots.tileStyle,
   Spots.appIcon,
   Spots.iconShortcut,
   Spots.launchScreen,
   Spots.wallpaper,
+  Spots.pendant,
+  Spots.pendantArt,
+  Spots.pendantSound,
+  Spots.pendantLines,
+  Spots.pendantReset,
   Spots.petSize,
   Spots.petQuiet,
   Spots.petOutsideApp,
   Spots.petDisplayWhen,
   Spots.petOverlayShows,
+  Spots.petOverlaySize,
   Spots.petOverlayFraming,
   Spots.petMake,
   Spots.workshop,
   Spots.uiMode,
   Spots.hardwareEnterSends,
   Spots.chatSuggestions,
+  Spots.chatTips,
   Spots.quickPanel,
   Spots.tableTint,
   Spots.webApp,

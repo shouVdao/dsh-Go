@@ -25,6 +25,7 @@ import '../settings_widgets.dart';
 import 'app_icon_picker.dart';
 import 'icon_shortcut_sheet.dart';
 import 'launch_screen_section.dart';
+import 'pendant_section.dart';
 import 'tile_style_picker.dart';
 import 'wallpaper_section.dart';
 
@@ -93,6 +94,11 @@ class AppearancePage extends ConsumerWidget {
           ],
         ),
         SettingsSection(
+          title: l10n.pluginsLook,
+          footer: Text(l10n.pluginsLookHint),
+          children: [SpotAnchor(spot: Spots.look, child: const _LookTuning())],
+        ),
+        SettingsSection(
           title: l10n.pluginsFeatureIcons,
           children: [SpotAnchor(spot: Spots.tileStyle, child: const TileStylePicker())],
         ),
@@ -113,6 +119,7 @@ class AppearancePage extends ConsumerWidget {
           footer: Text(l10n.wallpaperFooter),
           children: [SpotAnchor(spot: Spots.wallpaper, child: const WallpaperSection())],
         ),
+        const PendantSection(),
       ],
     );
   }
@@ -931,6 +938,247 @@ class _WallpaperRow extends ConsumerWidget {
         value: AccentDot(color: seed),
         onTap: () => set(!on),
         trailing: Switch.adaptive(value: on, onChanged: set),
+      ),
+    );
+  }
+}
+
+/// 材质与文字:玻璃的不透明度、模糊量,和正文字色。
+///
+/// 滑杆自己带草稿:拖动时只动手指下的数字,松手才写进偏好并重建主题 ——
+/// 否则拖动中每一帧都会让整棵 MaterialApp 重新交叉淡变。
+class _LookTuning extends ConsumerStatefulWidget {
+  const _LookTuning();
+
+  @override
+  ConsumerState<_LookTuning> createState() => _LookTuningState();
+}
+
+class _LookTuningState extends ConsumerState<_LookTuning> {
+  double? _opacity;
+  double? _blur;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final look = ref.watch(appearanceProvider);
+    final notifier = ref.read(appearanceProvider.notifier);
+    return Column(
+      children: [
+        _PercentRow(
+          title: l10n.pluginsOpacity,
+          value: _opacity ?? look.glassOpacity,
+          min: AppearanceSettings.minOpacity,
+          onChanged: (v) => setState(() => _opacity = v),
+          onChangeEnd: (v) {
+            setState(() => _opacity = null);
+            unawaited(notifier.setGlassOpacity(v));
+          },
+        ),
+        _PercentRow(
+          title: l10n.pluginsBlur,
+          value: _blur ?? look.glassBlur,
+          min: 0,
+          onChanged: (v) => setState(() => _blur = v),
+          onChangeEnd: (v) {
+            setState(() => _blur = null);
+            unawaited(notifier.setGlassBlur(v));
+          },
+        ),
+        _FontTintRow(color: look.fontColor),
+      ],
+    );
+  }
+}
+
+/// 一行材质滑杆:标题 + 百分比,5% 一档,松手才提交。
+class _PercentRow extends StatelessWidget {
+  const _PercentRow({
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  static const steps = 20;
+
+  static double snap(double v, double min) => ((v * steps).round() / steps).clamp(min, 1.0);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final v = value.clamp(min, 1.0);
+    final label = '${(v * 100).round()}%';
+    return MergeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 14, SettingsMetrics.inset, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ExcludeSemantics(
+              child: Row(
+                children: [
+                  Expanded(child: Text(title, style: settingsTitleStyle(context))),
+                  const SizedBox(width: 12),
+                  Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Semantics(
+              label: title,
+              child: Slider(
+                value: v,
+                min: min,
+                padding: EdgeInsets.zero,
+                activeColor: scheme.onSurfaceVariant,
+                inactiveColor: scheme.onSurface.withValues(alpha: 0.1),
+                semanticFormatterCallback: (_) => label,
+                onChanged: (raw) => onChanged(snap(raw, min)),
+                onChangeEnd: (raw) => onChangeEnd(snap(raw, min)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 字体颜色:跟随主题,或从一串墨色里挑一颗,再用色相条微调。
+class _FontTintRow extends ConsumerWidget {
+  const _FontTintRow({required this.color});
+
+  /// 当前墨色(ARGB);null = 跟随主题。
+  final int? color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final notifier = ref.read(appearanceProvider.notifier);
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
+    final current = color == null ? null : Color(color!);
+    final o = current == null ? null : Oklch.fromColor(current);
+    final picks = [
+      for (final (hue, chroma, name) in CustomAccentPanel.suggestions)
+        (name, textInkFor(hue: hue, chroma: chroma, brightness: brightness)),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 10, SettingsMetrics.inset, PickerGrid.inset),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ExcludeSemantics(child: Text(l10n.pluginsFontColor, style: settingsTitleStyle(context))),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _FollowChip(on: current == null, onTap: () => unawaited(notifier.setFontColor(null))),
+              for (final (name, ink) in picks)
+                _InkSwatch(
+                  color: ink,
+                  label: name,
+                  selected: current?.toARGB32() == ink.toARGB32(),
+                  onTap: () => unawaited(notifier.setFontColor(ink.toARGB32())),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          HueSlider(
+            hue: o?.h ?? 215,
+            brightness: brightness,
+            onChanged: (h) => unawaited(
+              notifier.setFontColor(textInkFor(hue: h, chroma: o?.c ?? 0.08, brightness: brightness).toARGB32()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「跟随主题」:选中时不写任何偏好。
+class _FollowChip extends StatelessWidget {
+  const _FollowChip({required this.on, required this.onTap});
+
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final label = context.l10n.pluginsFollowTheme;
+    return Semantics(
+      button: true,
+      selected: on,
+      label: label,
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: ShapeDecoration(
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: on ? scheme.primary : scheme.onSurface.withValues(alpha: 0.12),
+                width: on ? 1.5 : 1,
+              ),
+            ),
+            color: on ? scheme.primary.withValues(alpha: 0.10) : null,
+          ),
+          child: Text(label, style: theme.textTheme.labelLarge),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一颗墨色圆点:选中时套主色环。
+class _InkSwatch extends StatelessWidget {
+  const _InkSwatch({required this.color, required this.label, required this.selected, required this.onTap});
+
+  final Color color;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: 36,
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: color,
+              shape: CircleBorder(
+                side: BorderSide(
+                  color: selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.10),
+                  width: selected ? 2 : 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

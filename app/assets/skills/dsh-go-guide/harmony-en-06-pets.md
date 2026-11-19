@@ -15,6 +15,10 @@ Tap **Pets** in the Appearance group of Settings, or touch and hold the pet in a
 
 On HarmonyOS the pet stays in the app: it can't show outside the app, and there's no floating pet to ask or to answer in.
 
+## Make your own pet
+
+The new **Convert a Live2D model** item on the pet page: pick a zip of a Live2D model folder. The app reads the motions the model already has and lets you choose one for each state and for each reaction to a tap — whatever the model can't do stays **Leave it out**, and the build lists it; two states can trade motions. **Build the pet and switch to it** puts her in the chat; **Build a companion room pack** saves a zip to Download to install in the companion room. No AI is needed for this; typing `/pet-theme` in a chat still works too.
+
 ## In chats
 
 - The pet sits above the composer; drag it left or right to move it.

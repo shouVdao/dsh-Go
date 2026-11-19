@@ -97,6 +97,12 @@ class InterfacePage extends ConsumerWidget {
               value: settings.chatSuggestions,
               onChanged: (v) => unawaited(ref.read(settingsProvider.notifier).setChatSuggestions(v)),
             ),
+            SettingsSwitchTile(
+              spot: Spots.chatTips,
+              subtitle: l10n.hubChatTipsHint,
+              value: settings.chatTips,
+              onChanged: (v) => unawaited(ref.read(settingsProvider.notifier).setChatTips(v)),
+            ),
           ],
         ),
         SettingsSection(

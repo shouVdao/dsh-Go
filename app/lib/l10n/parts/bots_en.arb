@@ -310,6 +310,9 @@
   "botsPetOverlayFramingFull": "Full body",
   "botsPetOverlayFramingHalf": "Half body",
   "botsPetOverlayFramingHint": "Changing the framing reloads the character",
+  "botsPetOverlaySize": "Overlay size",
+  "botsPetOverlaySizeHint": "Only the pet outside the app. The size on the page is adjusted separately",
+  "botsPetOverlayCustomSize": "Custom overlay size",
   "botsPetSwitchDisabled": "Switch disabled",
   "botsPetRestrictedSettings": "Allow restricted settings",
   "botsPetHiddenToday": "Hidden for today",
@@ -324,8 +327,147 @@
   "botsPetSource": "From DSH-TUI",
   "botsPetImport": "Import",
   "botsPetImportHint": "Bring your own pixel pet: a zip with pack.json and PNG frame sheets; the format is in docs/design/pets.md in the repository. Long-press an imported pet to delete it.",
-  "botsPetMake": "Make a pet with AI",
-  "botsPetMakeSubtitle": "Turn GIFs, stickers or a theme into a pet pack",
+  "botsPetConvertEntry": "Convert a Live2D model",
+  "botsPetConvertEntrySub": "Turn a Live2D model from elsewhere into a pet pack or a companion room pack",
+  "botsPetConvertPick": "Choose the model zip",
+  "botsPetConvertPickHint": "Zip the model's folder: the model files at the top, or inside a single folder.",
+  "botsPetConvertPickSubtitle": "Nothing chosen yet",
+  "botsPetConvertWorking": "Reading the model…",
+  "botsPetConvertModel": "Model",
+  "botsPetConvertFiles": "Files",
+  "botsPetConvertCount": "{count} · {size}",
+  "@botsPetConvertCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTextures": "Textures",
+  "botsPetConvertMotions": "Motions",
+  "botsPetConvertExpressions": "Expressions",
+  "botsPetConvertMotionList": "What the model can do",
+  "botsPetConvertPhysicsOnly": "Only moves physics, barely visible",
+  "botsPetConvertLoop": "loops",
+  "botsPetConvertOnce": "plays once",
+  "botsPetConvertMap": "The motion for each state",
+  "botsPetConvertMapDone": "Every state has one. To trade two around, use Swap.",
+  "botsPetConvertMissing": "Not implemented yet: {names}",
+  "@botsPetConvertMissing": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertNone": "Leave it out",
+  "botsPetConvertEvents": "What a tap plays",
+  "botsPetConvertNoMotions": "This model has no motions of its own; only the poster shows.",
+  "botsPetConvertIgnored": "{count} motions go unused",
+  "@botsPetConvertIgnored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "botsPetConvertAuto": "Match by name",
+  "botsPetConvertSwap": "Swap two states",
+  "botsPetConvertSwapPick": "Pick the state to move first",
+  "botsPetConvertSwapPick2": "Pick the state to trade with {name}",
+  "@botsPetConvertSwapPick2": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertPet": "Build the pet and switch to it",
+  "botsPetConvertPetHint": "The model folder goes in too; the phone needs the Live2D runtime installed",
+  "botsPetConvertRoom": "Build a companion room pack",
+  "botsPetConvertRoomHint": "Saved to Download, install it from the companion room",
+  "botsPetConvertPetDone": "{name} is your pet now",
+  "@botsPetConvertPetDone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertRoomDone": "Saved to {path}; install it from Companion › Install a pack",
+  "@botsPetConvertRoomDone": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertFailed": "Couldn't do it: {detail}",
+  "@botsPetConvertFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertMapping": "The states aren't ready: {problem}",
+  "@botsPetConvertMapping": {
+    "placeholders": {
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertNeedIdle": "Idle still needs a motion: it plays whenever nothing else happens",
+  "botsPetConvertChooseMotion": "Pick a motion",
+  "botsPetConvertPreview": "Play",
+  "botsPetConvertPreviewTitle": "Playing {name}",
+  "@botsPetConvertPreviewTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertPreviewHint": "Playing needs the Live2D runtime on the phone (a complete companion-room pack). Nothing here is installed or changed.",
+  "botsPetConvertTooLarge": "Too big: {size}",
+  "@botsPetConvertTooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTooLargeHint": "Conversion reads zips up to {cap}: anything larger runs out of memory before the first check. Have an AI shrink it first, then come back.",
+  "@botsPetConvertTooLargeHint": {
+    "placeholders": {
+      "cap": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTooLargeCopy": "Copy the hand-off for an AI",
+  "botsPetConvertTooLargeCopied": "Copied: paste it to an AI",
+  "botsPetConvertTooLargePrompt": "Please shrink this Live2D model to under 160 MB so dsh-Go's converter can read it: downscale 4096 textures to 2048 or 1024; drop .mp3 and .wav; keep only *.model3.json, *.moc3, *.physics3.json, *.pose3.json, *.cdi3.json, *.motion3.json, *.exp3.json and the textures; unused motions and expressions can go too; repack it as one zip with those files at the root (or inside a single folder).",
+  "botsPetStateIdle": "Idle",
+  "botsPetStateThinking": "Thinking",
+  "botsPetStateWorking": "Working",
+  "botsPetStateJuggling": "Juggling",
+  "botsPetStateSweeping": "Sweeping",
+  "botsPetStateNotification": "Notification",
+  "botsPetStateAttention": "Attention",
+  "botsPetStateError": "Error",
+  "botsPetStateCarrying": "Carrying",
+  "botsPetStateSleeping": "Sleeping",
+  "botsPetStateWaking": "Waking",
+  "botsPetReactionTapLeft": "Tap left",
+  "botsPetReactionTapRight": "Tap right",
+  "botsPetReactionTickle": "Tickle",
+  "botsPetReactionAnnoyed": "Annoyed",
+  "botsPetReactionDrag": "Dragged",
   "botsPetImportDone": "{name} is here",
   "botsPetCodexTitle": "{name} was converted from a Codex pet",
   "botsPetCodexBody": "Most of it carries over as it was. A few things differ:",
@@ -349,6 +491,16 @@
   "botsPetImportMissingSheet": "The zip is missing the sheet {name}",
   "botsPetImportBadSheet": "A sheet isn't right: {name} (a complete PNG, at most 4096 pixels a side, every frame inside it)",
   "botsPetImportTooLarge": "This pet pack is too big",
+  "botsPetImportLive2dModel": "The Live2D model is missing or unreadable: {detail}",
+  "@botsPetImportLive2dModel": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetImportLive2dPoster": "The poster.png is missing, isn't a PNG, or doesn't match the canvas size",
+  "botsPetExportLive2d": "This pet is a Live2D one: its model folder can't fit in a pet card. Exporting would give you only the poster, so it's turned off for now.",
   "botsPetImportStorage": "Couldn't save it on the phone. Try again",
   "botsPetRemoveTitle": "Delete {name}?",
   "botsPetRemoveBody": "You can import it again later.",

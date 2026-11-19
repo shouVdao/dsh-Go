@@ -32,6 +32,8 @@ class CallCapture(
     private val main: Handler,
     private val listener: Listener,
     private val createGate: (Boolean) -> TurnGate = { SpeechGate(it) },
+    /** The capture ended without taking the process with it (see `SpeechGates`). */
+    private val onStop: () -> Unit = {},
 ) {
     interface Listener {
         fun onSpeechStart(overPlayback: Boolean)
@@ -217,15 +219,18 @@ class CallCapture(
     fun stop() {
         session++
         running = false
-        val r = record ?: return
+        val r = record
         record = null
         gate = null
-        runCatching { r.stop() }
-        val t = thread
-        thread = null
-        runCatching { t?.join(JOIN_MS) }
-        releaseEffects()
-        runCatching { r.release() }
+        if (r != null) {
+            runCatching { r.stop() }
+            val t = thread
+            thread = null
+            runCatching { t?.join(JOIN_MS) }
+            releaseEffects()
+            runCatching { r.release() }
+        }
+        onStop()
     }
 
     private fun releaseEffects() {

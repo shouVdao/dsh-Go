@@ -17,7 +17,25 @@ import '../settings/settings_widgets.dart';
 import 'pet_sprite.dart';
 
 class PetCustomSizePanel extends ConsumerStatefulWidget {
-  const PetCustomSizePanel({super.key});
+  const PetCustomSizePanel({
+    super.key,
+    this.height,
+    this.onChanged,
+    this.title,
+    this.sliderKey = const ValueKey('pet-custom-size'),
+  });
+
+  /// The height to start from; null reads [PetPrefs.customHeight].
+  final double? height;
+
+  /// Saves the released height; null writes [PetPrefsController.setCustomHeight].
+  final Future<void> Function(double dp)? onChanged;
+
+  /// The row's title; null is 「自定义」.
+  final String? title;
+
+  /// Lets one page hold two panels (the page and the floating window).
+  final Key sliderKey;
 
   /// Steps of 5 % of 标准 between [PetSize.customMin] and [PetSize.customMax].
   static double snap(double dp) {
@@ -43,7 +61,7 @@ class _PetCustomSizePanelState extends ConsumerState<PetCustomSizePanel> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final double height = _draft ?? ref.watch(petPrefsProvider.select((p) => p.customHeight));
+    final double height = _draft ?? widget.height ?? ref.watch(petPrefsProvider.select((p) => p.customHeight));
     final pack = ref.watch(currentPetPackProvider);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return Padding(
@@ -92,7 +110,7 @@ class _PetCustomSizePanelState extends ConsumerState<PetCustomSizePanel> {
           ExcludeSemantics(
             child: Row(
               children: [
-                Expanded(child: Text(l10n.botsPetCustomSize, style: settingsTitleStyle(context))),
+                Expanded(child: Text(widget.title ?? l10n.botsPetCustomSize, style: settingsTitleStyle(context))),
                 const SizedBox(width: 12),
                 Text(
                   PetCustomSizePanel.label(height),
@@ -103,9 +121,9 @@ class _PetCustomSizePanelState extends ConsumerState<PetCustomSizePanel> {
           ),
           const SizedBox(height: 10),
           Semantics(
-            label: l10n.botsPetCustomSize,
+            label: widget.title ?? l10n.botsPetCustomSize,
             child: Slider(
-              key: const ValueKey('pet-custom-size'),
+              key: widget.sliderKey,
               value: height.clamp(PetSize.customMin, PetSize.customMax).toDouble(),
               min: PetSize.customMin,
               max: PetSize.customMax,
@@ -121,9 +139,12 @@ class _PetCustomSizePanelState extends ConsumerState<PetCustomSizePanel> {
               },
               onChangeEnd: (raw) {
                 final next = PetCustomSizePanel.snap(raw);
-                unawaited(ref.read(petPrefsProvider.notifier).setCustomHeight(next).whenComplete(() {
-                  if (mounted) setState(() => _draft = null);
-                }));
+                final save = widget.onChanged ?? ref.read(petPrefsProvider.notifier).setCustomHeight;
+                unawaited(
+                  save(next).whenComplete(() {
+                    if (mounted) setState(() => _draft = null);
+                  }),
+                );
               },
             ),
           ),

@@ -11,10 +11,10 @@
 
 | 项 | 结论 | 依据 |
 |---|---|---|
-| 运行库 | 官方 **Cubism Web Framework 5-r.5 + Core 6.0.1**，随素材包/App 下发，作者不能替换、也不能自带 | `docs/design/companion.md` §3、`app/assets/companion/stage.js` |
-| 模型格式 | 只认 **.moc3**；Cubism 3 及以后编辑器导出的模型都走这条路 | `app/lib/companion/companion_pack.dart` |
+| 运行库 | Cubism 3+ 用官方 **Cubism Web Framework 5-r.5 + Core 6.0.1**，随素材包/App 下发，作者不能替换、也不能自带；Cubism 2 用 App 自带的 `live2d.min.js`（构建时注入，作者不用带） | `docs/design/companion.md` §3、`app/assets/companion/stage.js` |
+| 模型格式 | Cubism 3 及以后：`.moc3` + `*.model3.json`；Cubism 2：`.moc` + `model.json`（见 §2.5） | `app/lib/companion/companion_pack.dart`、`stage.js` `LegacyModel` |
 | moc 版本 | moc3 格式枚举 **1–6**（官方 Core 6.0.1 的 latestMocVersion = 6）；更高的版本加载时提示「版本太新，最高只认到 N」 | `stage.js` 版本头检查、`tooling/companion/fixtures/live2d-core-sources-v1.json`、`docs/design/workshop-worker.md` |
-| Cubism 2 | **不支持**。`.moc` + `model.json` 会被拒，提示用 Cubism Editor 打开后导出成 moc3 | `companion_zh.arb` `companionPackLegacyModel` |
+| Cubism 2 | **支持**：`.moc` + `model.json` 可直接导入与显示；物理、姿势、表情表和眨眼不执行（见 §2.5）；不能投稿工坊 | `stage.js` 的 `resolveCubism2` / `LegacyModel` |
 | 换肤/换装 | 属于模型自身参数；AI 适配不会自动驱动服装、水印、显隐这类开关 | 适配契约与 `stage.js` 保护项 |
 | 多模型 | 一个包可以放多个模型，舞台只用 `character.json` 的 `model` 指定的那个；缺省取第一个 `.model3.json` | `stage.js` `resolveModelFile` |
 
@@ -36,8 +36,8 @@ my-model.zip
 
 规则（都在 `companion_pack.dart` 的安装流程里）：
 
-- **必须有** `.model3.json`；没有就报「包里没有找到 Live2D 模型（.model3.json）」。
-- `character/` 只收这些扩展名：`.json .moc3 .png .jpg .jpeg .webp .wav .mp3 .txt .md`。`.cmo3`、`.psd`、`.clip` 等会被忽略，不会报错，也不会留在手机上。
+- **必须有模型描述文件**：`*.model3.json`（Cubism 3+），或 `model.json` / `*.model.json` 加同目录的 `.moc`（Cubism 2，见 §2.5）。都没有就报「包里没有找到 Live2D 模型（.model3.json）」。
+- `character/` 只收这些扩展名：`.json .moc3 .moc .mtn .png .jpg .jpeg .webp .wav .mp3 .txt .md`。`.cmo3`、`.psd`、`.clip` 等会被忽略，不会报错，也不会留在手机上。
 - 路径必须是安全的相对路径：不能有 `..`、不能以 `/` 开头、不能有反斜杠或空字节；符号链接一律拒收。
 - 文件名不能「归一化后重名」（大小写、Unicode 别名）。别放 `A.png` 和 `a.PNG` 这种。
 - 大小上限：**解压后 400 MB、4000 个文件**（本地导入）。超出报「素材包太大了」。
@@ -96,6 +96,27 @@ my-model.zip
 - `moc` 必须是 **moc3 文件的 SHA-256**（小写十六进制，对文件字节做哈希，不是路径）。App 用 `sha256(moc3)` 校验；对不上会把整份适配表删掉并重新适配。
 - 字段按 §4 的 `app-local-adapter-v1`；不合法的项会被丢弃，但**导入本身不校验**它——舞台会尽量执行，所以手写时请自查。
 
+### 2.5 Cubism 2 模型（`.moc` + `model.json`）
+
+Cubism 2 的导出物也能直接导入，不用先转成 moc3。zip 里放描述文件、`.moc` 和贴图：
+
+```text
+haru.zip
+├─ haru.model.json      # 或 model.json
+├─ haru.moc
+├─ haru.1024/texture_00.png
+└─ 可选：motions/*.mtn、physics.json、pose.json、expressions/*.json
+```
+
+规则：
+
+- 描述文件名是 `model.json` 或 `*.model.json`；`model` 指向 `.moc`，`textures` 指向贴图，`motions` 是 `组名 → [{file, fade_in, fade_out}]`。
+- 有 `.model3.json` 时优先走 Cubism 3；只有 legacy 描述文件时才走 Cubism 2。只有 `.moc`、没有描述文件会被拒：「包里只有 .moc，没有 model.json」。
+- 触摸分区：`character.json` 的 `zones` 优先；没写时用 `model.json` 的 `hit_areas`（按 `id` 找绘图件，取包围盒）。
+- 运行库：Cubism 2 核心 `live2d.min.js` 随 App 构建注入，**作者不用带、也不能替换**；它不属于素材包的 `runtime/`，所以不影响运行库摘要校验。
+- 降级（Cubism 2 核心没有对应公开接口）：不执行物理、姿势、`model.json` 里的表情表，也不自动眨眼；情绪和动作仍通过标准参数名（`PARAM_ANGLE_X`、`PARAM_MOUTH_OPEN_Y` 等）合并到模型参数上。`model.json` 的 `motions` 组会列在「动作和表情」页，可以试播。
+- 工坊：Cubism 2 角色**不能投稿**（服务端契约只收 moc3），本机导入与显示正常。
+
 ## 3. 导入到 App
 
 路径：**切换主机 → 伙伴小屋**。
@@ -112,7 +133,7 @@ my-model.zip
 |---|---|---|
 | 这个文件打不开，可能不是素材包或已经损坏 | zip 损坏 / 不是 zip | 重新打包，别用会加杂项文件的压缩工具 |
 | 包里没有找到 Live2D 模型（.model3.json） | 模型文件夹没进 zip，或 zip 里多套了一层 | 让 zip 根目录就是模型内容 |
-| 这是 Cubism 2 的旧模型 | `.moc` + `model.json` | Cubism Editor 导出 moc3 后再打包 |
+| 包里只有 .moc，没有 model.json | 缺 Cubism 2 描述文件 | 把 `model.json`（或 `*.model.json`）和 `.moc` 一起打包，见 §2.5 |
 | 这个模型是用更新版本的 Cubism 导出的（moc 版本 N） | moc 枚举 > 当前 Core 上限 6 | Editor 里导出成旧一点的版本 |
 | 这个包只有角色，手机上还没有运行库 | 只有 character/，且本机没装过完整包 | 先装官方/完整素材包 |
 | 素材包里的运行库和这个版本的 App 对不上 | 包里自带的 runtime 摘要不符 | 去掉 runtime，只发 character/ |
@@ -190,6 +211,12 @@ App 只在「需要判断」时提议适配，任一条件成立即可：缺 4 �
 
 **作者建议**：给 `.exp3.json`/`.motion3.json` 起有意义的文件名和 Name（`wave`、`脸红`、`挥手`），别用 `01`、`X X`；不要把换装/显隐做成表情；idle 循环不要放进表情动作列表。
 
+**想让同一个模型再做一个宠物**：用 `app/tool/live2d_pet_kit.py`（技能 `pet-theme` 会自己调它）。`report`
+先列出动作表和描述文件的问题，`room` 出小屋包让用户逐个 ▶ 试播，`pet --mapping` 出宠物包
+（`states` 的值就是这里的动作键：一组一个动作→组名，多个→`组_1`/`组_2`，未登记的 `.motion3.json`→文件名）。
+宠物包不强制 `poster.png`，缺封面时 App 第一次显示模型会自己截一张，见 `docs/pets/README.md` §3.5。
+流程、固定决定和「必须报告没实现的状态与事件」见 `docs/design/pets.md` §3.9。
+
 ## 6. 作者自检
 
 **App 内（所有作者）**
@@ -219,7 +246,7 @@ App 只在「需要判断」时提议适配，任一条件成立即可：缺 4 �
 
 ## 8. 明确不支持 / 会被拒
 
-- Cubism 2（`.moc`/`model.json`）、自定义/替换运行库、任何脚本或 HTML（`character/` 只收数据文件）。
+- 不支持：自定义/替换运行库、任何脚本或 HTML（`character/` 只收数据文件）；Cubism 2 的物理/姿势/表情表与工坊投稿（本机显示见 §2.5）。
 - 像素级自动验收、截图多轮返工、「最多三轮自动调度」：未实现。
 - 完整模式（主机 agent）的适配页面编排：契约和 skill 已在，页面接线未完成；当前 AI 适配走轻量模式（App 直接调 DeepSeek）。
 - 在线模型校验/上传服务：没有。

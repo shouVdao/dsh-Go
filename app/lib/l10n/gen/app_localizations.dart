@@ -5288,6 +5288,24 @@ abstract class L10n {
   /// **'换取景会重新加载她'**
   String get botsPetOverlayFramingHint;
 
+  /// No description provided for @botsPetOverlaySize.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮窗大小'**
+  String get botsPetOverlaySize;
+
+  /// No description provided for @botsPetOverlaySizeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'只影响 App 外的宠物；聊天页里的「大小」单独调整'**
+  String get botsPetOverlaySizeHint;
+
+  /// No description provided for @botsPetOverlayCustomSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义悬浮窗大小'**
+  String get botsPetOverlayCustomSize;
+
   /// No description provided for @botsPetSwitchDisabled.
   ///
   /// In zh, this message translates to:
@@ -5372,17 +5390,371 @@ abstract class L10n {
   /// **'导入你自己的像素宠物：一个 zip，里面是 pack.json 和序列帧 PNG，格式见仓库里的 docs/design/pets.md。长按导入的宠物可以删除。'**
   String get botsPetImportHint;
 
-  /// No description provided for @botsPetMake.
+  /// No description provided for @botsPetConvertEntry.
   ///
   /// In zh, this message translates to:
-  /// **'让 AI 做一只宠物'**
-  String get botsPetMake;
+  /// **'转换 Live2D 模型'**
+  String get botsPetConvertEntry;
 
-  /// No description provided for @botsPetMakeSubtitle.
+  /// No description provided for @botsPetConvertEntrySub.
   ///
   /// In zh, this message translates to:
-  /// **'把 GIF、表情包或主题转成宠物包'**
-  String get botsPetMakeSubtitle;
+  /// **'把外来的 Live2D 模型做成宠物包或伙伴小屋素材包'**
+  String get botsPetConvertEntrySub;
+
+  /// No description provided for @botsPetConvertPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择模型压缩包'**
+  String get botsPetConvertPick;
+
+  /// No description provided for @botsPetConvertPickHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'把 Live2D 模型的文件夹打成 zip：根目录直接是模型文件，或者外面只套一层文件夹。'**
+  String get botsPetConvertPickHint;
+
+  /// No description provided for @botsPetConvertPickSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没选'**
+  String get botsPetConvertPickSubtitle;
+
+  /// No description provided for @botsPetConvertWorking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取模型…'**
+  String get botsPetConvertWorking;
+
+  /// No description provided for @botsPetConvertModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型'**
+  String get botsPetConvertModel;
+
+  /// No description provided for @botsPetConvertFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件'**
+  String get botsPetConvertFiles;
+
+  /// No description provided for @botsPetConvertCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个 · {size}'**
+  String botsPetConvertCount(int count, String size);
+
+  /// No description provided for @botsPetConvertTextures.
+  ///
+  /// In zh, this message translates to:
+  /// **'贴图'**
+  String get botsPetConvertTextures;
+
+  /// No description provided for @botsPetConvertMotions.
+  ///
+  /// In zh, this message translates to:
+  /// **'动作'**
+  String get botsPetConvertMotions;
+
+  /// No description provided for @botsPetConvertExpressions.
+  ///
+  /// In zh, this message translates to:
+  /// **'表情'**
+  String get botsPetConvertExpressions;
+
+  /// No description provided for @botsPetConvertMotionList.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型自带的动作'**
+  String get botsPetConvertMotionList;
+
+  /// No description provided for @botsPetConvertPhysicsOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只动物理参数，几乎看不出在动'**
+  String get botsPetConvertPhysicsOnly;
+
+  /// No description provided for @botsPetConvertLoop.
+  ///
+  /// In zh, this message translates to:
+  /// **'循环'**
+  String get botsPetConvertLoop;
+
+  /// No description provided for @botsPetConvertOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'只播一次'**
+  String get botsPetConvertOnce;
+
+  /// No description provided for @botsPetConvertMap.
+  ///
+  /// In zh, this message translates to:
+  /// **'每个状态用哪个动作'**
+  String get botsPetConvertMap;
+
+  /// No description provided for @botsPetConvertMapDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'每个状态都挑好了。想换位置，用下面的「互换」。'**
+  String get botsPetConvertMapDone;
+
+  /// No description provided for @botsPetConvertMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没实现的：{names}'**
+  String botsPetConvertMissing(String names);
+
+  /// No description provided for @botsPetConvertNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不实现'**
+  String get botsPetConvertNone;
+
+  /// No description provided for @botsPetConvertEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'点她时的反应'**
+  String get botsPetConvertEvents;
+
+  /// No description provided for @botsPetConvertNoMotions.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个模型没有自带动作，只能用封面待着。'**
+  String get botsPetConvertNoMotions;
+
+  /// No description provided for @botsPetConvertIgnored.
+  ///
+  /// In zh, this message translates to:
+  /// **'有 {count} 个动作没用上'**
+  String botsPetConvertIgnored(int count);
+
+  /// No description provided for @botsPetConvertAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'按名字自动匹配'**
+  String get botsPetConvertAuto;
+
+  /// No description provided for @botsPetConvertSwap.
+  ///
+  /// In zh, this message translates to:
+  /// **'互换两个状态'**
+  String get botsPetConvertSwap;
+
+  /// No description provided for @botsPetConvertSwapPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'先选要换走的状态'**
+  String get botsPetConvertSwapPick;
+
+  /// No description provided for @botsPetConvertSwapPick2.
+  ///
+  /// In zh, this message translates to:
+  /// **'再选要和「{name}」互换的状态'**
+  String botsPetConvertSwapPick2(String name);
+
+  /// No description provided for @botsPetConvertPet.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成宠物包并换上'**
+  String get botsPetConvertPet;
+
+  /// No description provided for @botsPetConvertPetHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型文件夹会一起打进去，手机上要先装过 Live2D 运行库'**
+  String get botsPetConvertPetHint;
+
+  /// No description provided for @botsPetConvertRoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成伙伴小屋包'**
+  String get botsPetConvertRoom;
+
+  /// No description provided for @botsPetConvertRoomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'存到手机的 Download，去伙伴小屋安装'**
+  String get botsPetConvertRoomHint;
+
+  /// No description provided for @botsPetConvertPetDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」已经是你的宠物了'**
+  String botsPetConvertPetDone(String name);
+
+  /// No description provided for @botsPetConvertRoomDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已存到 {path}，去伙伴小屋 › 安装素材包导入'**
+  String botsPetConvertRoomDone(String path);
+
+  /// No description provided for @botsPetConvertFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没做成：{detail}'**
+  String botsPetConvertFailed(String detail);
+
+  /// No description provided for @botsPetConvertMapping.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态动作还没配好：{problem}'**
+  String botsPetConvertMapping(String problem);
+
+  /// No description provided for @botsPetConvertNeedIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'「待机」还没有动作：她空着的时候一直用它'**
+  String get botsPetConvertNeedIdle;
+
+  /// No description provided for @botsPetConvertChooseMotion.
+  ///
+  /// In zh, this message translates to:
+  /// **'挑一个动作'**
+  String get botsPetConvertChooseMotion;
+
+  /// No description provided for @botsPetConvertPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'试播'**
+  String get botsPetConvertPreview;
+
+  /// No description provided for @botsPetConvertPreviewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'试播「{name}」'**
+  String botsPetConvertPreviewTitle(String name);
+
+  /// No description provided for @botsPetConvertPreviewHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'试播要用手机里的 Live2D 运行库（伙伴小屋的完整素材包）。这里只是看着玩，不会改动模型，也不会安装。'**
+  String get botsPetConvertPreviewHint;
+
+  /// No description provided for @botsPetConvertTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型太大：{size}'**
+  String botsPetConvertTooLarge(String size);
+
+  /// No description provided for @botsPetConvertTooLargeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'转换最多读 {cap} 的压缩包：再大手机还没开始读就会先没内存。先用 AI 把它压小，再回来选。'**
+  String botsPetConvertTooLargeHint(String cap);
+
+  /// No description provided for @botsPetConvertTooLargeCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制给 AI 的压小说明'**
+  String get botsPetConvertTooLargeCopy;
+
+  /// No description provided for @botsPetConvertTooLargeCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制，发给 AI 就行'**
+  String get botsPetConvertTooLargeCopied;
+
+  /// No description provided for @botsPetConvertTooLargePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'请你把这个 Live2D 模型压小到 160 MB 以内，好让 dsh-Go 的转换器能读：把 4096 的贴图降到 2048 或 1024；删掉 .mp3 和 .wav；只保留 *.model3.json、*.moc3、*.physics3.json、*.pose3.json、*.cdi3.json、*.motion3.json、*.exp3.json 和贴图；用不到的表情和动作也可以删；最后重新打成一个 zip，根目录直接放这些文件（或者只套一层文件夹）。'**
+  String get botsPetConvertTooLargePrompt;
+
+  /// No description provided for @botsPetStateIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待机'**
+  String get botsPetStateIdle;
+
+  /// No description provided for @botsPetStateThinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'思考'**
+  String get botsPetStateThinking;
+
+  /// No description provided for @botsPetStateWorking.
+  ///
+  /// In zh, this message translates to:
+  /// **'工作'**
+  String get botsPetStateWorking;
+
+  /// No description provided for @botsPetStateJuggling.
+  ///
+  /// In zh, this message translates to:
+  /// **'同时做几件事'**
+  String get botsPetStateJuggling;
+
+  /// No description provided for @botsPetStateSweeping.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理'**
+  String get botsPetStateSweeping;
+
+  /// No description provided for @botsPetStateNotification.
+  ///
+  /// In zh, this message translates to:
+  /// **'有新消息'**
+  String get botsPetStateNotification;
+
+  /// No description provided for @botsPetStateAttention.
+  ///
+  /// In zh, this message translates to:
+  /// **'在叫你'**
+  String get botsPetStateAttention;
+
+  /// No description provided for @botsPetStateError.
+  ///
+  /// In zh, this message translates to:
+  /// **'出错'**
+  String get botsPetStateError;
+
+  /// No description provided for @botsPetStateCarrying.
+  ///
+  /// In zh, this message translates to:
+  /// **'搬东西'**
+  String get botsPetStateCarrying;
+
+  /// No description provided for @botsPetStateSleeping.
+  ///
+  /// In zh, this message translates to:
+  /// **'睡觉'**
+  String get botsPetStateSleeping;
+
+  /// No description provided for @botsPetStateWaking.
+  ///
+  /// In zh, this message translates to:
+  /// **'醒来'**
+  String get botsPetStateWaking;
+
+  /// No description provided for @botsPetReactionTapLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'点左边'**
+  String get botsPetReactionTapLeft;
+
+  /// No description provided for @botsPetReactionTapRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'点右边'**
+  String get botsPetReactionTapRight;
+
+  /// No description provided for @botsPetReactionTickle.
+  ///
+  /// In zh, this message translates to:
+  /// **'挠痒'**
+  String get botsPetReactionTickle;
+
+  /// No description provided for @botsPetReactionAnnoyed.
+  ///
+  /// In zh, this message translates to:
+  /// **'被惹到'**
+  String get botsPetReactionAnnoyed;
+
+  /// No description provided for @botsPetReactionDrag.
+  ///
+  /// In zh, this message translates to:
+  /// **'被拖动'**
+  String get botsPetReactionDrag;
 
   /// No description provided for @botsPetImportDone.
   ///
@@ -5521,6 +5893,24 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'这个宠物包太大了'**
   String get botsPetImportTooLarge;
+
+  /// No description provided for @botsPetImportLive2dModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'Live2D 模型缺失或读不了：{detail}'**
+  String botsPetImportLive2dModel(String detail);
+
+  /// No description provided for @botsPetImportLive2dPoster.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面图 poster.png 缺失、不是 PNG，或者尺寸和 canvas 不一致'**
+  String get botsPetImportLive2dPoster;
+
+  /// No description provided for @botsPetExportLive2d.
+  ///
+  /// In zh, this message translates to:
+  /// **'这只宠物是 Live2D 的，模型文件夹没办法打进宠物卡片。导出后只会得到一张封面图，所以这里先不导出。'**
+  String get botsPetExportLive2d;
 
   /// No description provided for @botsPetImportStorage.
   ///
@@ -10643,7 +11033,7 @@ abstract class L10n {
   /// No description provided for @companionPackLegacyModel.
   ///
   /// In zh, this message translates to:
-  /// **'这是 Cubism 2 的旧模型（.moc 和 model.json），手机上的运行库只认 Cubism 3 以后的 .moc3。用 Cubism Editor 打开后导出成 moc3 再导入就行。'**
+  /// **'包里只有 .moc，没有 model.json。Cubism 2 模型要把 model.json、.moc 和贴图一起打包；现在的版本已经支持 Cubism 2，缺的是描述文件。'**
   String get companionPackLegacyModel;
 
   /// No description provided for @companionFailedMocVersion.
@@ -20276,6 +20666,180 @@ abstract class L10n {
   /// **'更换'**
   String get nearbyChange;
 
+  /// No description provided for @pendantBalance.
+  ///
+  /// In zh, this message translates to:
+  /// **'余额'**
+  String get pendantBalance;
+
+  /// No description provided for @pendantNoKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有填密钥'**
+  String get pendantNoKey;
+
+  /// No description provided for @pendantOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时查不到'**
+  String get pendantOffline;
+
+  /// No description provided for @pendantInvalidKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'密钥无效'**
+  String get pendantInvalidKey;
+
+  /// No description provided for @pendantChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'查询中…'**
+  String get pendantChecking;
+
+  /// No description provided for @pendantGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'赠金'**
+  String get pendantGranted;
+
+  /// No description provided for @pendantToppedUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'充值'**
+  String get pendantToppedUp;
+
+  /// No description provided for @pendantTopUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'去充值'**
+  String get pendantTopUp;
+
+  /// No description provided for @pendantLow.
+  ///
+  /// In zh, this message translates to:
+  /// **'余额不多了'**
+  String get pendantLow;
+
+  /// No description provided for @pendantValley.
+  ///
+  /// In zh, this message translates to:
+  /// **'谷'**
+  String get pendantValley;
+
+  /// No description provided for @pendantPeak.
+  ///
+  /// In zh, this message translates to:
+  /// **'峰'**
+  String get pendantPeak;
+
+  /// No description provided for @pendantTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'余额小鲸鱼'**
+  String get pendantTitle;
+
+  /// No description provided for @pendantArtTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色'**
+  String get pendantArtTitle;
+
+  /// No description provided for @pendantArtHead.
+  ///
+  /// In zh, this message translates to:
+  /// **'内置头像'**
+  String get pendantArtHead;
+
+  /// No description provided for @pendantArtCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义图片'**
+  String get pendantArtCustom;
+
+  /// No description provided for @pendantArtPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选一张图…'**
+  String get pendantArtPick;
+
+  /// No description provided for @pendantSoundTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'音效'**
+  String get pendantSoundTitle;
+
+  /// No description provided for @pendantSoundDuck.
+  ///
+  /// In zh, this message translates to:
+  /// **'小黄鸭'**
+  String get pendantSoundDuck;
+
+  /// No description provided for @pendantSoundFx1.
+  ///
+  /// In zh, this message translates to:
+  /// **'音效一'**
+  String get pendantSoundFx1;
+
+  /// No description provided for @pendantSoundOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'静音'**
+  String get pendantSoundOff;
+
+  /// No description provided for @pendantSoundCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义音频'**
+  String get pendantSoundCustom;
+
+  /// No description provided for @pendantSoundPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选一段音频…'**
+  String get pendantSoundPick;
+
+  /// No description provided for @pendantLinesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'气泡台词'**
+  String get pendantLinesTitle;
+
+  /// No description provided for @pendantLinesHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'一行一句，点气泡随机说一句'**
+  String get pendantLinesHint;
+
+  /// No description provided for @pendantLinesEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑台词'**
+  String get pendantLinesEdit;
+
+  /// No description provided for @pendantLinesReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get pendantLinesReset;
+
+  /// No description provided for @pendantResetPlace.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到左下角'**
+  String get pendantResetPlace;
+
+  /// No description provided for @pendantPickFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能读取这个文件'**
+  String get pendantPickFailed;
+
+  /// No description provided for @pendantPickUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张图读不出来，换 PNG / JPEG / WebP 试试'**
+  String get pendantPickUnsupported;
+
   /// No description provided for @performanceTitle.
   ///
   /// In zh, this message translates to:
@@ -26084,6 +26648,42 @@ abstract class L10n {
   /// **'配色'**
   String get pluginsColors;
 
+  /// No description provided for @pluginsLook.
+  ///
+  /// In zh, this message translates to:
+  /// **'材质与文字'**
+  String get pluginsLook;
+
+  /// No description provided for @pluginsLookHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'不透明度与模糊作用于玻璃面板和卡片；字体颜色只改文字。'**
+  String get pluginsLookHint;
+
+  /// No description provided for @pluginsOpacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'不透明度'**
+  String get pluginsOpacity;
+
+  /// No description provided for @pluginsBlur.
+  ///
+  /// In zh, this message translates to:
+  /// **'模糊'**
+  String get pluginsBlur;
+
+  /// No description provided for @pluginsFontColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'字体颜色'**
+  String get pluginsFontColor;
+
+  /// No description provided for @pluginsFollowTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随主题'**
+  String get pluginsFollowTheme;
+
   /// No description provided for @pluginsFeatureIcons.
   ///
   /// In zh, this message translates to:
@@ -31346,6 +31946,12 @@ abstract class L10n {
   /// **'外观,配色,颜色,主题色,强调色,图标'**
   String get searchKwTheme;
 
+  /// No description provided for @searchKwLook.
+  ///
+  /// In zh, this message translates to:
+  /// **'透明度,模糊,磨砂,玻璃,面板,字体颜色,文字颜色'**
+  String get searchKwLook;
+
   /// No description provided for @searchKwPets.
   ///
   /// In zh, this message translates to:
@@ -31657,6 +32263,12 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'宠物大小,宠物尺寸'**
   String get searchKwPetSize;
+
+  /// No description provided for @searchKwPetOverlaySize.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮窗大小,宠物悬浮窗大小'**
+  String get searchKwPetOverlaySize;
 
   /// No description provided for @searchKwPetQuiet.
   ///
@@ -34676,11 +35288,65 @@ abstract class L10n {
   /// **'显示起始页的聊天建议'**
   String get hubChatSuggestionsHint;
 
+  /// No description provided for @hubChatTips.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用提示'**
+  String get hubChatTips;
+
+  /// No description provided for @hubChatTipsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示起始页底部的使用提示'**
+  String get hubChatTipsHint;
+
+  /// No description provided for @searchKwChatTips.
+  ///
+  /// In zh, this message translates to:
+  /// **'起始页,空白页,新对话,提示,使用提示,底部提示'**
+  String get searchKwChatTips;
+
+  /// No description provided for @hubChatTips.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用提示'**
+  String get hubChatTips;
+
+  /// No description provided for @hubChatTipsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示起始页底部的使用提示'**
+  String get hubChatTipsHint;
+
+  /// No description provided for @hubPendant.
+  ///
+  /// In zh, this message translates to:
+  /// **'余额小鲸鱼'**
+  String get hubPendant;
+
+  /// No description provided for @hubPendantHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在输入框上方显示余额挂件，可拖到另一侧'**
+  String get hubPendantHint;
+
+  /// No description provided for @searchKwChatTips.
+  ///
+  /// In zh, this message translates to:
+  /// **'起始页,空白页,新对话,提示,使用提示,底部提示'**
+  String get searchKwChatTips;
+
   /// No description provided for @searchKwChatSuggestions.
   ///
   /// In zh, this message translates to:
   /// **'起始页,空白页,新对话,聊天建议,建议卡片'**
   String get searchKwChatSuggestions;
+
+  /// No description provided for @searchKwPendant.
+  ///
+  /// In zh, this message translates to:
+  /// **'余额,余额挂件,小鲸鱼,充值,钱包,挂件'**
+  String get searchKwPendant;
 
   /// No description provided for @phoneStartupFailureStopping.
   ///
@@ -47546,6 +48212,18 @@ abstract class L10n {
   /// **'自定义'**
   String get wallpaperCustom;
 
+  /// No description provided for @wallpaperVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'循环动态壁纸'**
+  String get wallpaperVideo;
+
+  /// No description provided for @wallpaperJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'.json 动态壁纸'**
+  String get wallpaperJson;
+
   /// No description provided for @wallpaperFrame.
   ///
   /// In zh, this message translates to:
@@ -47576,6 +48254,72 @@ abstract class L10n {
   /// **'更换图片'**
   String get wallpaperReplace;
 
+  /// No description provided for @wallpaperVideoReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换视频'**
+  String get wallpaperVideoReplace;
+
+  /// No description provided for @wallpaperVideoChoose.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择视频'**
+  String get wallpaperVideoChoose;
+
+  /// No description provided for @wallpaperVideoScale.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示方式'**
+  String get wallpaperVideoScale;
+
+  /// No description provided for @wallpaperVideoFill.
+  ///
+  /// In zh, this message translates to:
+  /// **'填满'**
+  String get wallpaperVideoFill;
+
+  /// No description provided for @wallpaperVideoCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'居中'**
+  String get wallpaperVideoCenter;
+
+  /// No description provided for @wallpaperVideoFrame.
+  ///
+  /// In zh, this message translates to:
+  /// **'调整显示位置'**
+  String get wallpaperVideoFrame;
+
+  /// No description provided for @wallpaperJsonReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换 .json 壁纸'**
+  String get wallpaperJsonReplace;
+
+  /// No description provided for @wallpaperJsonTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统时间'**
+  String get wallpaperJsonTime;
+
+  /// No description provided for @wallpaperJsonTimeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'白天、黄昏、晚上各一套动画'**
+  String get wallpaperJsonTimeHint;
+
+  /// No description provided for @wallpaperJsonSample.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例场景'**
+  String get wallpaperJsonSample;
+
+  /// No description provided for @wallpaperJsonPackage.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景包'**
+  String get wallpaperJsonPackage;
+
   /// No description provided for @wallpaperPreview.
   ///
   /// In zh, this message translates to:
@@ -47585,7 +48329,7 @@ abstract class L10n {
   /// No description provided for @wallpaperFooter.
   ///
   /// In zh, this message translates to:
-  /// **'用于首页、对话和抽屉。提亮在浅色模式、压暗在深色模式下各自生效，文字始终清晰。PNG、JPEG、WebP，15 MB 以内'**
+  /// **'用于首页、对话和抽屉。提亮在浅色模式、压暗在深色模式下各自生效，文字始终清晰。PNG、JPEG、WebP，15 MB 以内；循环动态壁纸支持 MP4、WebM，300 MB 以内；.json 壁纸开发文档见 docs\\json-wallpaper.md。'**
   String get wallpaperFooter;
 
   /// No description provided for @wallpaperChanged.
@@ -47617,6 +48361,66 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'无法打开相册'**
   String get wallpaperUnavailable;
+
+  /// No description provided for @wallpaperVideoTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频超过 300 MB'**
+  String get wallpaperVideoTooLarge;
+
+  /// No description provided for @wallpaperVideoUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持 MP4 和 WebM 视频'**
+  String get wallpaperVideoUnsupported;
+
+  /// No description provided for @wallpaperVideoUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取这段视频'**
+  String get wallpaperVideoUnreadable;
+
+  /// No description provided for @wallpaperJsonTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'.json 文件超过 20 MB'**
+  String get wallpaperJsonTooLarge;
+
+  /// No description provided for @wallpaperJsonPackageTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景包超过 300 MB'**
+  String get wallpaperJsonPackageTooLarge;
+
+  /// No description provided for @wallpaperJsonUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取这个 .json 文件'**
+  String get wallpaperJsonUnreadable;
+
+  /// No description provided for @wallpaperJsonInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个 .json 壁纸有问题'**
+  String get wallpaperJsonInvalid;
+
+  /// No description provided for @wallpaperPeriodDay.
+  ///
+  /// In zh, this message translates to:
+  /// **'白天'**
+  String get wallpaperPeriodDay;
+
+  /// No description provided for @wallpaperPeriodDusk.
+  ///
+  /// In zh, this message translates to:
+  /// **'黄昏'**
+  String get wallpaperPeriodDusk;
+
+  /// No description provided for @wallpaperPeriodNight.
+  ///
+  /// In zh, this message translates to:
+  /// **'晚上'**
+  String get wallpaperPeriodNight;
 
   /// No description provided for @wallpaperBroken.
   ///
@@ -47675,7 +48479,7 @@ abstract class L10n {
   /// No description provided for @searchKwWallpaper.
   ///
   /// In zh, this message translates to:
-  /// **'背景,背景图,聊天背景,自定义背景,换背景,模糊,壁纸图片'**
+  /// **'背景,背景图,聊天背景,自定义背景,换背景,模糊,壁纸图片,动态壁纸,视频壁纸,json 壁纸'**
   String get searchKwWallpaper;
 
   /// No description provided for @webTitle.

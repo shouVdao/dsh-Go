@@ -29,6 +29,7 @@ import 'codex_pet_converter.dart';
 import 'overlay_channel.dart' show petOverlayChannelProvider;
 import 'pet_pack.dart';
 import 'pet_pack_validator.dart';
+import 'pet_state.dart';
 import '../workshop/workshop_models.dart';
 import '../workshop/workshop_receipt.dart';
 import '../workshop/workshop_export.dart';
@@ -36,6 +37,7 @@ import '../workshop/workshop_export.dart';
 export 'pet_pack_validator.dart' show petSheetDecodedCap, petSheetSideCap, overlayPackProblem, pngSize, pngIntact;
 
 part 'pet_library_export.dart';
+part 'pet_live2d_install.dart';
 
 /// Ids of brought pets start with this; the built-in ones never do.
 const userPetPrefix = 'user-';
@@ -58,6 +60,15 @@ enum PetImportProblem {
 
   /// A sheet isn't a whole PNG, is too big, or its cells don't fit in it.
   badSheet,
+
+  /// A Live2D pet's model is missing or its descriptor doesn't hold up.
+  live2dModel,
+
+  /// A Live2D pet's poster is missing, not a PNG, or not the canvas's size.
+  live2dPoster,
+
+  /// A Live2D pet has a model folder, which a sprite card export can't carry.
+  live2dExport,
 
   /// Bigger than a pet should be.
   tooLarge,
@@ -100,7 +111,8 @@ class PetLibrary {
   /// Injects one listing read boundary; installs and receipt-fenced removals
   /// still use their real files and the ordinary transaction path.
   @visibleForTesting
-  PetLibrary.withWorkshopReceiptReader(this._root, {
+  PetLibrary.withWorkshopReceiptReader(
+    this._root, {
     required Future<WorkshopReceipt?> Function(Directory) readReceipt,
     this.onRestored,
   }) : _readWorkshopReceipt = readReceipt;
@@ -155,23 +167,30 @@ class PetLibrary {
 
   /// Checks and unpacks [zip]; a pet with the same id is replaced. Returns
   /// its id and whether it replaced one.
-  Future<({String id, bool replaced})> install(File zip, {WorkshopReceipt? workshop, bool replaceExisting = false}) => _exclusive(() async {
-    final root = await _root();
-    await _tidy(root);
-    final (:id, :backup) = await compute(_install, (zip.path, root.path, DateTime.now().microsecondsSinceEpoch,
-      workshop == null ? null : jsonEncode(workshop.toJson()), replaceExisting));
-    // The new one is in: the old one's folder goes when it can (else on a
-    // later tidy), which is no reason to call the install failed.
-    if (backup != null) await _discard(Directory(backup));
-    return (id: id, replaced: backup != null);
-  });
+  Future<({String id, bool replaced})> install(File zip, {WorkshopReceipt? workshop, bool replaceExisting = false}) =>
+      _exclusive(() async {
+        final root = await _root();
+        await _tidy(root);
+        final (:id, :backup) = await compute(_install, (
+          zip.path,
+          root.path,
+          DateTime.now().microsecondsSinceEpoch,
+          workshop == null ? null : jsonEncode(workshop.toJson()),
+          replaceExisting,
+        ));
+        // The new one is in: the old one's folder goes when it can (else on a
+        // later tidy), which is no reason to call the install failed.
+        if (backup != null) await _discard(Directory(backup));
+        return (id: id, replaced: backup != null);
+      });
 
   Future<WorkshopReceipt?> workshopReceipt(String id) => _exclusive(() async {
     if (!isUserPet(id) || !_plainId.hasMatch(id)) workshopInvalid('workshop_install_record');
     final root = await _root();
     await _tidy(root);
     final receipt = await WorkshopReceipt.read(Directory('${root.path}/$id'));
-    if (receipt != null && (receipt.kind != 'pet' || userPetIdFor(receipt.id) != id)) workshopInvalid('workshop_install_record');
+    if (receipt != null && (receipt.kind != 'pet' || userPetIdFor(receipt.id) != id))
+      workshopInvalid('workshop_install_record');
     return receipt;
   });
 
@@ -214,18 +233,32 @@ class PetLibrary {
   /// A normalized schema-1 archive containing only the manifest and its
   /// referenced PNGs. Unknown metadata and local workshop receipts stay out.
   /// Public attribution overrides are explicit, for a new workshop submission.
-  Future<File> exportZip(String id, File destination, {String? publicId, String? author, String? license, String? source}) => _exclusive(() async {
+  Future<File> exportZip(
+    String id,
+    File destination, {
+    String? publicId,
+    String? author,
+    String? license,
+    String? source,
+  }) => _exclusive(() async {
     if (!isUserPet(id) || !_plainId.hasMatch(id)) throw const PetImportException(PetImportProblem.noPack);
     final root = await _root();
     await _tidy(root);
     final target = await workshopExportTarget(destination);
     final output = target.path;
-    final home = await root.exists() ? await root.resolveSymbolicLinks() : root.absolute.uri.normalizePath().toFilePath();
+    final home = await root.exists()
+        ? await root.resolveSymbolicLinks()
+        : root.absolute.uri.normalizePath().toFilePath();
     final prefix = home.endsWith(Platform.pathSeparator) ? home : '$home${Platform.pathSeparator}';
     if (output == home || output.startsWith(prefix)) throw const PetImportException(PetImportProblem.storage);
-    await workshopCommitExport(target, (staging) => compute(_exportPet, ('${root.path}/$id', staging.path, <String, String>{
-      'id': ?publicId, 'author': ?author, 'license': ?license, 'source': ?source,
-    })));
+    await workshopCommitExport(
+      target,
+      (staging) => compute(_exportPet, (
+        '${root.path}/$id',
+        staging.path,
+        <String, String>{'id': ?publicId, 'author': ?author, 'license': ?license, 'source': ?source},
+      )),
+    );
     return destination;
   });
 
@@ -397,6 +430,32 @@ Future<({String id, String? backup})> _install((String, String, int, String?, bo
   final staging = Directory('$rootPath/.staging-$stamp');
   try {
     final archive = PetArchive.read(await _readArchive(File(zipPath)));
+    // A Live2D pack's model folder is kept as it is; only its poster becomes
+    // a sprite. Read here, before the sprite validator would look for sheets.
+    final manifest = archive.manifestPaths('pack.json').firstOrNull;
+    if (manifest != null) {
+      final Map<String, Object?> source;
+      try {
+        final decoded = jsonDecode(utf8.decode(archive.readFile(manifest, maxBytes: petJsonCap)));
+        if (decoded is! Map<String, Object?>) throw const FormatException('pack.json');
+        source = decoded;
+      } on FormatException {
+        throw const PetImportException(PetImportProblem.badPack, 'pack.json');
+      }
+      if (source['type'] == 'live2d') {
+        final folder = manifest.substring(0, manifest.length - 'pack.json'.length);
+        return await _installLive2d(
+          source,
+          archive,
+          folder,
+          staging: staging,
+          rootPath: rootPath,
+          stamp: stamp,
+          receiptJson: receiptJson,
+          replaceExisting: replaceExisting,
+        );
+      }
+    }
     final ValidatedPetPack validated;
     if (archive.manifestPaths('pack.json').isNotEmpty) {
       // A schema-1 manifest is authoritative; a bad pack never falls back to
@@ -409,7 +468,8 @@ Future<({String id, String? backup})> _install((String, String, int, String?, bo
     final json = validated.json, pack = validated.pack, bytes = validated.sheets;
     if (receiptJson != null) {
       final receipt = WorkshopReceipt.fromJson(jsonDecode(receiptJson));
-      if (receipt.kind != 'pet' || receipt.id != pack.id) throw const PetImportException(PetImportProblem.badPack, 'workshop_identity');
+      if (receipt.kind != 'pet' || receipt.id != pack.id)
+        throw const PetImportException(PetImportProblem.badPack, 'workshop_identity');
     }
 
     // Written aside, then swapped in, so a pet is never half there.
@@ -424,7 +484,12 @@ Future<({String id, String? backup})> _install((String, String, int, String?, bo
     await File('${staging.path}/pack.json').writeAsString(jsonEncode(kept), flush: true);
     if (receiptJson != null) await File('${staging.path}/$workshopReceiptName').writeAsString(receiptJson, flush: true);
     final live = Directory('$rootPath/$id');
-    if (receiptJson != null) await workshopCheckReplacement(live, WorkshopReceipt.fromJson(jsonDecode(receiptJson)), replaceExisting: replaceExisting);
+    if (receiptJson != null)
+      await workshopCheckReplacement(
+        live,
+        WorkshopReceipt.fromJson(jsonDecode(receiptJson)),
+        replaceExisting: replaceExisting,
+      );
     final old = Directory('$rootPath/.old-$stamp-$id');
     final replaced = await live.exists();
     if (replaced) await live.rename(old.path);

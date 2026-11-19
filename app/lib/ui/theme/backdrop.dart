@@ -25,8 +25,20 @@ import 'surfaces.dart';
 ///
 /// 给了 [picture](自定义壁纸,lib/ui/wallpaper/wallpaper_backdrop.dart)就画那张
 /// 预先烘好的图,不画渐变;子树里的 [BackdropVeil] 跟着画同一张图。
+///
+/// 给了 [live](循环视频 / .json 动态壁纸)就把它画在渐变之上、内容之下:视频和
+/// 动画自己会动,烘不出图,所以另外盖一层淡淡的本页底色 [liveScrim] 保证字看得清。
+/// 页里的 [BackdropVeil] 拿同一个 [live] 再画一遍自己那一条——和静态图一样,
+/// 内容滑到浮动控件后面时淡出的仍是背景本身,而不是一块底色。
 class AppBackdrop extends StatelessWidget {
-  const AppBackdrop({super.key, required this.child, this.glow = true, this.picture});
+  const AppBackdrop({
+    super.key,
+    required this.child,
+    this.glow = true,
+    this.picture,
+    this.live,
+    this.liveBand = true,
+  });
 
   final Widget child;
 
@@ -36,11 +48,55 @@ class AppBackdrop extends StatelessWidget {
   /// A picture in place of the gradient; null: the gradient.
   final BackdropPicture? picture;
 
+  /// A live background (video / .json scene) drawn over the gradient.
+  final Widget? live;
+
+  /// Whether the [BackdropVeil]s over this may re-draw [live] in their own band.
+  ///
+  /// A .json scene is cheap to paint twice. A video is a whole page of pixels every
+  /// frame: the veil's band would have to build a page-sized layer and mask it, which
+  /// on a phone starves the raster thread and drags the whole page down to zero fps
+  /// while something is being dragged over it. The video wallpaper turns this off and
+  /// the band paints [bandAlpha] of the page's own colour instead.
+  final bool liveBand;
+
+  /// 动态背景(视频)之上那条遮罩的实心端不透明度:视频不重画,只盖一层本页底色。
+  static const bandAlpha = 0.9;
+
+  /// 动态背景上盖的本页底色透明度:浅色页薄一点,深色页厚一点,视频/动画
+  /// 仍然看得见,直接压在背景上的次要文字也不至于糊。
+  static double liveScrim(Brightness brightness) => brightness == Brightness.dark ? 0.52 : 0.4;
+
   @override
   Widget build(BuildContext context) {
     final s = DshSurfaces.of(context);
+    final live = this.live;
+    final scrim = liveScrim(Theme.of(context).brightness);
+    // 视频 / 场景 + 盖在它上面的本页底色,算一张图:页里的 BackdropVeil 拿它
+    // 再画一遍那一条时,画出来的就是背景在该位置的样子。
+    final layer = live == null
+        ? null
+        : Stack(
+            // 由背景那一层的 key 决定换没换(换视频 / 换 .json 文件)。
+            key: live.key,
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(child: IgnorePointer(child: RepaintBoundary(child: live))),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _LiveScrimPainter(top: s.backdropTop, bottom: s.backdropBottom, alpha: scrim),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
     return _BackdropScope(
       picture: picture,
+      live: liveBand ? layer : null,
+      scrimBand: layer != null && !liveBand,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -53,12 +109,13 @@ class AppBackdrop extends StatelessWidget {
                     bottom: s.backdropBottom,
                     glowPrimary: glow ? s.glowPrimary : null,
                     glowSecondary: glow ? s.glowSecondary : null,
-                    picture: picture,
+                    picture: live == null ? picture : null,
                   ),
                 ),
               ),
             ),
           ),
+          if (layer != null) Positioned.fill(child: IgnorePointer(child: layer)),
           Material(type: MaterialType.transparency, child: child),
         ],
       ),
@@ -86,17 +143,37 @@ class BackdropPicture {
   int get hashCode => Object.hash(image, from, fade);
 }
 
-/// The picture of the nearest [AppBackdrop], for the [BackdropVeil]s over it.
+/// The picture and the live layer of the nearest [AppBackdrop], for the [BackdropVeil]s over it.
 class _BackdropScope extends InheritedWidget {
-  const _BackdropScope({required this.picture, required super.child});
+  const _BackdropScope({
+    required this.picture,
+    required this.live,
+    this.scrimBand = false,
+    required super.child,
+  });
 
   final BackdropPicture? picture;
+
+  /// 背景是动态的(视频 / .json 场景):遮罩拿这一层原样再画一遍,而不是重画背景。
+  final Widget? live;
+
+  /// 背景是动态的、但重画太贵(视频):遮罩不画背景,只盖一层本页底色。
+  final bool scrimBand;
 
   static BackdropPicture? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_BackdropScope>()?.picture;
 
+  static Widget? liveOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_BackdropScope>()?.live;
+
+  static bool scrimBandOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_BackdropScope>()?.scrimBand ?? false;
+
   @override
-  bool updateShouldNotify(_BackdropScope old) => old.picture != picture;
+  bool updateShouldNotify(_BackdropScope old) =>
+      old.picture != picture ||
+      old.scrimBand != scrimBand ||
+      old.live?.key != live?.key ||
+      old.live?.runtimeType != live?.runtimeType;
 }
 
 /// [AppBackdrop] 的一角:同一张背景,只画底部 [solidHeight] + [feather] 这一条,
@@ -134,6 +211,22 @@ class BackdropVeil extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = DshSurfaces.of(context);
     final frame = BackdropFrame.maybeOf(context);
+    final live = _BackdropScope.liveOf(context);
+    if (live != null) {
+      // 动态背景:把同一层背景(同一个控制器 / 引擎)裁成这一条再淡出,内容和
+      // 静态图时一样淡进背景本身。
+      return IgnorePointer(
+        child: _LiveBand(
+          solidHeight: solidHeight,
+          feather: feather,
+          fromTop: fromTop,
+          area: frame?.area,
+          origin: frame?.origin ?? Offset.zero,
+          live: live,
+        ),
+      );
+    }
+    final scrimBand = live == null && _BackdropScope.scrimBandOf(context);
     return IgnorePointer(
       child: CustomPaint(
         size: Size.infinite,
@@ -142,10 +235,12 @@ class BackdropVeil extends StatelessWidget {
           feather: feather,
           fromTop: fromTop,
           backdrop: _BackdropPainter(
-            top: s.backdropTop,
-            bottom: s.backdropBottom,
-            glowPrimary: glow ? s.glowPrimary : null,
-            glowSecondary: glow ? s.glowSecondary : null,
+            // 视频背景:整页背景每帧重画一次再套遮罩太贵(见 AppBackdrop.liveBand),
+            // 这一条改成盖本页底色,底下那段视频照常透出来。
+            top: scrimBand ? s.backdropTop.withValues(alpha: AppBackdrop.bandAlpha) : s.backdropTop,
+            bottom: scrimBand ? s.backdropBottom.withValues(alpha: AppBackdrop.bandAlpha) : s.backdropBottom,
+            glowPrimary: !scrimBand && glow ? s.glowPrimary : null,
+            glowSecondary: !scrimBand && glow ? s.glowSecondary : null,
             area: frame?.area ?? MediaQuery.sizeOf(context),
             origin: frame?.origin ?? Offset.zero,
             picture: _BackdropScope.of(context),
@@ -154,6 +249,105 @@ class BackdropVeil extends StatelessWidget {
       ),
     );
   }
+}
+
+/// [BackdropVeil] 的动态背景版:同一条带子,画的是 [live] 本身。
+class _LiveBand extends StatelessWidget {
+  const _LiveBand({
+    required this.solidHeight,
+    required this.feather,
+    required this.fromTop,
+    required this.live,
+    this.area,
+    this.origin = Offset.zero,
+  });
+
+  final ValueListenable<double> solidHeight;
+  final double feather;
+  final bool fromTop;
+  final Widget live;
+
+  /// 分栏布局里这一栏在整张背景里的位置,与 [_BackdropPainter] 一致。
+  final Size? area;
+  final Offset origin;
+
+  @override
+  Widget build(BuildContext context) {
+    // 整张背景多大:分栏布局由 [BackdropFrame] 告知,否则就是整页。
+    final page = area ?? MediaQuery.sizeOf(context);
+    final live = this.live;
+    // 遮罩本身可能只是页面顶上的一小条(page_frame 的 TopFade):把整页大小的
+    // 背景按 -origin 摆回它在页面里的位置,而不是压进这一条里。
+    final content = OverflowBox(
+      alignment: Alignment.topLeft,
+      minWidth: 0,
+      minHeight: 0,
+      maxWidth: double.infinity,
+      maxHeight: double.infinity,
+      child: Transform.translate(
+        offset: -origin,
+        child: SizedBox(width: page.width, height: page.height, child: live),
+      ),
+    );
+    return ValueListenableBuilder<double>(
+      valueListenable: solidHeight,
+      builder: (context, solid, child) => LayoutBuilder(
+        builder: (context, constraints) {
+          final band = (solid + feather).clamp(0.0, page.height);
+          if (band <= 0 || page.isEmpty) return const SizedBox.shrink();
+          final rect = (fromTop
+                  ? Rect.fromLTWH(0, 0, page.width, band)
+                  : Rect.fromLTWH(0, page.height - band, page.width, band))
+              .shift(-origin);
+          final fade = (feather / band).clamp(0.0, 1.0);
+          // 与 [_VeilPainter] 同一条缓动:实心端 1,淡出端 0。
+          const samples = 8;
+          final stops = <double>[];
+          final alphas = <double>[];
+          if (fromTop) {
+            stops.add(0);
+            alphas.add(1);
+          }
+          for (var i = 0; i <= samples; i++) {
+            final t = i / samples;
+            stops.add(fromTop ? 1 - fade + fade * t : fade * t);
+            alphas.add(fromTop ? 1 - Curves.easeInOutCubic.transform(t) : Curves.easeInOutCubic.transform(t));
+          }
+          if (!fromTop) {
+            stops.add(1);
+            alphas.add(1);
+          }
+          return ClipRect(
+            clipper: _BandClipper(rect),
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (bounds) => LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [for (final alpha in alphas) Colors.black.withValues(alpha: alpha)],
+                stops: stops,
+              ).createShader(rect),
+              child: child,
+            ),
+          );
+        },
+      ),
+      child: content,
+    );
+  }
+}
+
+/// 只留一条:动态背景版的遮罩按这条带子裁剪。
+class _BandClipper extends CustomClipper<Rect> {
+  const _BandClipper(this.rect);
+
+  final Rect rect;
+
+  @override
+  Rect getClip(Size size) => rect;
+
+  @override
+  bool shouldReclip(_BandClipper oldClipper) => oldClipper.rect != rect;
 }
 
 /// A fixed height for [BackdropVeil.top].
@@ -178,8 +372,12 @@ class _FixedHeight implements ValueListenable<double> {
 
 /// [BackdropVeil] 的一条:底部实心,往上缓缓淡出(顶部版反过来)。
 class _VeilPainter extends CustomPainter {
-  _VeilPainter({required this.solidHeight, required this.feather, required this.backdrop, this.fromTop = false})
-    : super(repaint: backdrop.picture == null ? solidHeight : Listenable.merge([solidHeight, backdrop.picture!.fade]));
+  _VeilPainter({
+    required this.solidHeight,
+    required this.feather,
+    required this.backdrop,
+    this.fromTop = false,
+  }) : super(repaint: backdrop.picture == null ? solidHeight : Listenable.merge([solidHeight, backdrop.picture!.fade]));
 
   final ValueListenable<double> solidHeight;
   final double feather;
@@ -197,20 +395,20 @@ class _VeilPainter extends CustomPainter {
     // Eased ramp: a linear one reads as a crease at both ends.
     const samples = 8;
     final stops = <double>[];
-    final colors = <Color>[];
+    final alphas = <double>[];
     if (fromTop) {
       stops.add(0);
-      colors.add(Colors.black);
+      alphas.add(1);
     }
     for (var i = 0; i <= samples; i++) {
       final t = i / samples;
       stops.add(fromTop ? 1 - fade + fade * t : fade * t);
-      final alpha = Curves.easeInOutCubic.transform(t);
-      colors.add(Colors.black.withValues(alpha: fromTop ? 1 - alpha : alpha));
+      final eased = Curves.easeInOutCubic.transform(t);
+      alphas.add(fromTop ? 1 - eased : eased);
     }
     if (!fromTop) {
       stops.add(1);
-      colors.add(Colors.black);
+      alphas.add(1);
     }
 
     canvas.saveLayer(rect, Paint());
@@ -224,7 +422,7 @@ class _VeilPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: colors,
+          colors: [for (final alpha in alphas) Colors.black.withValues(alpha: alpha)],
           stops: stops,
         ).createShader(rect),
     );
@@ -343,4 +541,31 @@ class _BackdropPainter extends CustomPainter {
       old.area != area ||
       old.origin != origin ||
       old.picture != picture;
+}
+
+/// 动态背景(video / .json)之上的一层本页底色:画面还看得见,压在背景上的
+/// 次要文字也不至于糊成一片。
+class _LiveScrimPainter extends CustomPainter {
+  _LiveScrimPainter({required this.top, required this.bottom, required this.alpha});
+
+  final Color top;
+  final Color bottom;
+  final double alpha;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top.withValues(alpha: alpha), bottom.withValues(alpha: alpha * 0.78)],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_LiveScrimPainter old) => old.top != top || old.bottom != bottom || old.alpha != alpha;
 }

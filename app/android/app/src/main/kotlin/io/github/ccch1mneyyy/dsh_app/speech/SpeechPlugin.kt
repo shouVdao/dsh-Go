@@ -227,7 +227,14 @@ class SpeechPlugin : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandl
         endCall()
         mic = MicArbiter.beginDictation()
         val marks = NativeTrial.marks(context.getSharedPreferences("speech_native", Context.MODE_PRIVATE))
-        val c = CallCapture(main, captureListener) { SpeechGates.create(context.assets, it, marks) }
+        // `onStop` reads the gate's breaker entry: an ONNX abort inside the
+        // gate kills the process, so the entry has to survive the call.
+        val c = CallCapture(
+            main,
+            captureListener,
+            createGate = { SpeechGates.create(context.assets, it, marks) },
+            onStop = { SpeechGates.settled() },
+        )
         c.bargeIn = bargeIn
         c.pause = pause
         val am = audio

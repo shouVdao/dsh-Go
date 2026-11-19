@@ -2855,6 +2855,15 @@ class L10nZh extends L10n {
   String get botsPetOverlayFramingHint => '换取景会重新加载她';
 
   @override
+  String get botsPetOverlaySize => '悬浮窗大小';
+
+  @override
+  String get botsPetOverlaySizeHint => '只影响 App 外的宠物；聊天页里的「大小」单独调整';
+
+  @override
+  String get botsPetOverlayCustomSize => '自定义悬浮窗大小';
+
+  @override
   String get botsPetSwitchDisabled => '开关点不动';
 
   @override
@@ -2897,10 +2906,210 @@ class L10nZh extends L10n {
   String get botsPetImportHint => '导入你自己的像素宠物：一个 zip，里面是 pack.json 和序列帧 PNG，格式见仓库里的 docs/design/pets.md。长按导入的宠物可以删除。';
 
   @override
-  String get botsPetMake => '让 AI 做一只宠物';
+  String get botsPetConvertEntry => '转换 Live2D 模型';
 
   @override
-  String get botsPetMakeSubtitle => '把 GIF、表情包或主题转成宠物包';
+  String get botsPetConvertEntrySub => '把外来的 Live2D 模型做成宠物包或伙伴小屋素材包';
+
+  @override
+  String get botsPetConvertPick => '选择模型压缩包';
+
+  @override
+  String get botsPetConvertPickHint => '把 Live2D 模型的文件夹打成 zip：根目录直接是模型文件，或者外面只套一层文件夹。';
+
+  @override
+  String get botsPetConvertPickSubtitle => '还没选';
+
+  @override
+  String get botsPetConvertWorking => '正在读取模型…';
+
+  @override
+  String get botsPetConvertModel => '模型';
+
+  @override
+  String get botsPetConvertFiles => '文件';
+
+  @override
+  String botsPetConvertCount(int count, String size) {
+    return '$count 个 · $size';
+  }
+
+  @override
+  String get botsPetConvertTextures => '贴图';
+
+  @override
+  String get botsPetConvertMotions => '动作';
+
+  @override
+  String get botsPetConvertExpressions => '表情';
+
+  @override
+  String get botsPetConvertMotionList => '模型自带的动作';
+
+  @override
+  String get botsPetConvertPhysicsOnly => '只动物理参数，几乎看不出在动';
+
+  @override
+  String get botsPetConvertLoop => '循环';
+
+  @override
+  String get botsPetConvertOnce => '只播一次';
+
+  @override
+  String get botsPetConvertMap => '每个状态用哪个动作';
+
+  @override
+  String get botsPetConvertMapDone => '每个状态都挑好了。想换位置，用下面的「互换」。';
+
+  @override
+  String botsPetConvertMissing(String names) {
+    return '还没实现的：$names';
+  }
+
+  @override
+  String get botsPetConvertNone => '不实现';
+
+  @override
+  String get botsPetConvertEvents => '点她时的反应';
+
+  @override
+  String get botsPetConvertNoMotions => '这个模型没有自带动作，只能用封面待着。';
+
+  @override
+  String botsPetConvertIgnored(int count) {
+    return '有 $count 个动作没用上';
+  }
+
+  @override
+  String get botsPetConvertAuto => '按名字自动匹配';
+
+  @override
+  String get botsPetConvertSwap => '互换两个状态';
+
+  @override
+  String get botsPetConvertSwapPick => '先选要换走的状态';
+
+  @override
+  String botsPetConvertSwapPick2(String name) {
+    return '再选要和「$name」互换的状态';
+  }
+
+  @override
+  String get botsPetConvertPet => '生成宠物包并换上';
+
+  @override
+  String get botsPetConvertPetHint => '模型文件夹会一起打进去，手机上要先装过 Live2D 运行库';
+
+  @override
+  String get botsPetConvertRoom => '生成伙伴小屋包';
+
+  @override
+  String get botsPetConvertRoomHint => '存到手机的 Download，去伙伴小屋安装';
+
+  @override
+  String botsPetConvertPetDone(String name) {
+    return '「$name」已经是你的宠物了';
+  }
+
+  @override
+  String botsPetConvertRoomDone(String path) {
+    return '已存到 $path，去伙伴小屋 › 安装素材包导入';
+  }
+
+  @override
+  String botsPetConvertFailed(String detail) {
+    return '没做成：$detail';
+  }
+
+  @override
+  String botsPetConvertMapping(String problem) {
+    return '状态动作还没配好：$problem';
+  }
+
+  @override
+  String get botsPetConvertNeedIdle => '「待机」还没有动作：她空着的时候一直用它';
+
+  @override
+  String get botsPetConvertChooseMotion => '挑一个动作';
+
+  @override
+  String get botsPetConvertPreview => '试播';
+
+  @override
+  String botsPetConvertPreviewTitle(String name) {
+    return '试播「$name」';
+  }
+
+  @override
+  String get botsPetConvertPreviewHint => '试播要用手机里的 Live2D 运行库（伙伴小屋的完整素材包）。这里只是看着玩，不会改动模型，也不会安装。';
+
+  @override
+  String botsPetConvertTooLarge(String size) {
+    return '模型太大：$size';
+  }
+
+  @override
+  String botsPetConvertTooLargeHint(String cap) {
+    return '转换最多读 $cap 的压缩包：再大手机还没开始读就会先没内存。先用 AI 把它压小，再回来选。';
+  }
+
+  @override
+  String get botsPetConvertTooLargeCopy => '复制给 AI 的压小说明';
+
+  @override
+  String get botsPetConvertTooLargeCopied => '已复制，发给 AI 就行';
+
+  @override
+  String get botsPetConvertTooLargePrompt =>
+      '请你把这个 Live2D 模型压小到 160 MB 以内，好让 dsh-Go 的转换器能读：把 4096 的贴图降到 2048 或 1024；删掉 .mp3 和 .wav；只保留 *.model3.json、*.moc3、*.physics3.json、*.pose3.json、*.cdi3.json、*.motion3.json、*.exp3.json 和贴图；用不到的表情和动作也可以删；最后重新打成一个 zip，根目录直接放这些文件（或者只套一层文件夹）。';
+
+  @override
+  String get botsPetStateIdle => '待机';
+
+  @override
+  String get botsPetStateThinking => '思考';
+
+  @override
+  String get botsPetStateWorking => '工作';
+
+  @override
+  String get botsPetStateJuggling => '同时做几件事';
+
+  @override
+  String get botsPetStateSweeping => '清理';
+
+  @override
+  String get botsPetStateNotification => '有新消息';
+
+  @override
+  String get botsPetStateAttention => '在叫你';
+
+  @override
+  String get botsPetStateError => '出错';
+
+  @override
+  String get botsPetStateCarrying => '搬东西';
+
+  @override
+  String get botsPetStateSleeping => '睡觉';
+
+  @override
+  String get botsPetStateWaking => '醒来';
+
+  @override
+  String get botsPetReactionTapLeft => '点左边';
+
+  @override
+  String get botsPetReactionTapRight => '点右边';
+
+  @override
+  String get botsPetReactionTickle => '挠痒';
+
+  @override
+  String get botsPetReactionAnnoyed => '被惹到';
+
+  @override
+  String get botsPetReactionDrag => '被拖动';
 
   @override
   String botsPetImportDone(String name) {
@@ -2982,6 +3191,17 @@ class L10nZh extends L10n {
 
   @override
   String get botsPetImportTooLarge => '这个宠物包太大了';
+
+  @override
+  String botsPetImportLive2dModel(String detail) {
+    return 'Live2D 模型缺失或读不了：$detail';
+  }
+
+  @override
+  String get botsPetImportLive2dPoster => '封面图 poster.png 缺失、不是 PNG，或者尺寸和 canvas 不一致';
+
+  @override
+  String get botsPetExportLive2d => '这只宠物是 Live2D 的，模型文件夹没办法打进宠物卡片。导出后只会得到一张封面图，所以这里先不导出。';
 
   @override
   String get botsPetImportStorage => '没能存到手机上，再试一次';
@@ -5731,7 +5951,7 @@ class L10nZh extends L10n {
 
   @override
   String get companionPackLegacyModel =>
-      '这是 Cubism 2 的旧模型（.moc 和 model.json），手机上的运行库只认 Cubism 3 以后的 .moc3。用 Cubism Editor 打开后导出成 moc3 再导入就行。';
+      '包里只有 .moc，没有 model.json。Cubism 2 模型要把 model.json、.moc 和贴图一起打包；现在的版本已经支持 Cubism 2，缺的是描述文件。';
 
   @override
   String companionFailedMocVersion(String version, String latest) {
@@ -10925,6 +11145,93 @@ class L10nZh extends L10n {
   String get nearbyChange => '更换';
 
   @override
+  String get pendantBalance => '余额';
+
+  @override
+  String get pendantNoKey => '还没有填密钥';
+
+  @override
+  String get pendantOffline => '暂时查不到';
+
+  @override
+  String get pendantInvalidKey => '密钥无效';
+
+  @override
+  String get pendantChecking => '查询中…';
+
+  @override
+  String get pendantGranted => '赠金';
+
+  @override
+  String get pendantToppedUp => '充值';
+
+  @override
+  String get pendantTopUp => '去充值';
+
+  @override
+  String get pendantLow => '余额不多了';
+
+  @override
+  String get pendantValley => '谷';
+
+  @override
+  String get pendantPeak => '峰';
+
+  @override
+  String get pendantTitle => '余额小鲸鱼';
+
+  @override
+  String get pendantArtTitle => '角色';
+
+  @override
+  String get pendantArtHead => '内置头像';
+
+  @override
+  String get pendantArtCustom => '自定义图片';
+
+  @override
+  String get pendantArtPick => '选一张图…';
+
+  @override
+  String get pendantSoundTitle => '音效';
+
+  @override
+  String get pendantSoundDuck => '小黄鸭';
+
+  @override
+  String get pendantSoundFx1 => '音效一';
+
+  @override
+  String get pendantSoundOff => '静音';
+
+  @override
+  String get pendantSoundCustom => '自定义音频';
+
+  @override
+  String get pendantSoundPick => '选一段音频…';
+
+  @override
+  String get pendantLinesTitle => '气泡台词';
+
+  @override
+  String get pendantLinesHint => '一行一句，点气泡随机说一句';
+
+  @override
+  String get pendantLinesEdit => '编辑台词';
+
+  @override
+  String get pendantLinesReset => '恢复默认';
+
+  @override
+  String get pendantResetPlace => '回到左下角';
+
+  @override
+  String get pendantPickFailed => '没能读取这个文件';
+
+  @override
+  String get pendantPickUnsupported => '这张图读不出来，换 PNG / JPEG / WebP 试试';
+
+  @override
   String get performanceTitle => '性能';
 
   @override
@@ -14123,6 +14430,24 @@ class L10nZh extends L10n {
   String get pluginsColors => '配色';
 
   @override
+  String get pluginsLook => '材质与文字';
+
+  @override
+  String get pluginsLookHint => '不透明度与模糊作用于玻璃面板和卡片；字体颜色只改文字。';
+
+  @override
+  String get pluginsOpacity => '不透明度';
+
+  @override
+  String get pluginsBlur => '模糊';
+
+  @override
+  String get pluginsFontColor => '字体颜色';
+
+  @override
+  String get pluginsFollowTheme => '跟随主题';
+
+  @override
   String get pluginsFeatureIcons => '功能图标';
 
   @override
@@ -17078,6 +17403,9 @@ class L10nZh extends L10n {
   String get searchKwTheme => '外观,配色,颜色,主题色,强调色,图标';
 
   @override
+  String get searchKwLook => '透明度,模糊,磨砂,玻璃,面板,字体颜色,文字颜色';
+
+  @override
   String get searchKwPets => '宠物,小鲸,桌宠,悬浮,鲸鱼';
 
   @override
@@ -17232,6 +17560,9 @@ class L10nZh extends L10n {
 
   @override
   String get searchKwPetSize => '宠物大小,宠物尺寸';
+
+  @override
+  String get searchKwPetOverlaySize => '悬浮窗大小,宠物悬浮窗大小';
 
   @override
   String get searchKwPetQuiet => '安静,宠物安静';
@@ -18872,7 +19203,34 @@ class L10nZh extends L10n {
   String get hubChatSuggestionsHint => '显示起始页的聊天建议';
 
   @override
+  String get hubChatTips => '使用提示';
+
+  @override
+  String get hubChatTipsHint => '显示起始页底部的使用提示';
+
+  @override
+  String get searchKwChatTips => '起始页,空白页,新对话,提示,使用提示,底部提示';
+
+  @override
+  String get hubChatTips => '使用提示';
+
+  @override
+  String get hubChatTipsHint => '显示起始页底部的使用提示';
+
+  @override
+  String get hubPendant => '余额小鲸鱼';
+
+  @override
+  String get hubPendantHint => '在输入框上方显示余额挂件，可拖到另一侧';
+
+  @override
+  String get searchKwChatTips => '起始页,空白页,新对话,提示,使用提示,底部提示';
+
+  @override
   String get searchKwChatSuggestions => '起始页,空白页,新对话,聊天建议,建议卡片';
+
+  @override
+  String get searchKwPendant => '余额,余额挂件,小鲸鱼,充值,钱包,挂件';
 
   @override
   String get phoneStartupFailureStopping => '启动失败，正在停止';
@@ -26070,6 +26428,12 @@ class L10nZh extends L10n {
   String get wallpaperCustom => '自定义';
 
   @override
+  String get wallpaperVideo => '循环动态壁纸';
+
+  @override
+  String get wallpaperJson => '.json 动态壁纸';
+
+  @override
   String get wallpaperFrame => '调整位置';
 
   @override
@@ -26085,10 +26449,44 @@ class L10nZh extends L10n {
   String get wallpaperReplace => '更换图片';
 
   @override
+  String get wallpaperVideoReplace => '更换视频';
+
+  @override
+  String get wallpaperVideoChoose => '选择视频';
+
+  @override
+  String get wallpaperVideoScale => '显示方式';
+
+  @override
+  String get wallpaperVideoFill => '填满';
+
+  @override
+  String get wallpaperVideoCenter => '居中';
+
+  @override
+  String get wallpaperVideoFrame => '调整显示位置';
+
+  @override
+  String get wallpaperJsonReplace => '更换 .json 壁纸';
+
+  @override
+  String get wallpaperJsonTime => '跟随系统时间';
+
+  @override
+  String get wallpaperJsonTimeHint => '白天、黄昏、晚上各一套动画';
+
+  @override
+  String get wallpaperJsonSample => '示例场景';
+
+  @override
+  String get wallpaperJsonPackage => '场景包';
+
+  @override
   String get wallpaperPreview => '预览';
 
   @override
-  String get wallpaperFooter => '用于首页、对话和抽屉。提亮在浅色模式、压暗在深色模式下各自生效，文字始终清晰。PNG、JPEG、WebP，15 MB 以内';
+  String get wallpaperFooter =>
+      '用于首页、对话和抽屉。提亮在浅色模式、压暗在深色模式下各自生效，文字始终清晰。PNG、JPEG、WebP，15 MB 以内；循环动态壁纸支持 MP4、WebM，300 MB 以内；.json 壁纸开发文档见 docs\\json-wallpaper.md。';
 
   @override
   String get wallpaperChanged => '壁纸已更换';
@@ -26104,6 +26502,36 @@ class L10nZh extends L10n {
 
   @override
   String get wallpaperUnavailable => '无法打开相册';
+
+  @override
+  String get wallpaperVideoTooLarge => '视频超过 300 MB';
+
+  @override
+  String get wallpaperVideoUnsupported => '支持 MP4 和 WebM 视频';
+
+  @override
+  String get wallpaperVideoUnreadable => '无法读取这段视频';
+
+  @override
+  String get wallpaperJsonTooLarge => '.json 文件超过 20 MB';
+
+  @override
+  String get wallpaperJsonPackageTooLarge => '场景包超过 300 MB';
+
+  @override
+  String get wallpaperJsonUnreadable => '无法读取这个 .json 文件';
+
+  @override
+  String get wallpaperJsonInvalid => '这个 .json 壁纸有问题';
+
+  @override
+  String get wallpaperPeriodDay => '白天';
+
+  @override
+  String get wallpaperPeriodDusk => '黄昏';
+
+  @override
+  String get wallpaperPeriodNight => '晚上';
 
   @override
   String get wallpaperBroken => '无法读取';
@@ -26133,7 +26561,7 @@ class L10nZh extends L10n {
   String get wallpaperSampleTool => '查了 3 个天气来源';
 
   @override
-  String get searchKwWallpaper => '背景,背景图,聊天背景,自定义背景,换背景,模糊,壁纸图片';
+  String get searchKwWallpaper => '背景,背景图,聊天背景,自定义背景,换背景,模糊,壁纸图片,动态壁纸,视频壁纸,json 壁纸';
 
   @override
   String get webTitle => 'DSH 网页版';

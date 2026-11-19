@@ -148,6 +148,71 @@ App 只读它认识的字段，未知字段忽略。**`description` 不读**（�
 
 **默认值**（不写时生效）：`minDisplay` = attention 5200 / error 4800 / sweeping 5600 / notification 3200 / carrying 3200 / working 1000 / thinking 1000（ms）；`autoReturn` = attention 5200 / error 4800 / sweeping 300000 / carrying 3200；`sleep.afterMs` 60000；`idlePool.everyMs` mean 120000 / min 45000 / max 300000。
 
+### 3.5 Live2D 宠物（`type: "live2d"`）
+
+除了逐帧图集，宠物包也可以是一个 Cubism 模型（Live2D）。包还是同一个 zip、同一份 `pack.json`，只是把模型放进 `character/`，再带一张静止封面 `poster.png`（可选：没有时 App 会在第一次显示模型时从舞台截一张）。
+
+**最小结构**
+
+```text
+my-pet/
+├── pack.json
+├── poster.png            # 静止封面（可选），像素尺寸必须正好等于 canvas
+└── character/
+    ├── my-pet.model3.json
+    ├── my-pet.moc3
+    └── textures/texture_00.png
+```
+
+**`pack.json`**
+
+```json
+{
+  "schema": 1,
+  "id": "my-pet",
+  "type": "live2d",
+  "canvas": {"w": 400, "h": 800},
+  "contentBox": {"x": 120, "y": 200, "w": 160, "h": 600},
+  "live2d": {
+    "model": "my-pet.model3.json",
+    "poster": "poster.png",
+    "states": {
+      "idle": "Idle",
+      "thinking": "Thinking",
+      "working": "Work",
+      "juggling": "Work",
+      "sweeping": "Sweep",
+      "notification": "Notice",
+      "attention": "Happy",
+      "error": "Sad",
+      "carrying": "Carry",
+      "sleeping": "Sleep",
+      "waking": "Wake"
+    },
+    "reactions": {"tapLeft": "Tap", "tapRight": "Tap", "tickle": "Tickle", "drag": "Drag"}
+  }
+}
+```
+
+- `type` 必须是 `"live2d"`；带 `type` 的包不再需要 `animations`。
+- `canvas` / `contentBox` 和普通宠物一样用美术像素，决定大小、气泡位置和命中框。**带封面时 `poster.png` 的像素尺寸要正好等于 `canvas`**（不是 `canvas × scale`）。
+- `live2d.model`：模型描述文件在 `character/` 里的相对路径。Cubism 3/4/5 写 `*.model3.json`；Cubism 2 写 `model.json`（同名 `.moc` 和纹理放同目录，规则见 `docs/live2d/README.md`）。
+- `live2d.poster`：静止封面 PNG，缺省 `poster.png`。悬浮窗和模型加载完成前显示的就是它。**整包没有这张图也能导入**：App 写一张同尺寸的空白封面并留下 `.poster-pending` 标记，第一次在聊天里显示模型时让舞台离屏渲染一帧、缩到 `canvas` 尺寸写成真正的 `poster.png`，同时刷新悬浮窗。补上之前悬浮窗是空白的。
+- `live2d.states`：**状态名 → 动作名**，必须包含 `idle`。动作名是模型里 motion group 的名字（`.model3.json` 的 `Motions` 分组名，Cubism 2 是 `motions` 的组名），不是文件名；同一个动作可以给多个状态用。没配的状态回落到 `live2d.fallback`，再没有就回落到 `idle` 的动作。
+- `live2d.reactions`：可选，键是 `tapLeft` / `tapRight` / `tickle` / `annoyed` / `drag`，值是动作名；不写的键不播反应。
+- `live2d.fallback`：可选，兜底动作名。
+
+**给 11 个状态各配一段动作**（`idle` 必填）——这是 Live2D 宠物和普通宠物最重要的一致点：普通宠物的状态靠换动画，Live2D 宠物靠换动作。`idle`、`thinking`、`working`、`juggling`、`sweeping`、`notification`、`carrying`、`sleeping` 按循环动作播；`attention`、`error`、`waking` 是一次性的，App 在它们的显示窗口结束后切回当前状态的动作。缺哪个状态只会回落到 `idle`，不会报错，但看起来会「一直站着」。
+
+**和其它功能的关系**（有意降级，写清楚免得创作者白做）：
+
+- App 内不游走（`roam`）、不播 `idlePool` 彩蛋、不按 `tiers` 换动作、不播 `bonus`；点按/连点/拖动只播 `live2d.reactions` 里配了的动作。
+- App 外悬浮窗只显示 `poster.png` 这一张静止图；位置、拖拽、命中、安静模式等原有功能不变。
+- 导出/投稿：目前只收图集宠物。Live2D 宠物本机导入可用，投稿会提示不支持。
+- 宠物包不带运行库：App 复用「伙伴小屋」已安装的那份 Live2D 运行库；手机上还没有时会提示先安装一个完整的伙伴素材包，否则只显示封面。
+
+**限制**：zip ≤ 64 MiB（展开同样 ≤ 64 MiB）；`character/` ≤ 1000 个文件、单个 ≤ 32 MiB、合计 ≤ 200 MiB；允许的扩展名 `.json` `.moc3` `.moc` `.mtn` `.png` `.jpg` `.jpeg` `.webp` `.wav` `.mp3` `.txt` `.md`；带 `poster.png` 时走普通宠物包的 PNG 校验（≤ 8 MiB、每边 ≤ 4096 px），不带时 `canvas` 仍要能放下这张合成封面（每边 ≤ 4096、`w × h × 4` ≤ 16 MiB）。
+
 ## 4. 图集规范
 
 ### 4.1 两套坐标
@@ -206,6 +271,8 @@ App 把 agent 的活动归约成 11 个状态。**只做 idle 也能用**，其�
 
 **互动**：点身体左/右半边 → `tapLeft`/`tapRight`；1.1 秒内连点 3 次 → `tickle`；拖动 → `drag`。反应动画播完回到原状态；睡着时先播 `waking`。
 
+**Live2D 宠物**：状态直接对应模型动作，见 §3.5。**请给每个状态（至少 `idle`）各配一段动作**，否则那个状态会一直播 `idle`。
+
 **不会发生的事**：停止（stopped）安静回 idle，不报错；压缩完成不庆祝；断线或引擎重启不会进 `error`。
 
 ## 6. 导入、校验与删除
@@ -221,6 +288,9 @@ App 把 agent 的活动归约成 11 个状态。**只做 idle 也能用**，其�
 | pack.json 有问题：… | `pack-schema`、`json-*`、`pack-overlay` | 对照 §3；`pack-overlay` 表示没过悬浮窗更严格的整数/几何检查 |
 | zip 里少了序列帧图 X | `sheet-missing` | `sheet` 名字与实际文件名不一致 |
 | 序列帧图不对：X | `png-*`、`sheet-name`、`sheet-alias`、`sheet-frame-bounds` | PNG 不完整/是 APNG/名不合规/格子超出图 |
+| Live2D 模型缺失或读不了：X | `model-missing`、`model-json`、`moc`、`model3` | `live2d.model` 指向的文件不在包里（或描述文件里引用的 moc/纹理缺失）。见 §3.5 |
+| 封面图 poster.png 不是 PNG，或者尺寸和 canvas 不一致 | `poster-png`、`poster-size` | 换成完整 PNG，像素尺寸正好等于 `canvas`；不想要封面就整张删掉，App 会自己截 |
+| 封面图缺失且画布太大，合成不了空白封面 | `poster-missing` | `canvas` 每边 ≤ 4096、`w × h × 4` ≤ 16 MiB；或者自己带一张封面 |
 | 这个宠物包太大了 | `sheet-size`、`sheet-total-size`、`sheet-count`、`pack-size`、`pack-normalized-size`、`archive-expanded-size`、`archive-member-size`、`archive-entries` | 对照 §1 的限制 |
 | 没能存到手机上 | `storage` | 手机空间/权限问题，重试 |
 
@@ -248,6 +318,7 @@ App 把 agent 的活动归约成 11 个状态。**只做 idle 也能用**，其�
 App **没有**给用户单独的「导出宠物包」按钮。投稿时客户端会把选中的宠物重新导出成规范 zip：
 
 - 只含 `pack.json` 和它引用的 PNG；未知元数据、`codexImport`、本地投稿凭据都不进包。
+- Live2D 宠物目前不导出、不投稿（工坊服务端只收图集包），本机导入与显示不受影响。
 - `pack.json` 的 `id` 改写成投稿表单里的 id；`author`/`license`/`source` 用表单填的值覆盖。
 - 规范化后再过一次完整校验；客户端上传 zip 上限 50 MiB，工坊整体按 128 MiB 展开预算（服务端另有规则）。
 
@@ -292,6 +363,9 @@ App **没有**给用户单独的「导出宠物包」按钮。投稿时客户端
 - [ ] 点左/右、连点三次、拖动分别触发 `tapLeft`/`tapRight`/`tickle`/`drag`。
 - [ ] 打开「App 外显示」：悬浮窗动作、命中区域（只认身体）正常；拖到边会吸附；关掉后不残留。
 - [ ] 投稿前用「看一眼打好的包」确认最终 zip 和预览图。
+- [ ] Live2D 宠物：聊天页里能显示模型并跟着状态换动作（缺的状态应回落 `idle`）；点按/连点/拖动只播 `live2d.reactions` 里配了的动作；打开「App 外显示」时只显示 `poster.png`。
+- [ ] 包里没有 `poster.png` 时：导入成功、悬浮窗暂时空白、第一次在聊天里显示后 `poster.png` 出现在宠物目录里且 `.poster-pending` 消失，悬浮窗随之有图。
+- [ ] 手机上还没装伙伴素材包时，Live2D 宠物只显示封面，并提示先安装伙伴小屋的完整素材包。
 
 ## UNVERIFIED
 

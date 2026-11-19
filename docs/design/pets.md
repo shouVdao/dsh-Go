@@ -50,7 +50,7 @@
   - 选宠物：Deepy 小鲸鱼、鲸娘、不显示，带实时预览；
   - 大小：小、标准、大、自定义（选自定义时下面展开预览和滑条）；
   - 安静模式；
-  - App 外显示；
+  - App 外显示（里面另有「悬浮窗大小」，与上面「大小」互不影响，见 §2.10）；
   - 作者与来源，作为页底一行小字。
 - 默认值：Deepy 小鲸鱼、标准大小、站在输入框上。安静模式关，App 外显示关。
 - 第二期再做导入 Clawd on Desk 主题 zip 和 Codex Pet zip，§3.5 先把映射定好。
@@ -188,10 +188,11 @@
 
   身体高度取 `contentBox.h`。
 - 缩放倍数 `k` 的定义是：每个美术像素占多少个**物理像素**。像素画包要求 `k` 为整数：先算 `max(1, round(目标dp × devicePixelRatio ÷ contentBox.h))`，再让小、标准、大**至少各差 1**（`medium = max(small + 1, …)`，`large = max(medium + 1, …)`）。不加这一步的话，dpr 2.75 的手机上 22/30/40dp 会同时落成 1/2/2，三档分不出大小，悬浮窗还会比 App 内小一档。
-- 「自定义」（2026-11-15）：身体高度 15–90dp，即标准的 50%–300%，滑条按标准的 5% 一格，显示为百分比。它单独取整 `max(1, round(高度 × dpr ÷ contentBox.h))`，不参与三档的「至少差 1」。拖动时只重画设置页里的预览，松手才保存（`pet.custom_height`），聊天页和悬浮窗随之更新；切回三档时这个高度留着，下次选自定义还在。悬浮窗收到 `size: custom` 和 `bodyHeight`，在原生侧变成 `custom:<dp>` 这个尺寸键，高度变了就重新载入贴图。用处是有的宠物包按 `contentBox` 定档后看起来还是偏小或偏大。
+- 「自定义」（2026-11-15）：身体高度 15–90dp，即标准的 50%–300%，滑条按标准的 5% 一格，显示为百分比。它单独取整 `max(1, round(高度 × dpr ÷ contentBox.h))`，不参与三档的「至少差 1」。拖动时只重画设置页里的预览，松手才保存（`pet.custom_height`），聊天页随之更新；切回三档时这个高度留着，下次选自定义还在。悬浮窗收到 `size: custom` 和 `bodyHeight`，在原生侧变成 `custom:<dp>` 这个尺寸键，高度变了就重新载入贴图。用处是有的宠物包按 `contentBox` 定档后看起来还是偏小或偏大。
+- **悬浮窗与 App 内分开调（2026-11-16）**：`pet.overlay_size` / `pet.overlay_custom_height` 是悬浮窗自己的档位和自定义高度，不设时沿用 App 内的，设过之后两边各用各的（`PetPrefs.overlayBodyHeight`）。「App 外显示」里在「悬浮窗里显示」下面多一项「悬浮窗大小」，只在像素宠物时出现；选伙伴时窗口大小由取景决定，该项隐藏。推送地图里的 `size` / `bodyHeight` 取悬浮窗的值（`PetState.floatingSize` / `floatingHeight`），所以改聊天页的「大小」不会再改悬浮窗，反过来也一样。
 - 非像素画包（`pixelArt: false`）的 `k` 不限整数：`k = 目标dp × devicePixelRatio ÷ contentBox.h`。
 - 宠物的左上角和脚线都对齐到物理像素。
-- 悬浮窗和 App 内用同一档位，也就是同一套 `k`：App 内是 `pet_sprite.dart` 的 `petDevicePixels`，悬浮窗是 Kotlin `PetPack.devicePixels`，两边各有一份逐值对齐的单测（`pet_pixel_test.dart`、`PetPackTest.kt`）。
+- 悬浮窗和 App 内默认共用一档，设过「悬浮窗大小」后各用各的：App 内是 `pet_sprite.dart` 的 `petDevicePixels`，悬浮窗是 Kotlin `PetPack.devicePixels`，两边各有一份逐值对齐的单测（`pet_pixel_test.dart`、`PetPackTest.kt`）。
 
 ## 3. 宠物包格式
 
@@ -400,8 +401,9 @@ app/tool/pet_theme_convert.py 把素材转成 schema 1 宠物包，按目录内�
     python3 tool/pet_theme_convert.py --input DIR --out DIR [--id ID] [--input-name NAME] [--source URL] [--crisp]
     python3 -I tool/test_pet_theme_convert.py
 
-技能 app/assets/skills/pet-theme/ 随 App 安装（脚本是 app/tool 的副本，测试会查一致性），
-宠物页的「让 AI 做一只宠物」把 /pet-theme 填进新对话。
+技能 app/assets/skills/pet-theme/ 随 App 安装（脚本是 app/tool 的副本，测试会查一致性）；对话里敲
+`/pet-theme` 仍会让 AI 走这条路。宠物页的入口是「转换 Live2D 模型」（`Live2dConvertPage`，见 §3.9 末尾），
+素材转换不需要 AI 参与。
 
 两个固定决定（改之前先看 §5 渲染）：
 
@@ -414,6 +416,64 @@ app/tool/pet_theme_convert.py 把素材转成 schema 1 宠物包，按目录内�
 
 已知限制：clawd 主题每档只取主文件（tiers 的 files 变体不导出）；SVG 的 CSS 关键帧参数写死在
 pet_svg_frames.py；整张精灵表要先拆帧或导出 Aseprite JSON。
+
+### 3.9 外来 Live2D 模型（2026-11-17）
+
+app/tool/live2d_pet_kit.py 把「社区整包的 Live2D 模型」转成宠物包或伙伴小屋包，并把「模型自带动作用
+没用上」变成必须回答的问题。只用标准库（Pillow 只在缩贴图时用）。
+
+    python3 tool/live2d_pet_kit.py report --input DIR|ZIP [--json R.json] [--write-mapping M.json] [--name N]
+    python3 tool/live2d_pet_kit.py room   --input DIR|ZIP --out ROOM.zip [--name N] [--drop-sound]
+    python3 tool/live2d_pet_kit.py pet    --input DIR|ZIP --out PET.zip --mapping M.json [--poster P.png]
+                                          [--texture-max 2048] [--keep-sound] [--allow-motions-ignored]
+    python3 tool/live2d_pet_kit.py check  --pack ZIP [--kind pet|room]
+    python3 -I tool/test_live2d_pet_kit.py
+
+四个固定决定：
+
+- **动作键按舞台的规则算，不按文件名猜。** 一组一个动作 → 组名；一组多个 → `组_1`、`组_2`；没登记在
+  描述文件里的 `xxx.motion3.json` → 文件名 `xxx`（上限 64）。这与 stage.js 的 `motions.set` 一致，
+  mapping 里填的名字能直接播；填错的名字脚本拒绝并列出可用动作。
+- **「没实现的状态/事件」是必答项，不是备注。** `pet` 结束前打印 `没实现的状态 / 没实现的事件 /
+  没用上的动作`；有动作却一个都没映射时直接报错，只能显式 `--allow-motions-ignored` 跳过（技能要求
+  同时说明理由）。
+- **先出小屋包再定映射。** 宠物包在聊天里只按状态播，用户没法逐个试；伙伴小屋的「动作和表情」页能
+  逐个 ▶ 试播（数据来自舞台 ready 消息），所以流程是 room → 用户试播/改名 → 填 mapping → pet。
+- **贴图默认缩到 2048。** 14 张 4096² 贴图在手机上要 896 MB 显存，而宠物只有几十 dp；`--texture-max 0`
+  才保留原图。描述文件里的 `sound` 默认去掉（宠物不播声音）。
+
+配套的 App 改动（同一次改动里做的）：
+
+- **宠物包不再强制 `poster.png`。** 缺封面时导入写一张同 canvas 尺寸的空白封面 + `.poster-pending`
+  标记（canvas 超过 4096 或 16 MiB 解码上限仍拒收）。第一次在聊天里显示模型时由舞台离屏渲一帧
+  （`poster` 命令 → `gl.readPixels` → 反预乘 + 上下翻转 → PNG data URL），Flutter 缩到 canvas 尺寸
+  写成 `poster.png` 并刷新 `PetSheets` 与悬浮窗。
+- **第一次显示顺手校准构图。** 转换器写的包 canvas / contentBox 都是猜的（§3.9 限制），所以带
+  `.content-box-auto` 标记的包在首帧请求 `poster` 时带 `fit: 'model'`：舞台按模型自己的画布比例
+  （`internalModel.originalWidth/originalHeight`）决定截图宽高，避免把拉伸烙进封面；Flutter 按截图
+  的 alpha 求不透明区，重写 `pack.json` 的 `canvas`、`contentBox`，并把 `anchor.x` 取中心、
+  `baseline` 取底边，然后删掉标记。手写的包没有这个标记，不会被改。
+- **设置 › 宠物 › 「转换 Live2D 模型」**（`app/lib/ui/pets/live2d_convert_page.dart`）把上面的流程
+  搬进 App：选 zip → `Live2dKit.inspect` 报告（文件/贴图/动作/表情）→ 11 个状态 + 5 个事件逐个挑动作
+  （「不实现」是空值）→ 按名字自动匹配 → 两个状态互换 → 生成宠物包（导入并换上）或伙伴小屋包（存到
+  Download）。Dart 复刻在 `app/lib/pets/live2d_kit.dart`，动作键、建议表、校验、zip 布局都与
+  `live2d_pet_kit.py` 一致；AI 那条路（`/pet-theme`）保留。
+- **选包先看体积（2026-11-17）。** 解压一把 500 MB 的模型会在第一次校验之前就把机器的内存吃光，所以
+  `inspect` 先 `File.length()` 比 `Live2dKit.inspectByteCap`（160 MiB），超了直接给 `too-large`；
+  随后按 zip 目录里声明的尺寸累加 `inspectExpandedCap`（400 MiB，即小屋安装上限），都不解压。
+  转换页自己也量一次，把 `too-large` 显示成建议卡（「模型太大：xxx MB」+ 为什么 + 一句可复制的
+  压小说明 + 重新选），不再是一行 `too-large 模型文件超过 400 MB`。
+- **挑动作时能试播。** 动作表和「挑一个动作」弹层的每一行都有 ▶：`live2d_preview.dart` 把页面里已经读
+  到的 `report.model.files` 写进临时目录的 `character/`，配一个只含待看动作的合成 `pack.json`，交给
+  `PetLive2dView`（新增可选 `motion` 覆盖，预览没有状态映射可用）在同一个 `stage.js` 上播，左右箭头换
+  动作；关掉即删，不安装、不改模型。试播依赖手机里已装的 Live2D 运行库，缺了会显示提示而不是空白。
+
+技能 app/assets/skills/pet-theme/ 的 SKILL.md 改成两条路：Live2D 走上面的脚本，精灵素材仍走
+pet_theme_convert.py；两者都要求「必须报告没实现的状态与事件」。
+
+已知限制：`contentBox` / `anchor` 由 App 首次显示时按截图的 alpha 校准（只对带 `.content-box-auto`
+的包），那是「整张画布里的不透明区」，比脚本里手填的坐标更糙但不再需要人量；Cubism 2 能装但降级
+（无物理、表情少）；模型只有一个动作组时所有状态只能共用。
 
 ## 4. 状态归约 `PetMood`
 

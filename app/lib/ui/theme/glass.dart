@@ -110,11 +110,13 @@ class GlassSurface extends StatelessWidget {
     final s = style ?? surfaces.glass(tier);
     final highContrast = MediaQuery.maybeHighContrastOf(context) ?? false;
     final reduce = !surfaces.blurEnabled || highContrast || uiTraceNoBlur;
-    final useBlur = !reduce && (blur ?? s.blurs);
+    final glassy = !reduce && (blur ?? s.blurs);
+    final amount = surfaces.blurAmount;
+    final blurred = glassy && amount > 0;
     if (uiTraceEnabled) {
-      uiTrace('glass', 'build', {'tier': tier.name, 'blur': useBlur, 'grouped': grouped});
+      uiTrace('glass', 'build', {'tier': tier.name, 'blur': blurred, 'grouped': grouped});
     }
-    final fill = useBlur
+    final fill = glassy
         ? Color.lerp(s.fallbackFill, s.fill, settled ?? 1)!
         : (reduce || s.blurs ? s.fallbackFill : s.fill);
     final shape = _shape;
@@ -150,8 +152,8 @@ class GlassSurface extends StatelessWidget {
       ),
     );
 
-    if (useBlur) {
-      final config = _filterFor(s.blurs ? s.blurSigma : 14, s.saturation);
+    if (blurred) {
+      final config = _filterFor((s.blurs ? s.blurSigma : 14) * amount, s.saturation);
       final sampling = settled != 0;
       content = grouped
           ? BackdropFilter.grouped(filterConfig: config, enabled: sampling, child: content)

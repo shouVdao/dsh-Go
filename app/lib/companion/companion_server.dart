@@ -31,22 +31,68 @@ const _contentTypes = {
 };
 
 /// The page's own files, under `assets/companion/`.
-const _appFiles = {'index.html', 'bare.js', 'scene.js', 'stage.js', 'stage.css', 'float.js'};
+const _appFiles = {
+  'index.html',
+  'bare.js',
+  'scene.js',
+  'stage.js',
+  'stage.css',
+  'float.js',
+  // Cubism 2's core, for old `.moc` packs; the page injects it only when it
+  // finds one. Not part of any runtime pack, so the pinned digest stays valid.
+  'live2d.min.js',
+};
+
+/// One file of the pack the page reads, however that pack is stored.
+class CompanionPackEntry {
+  const CompanionPackEntry(this.length, this.openRead);
+
+  final int length;
+  final Stream<List<int>> Function() openRead;
+}
+
+/// Where the page's `/pack/...` files come from: a directory for the room, or
+/// a virtual mount for a pet (the installed runtime plus the pet's character).
+abstract class CompanionPackSource {
+  Future<CompanionPackEntry?> open(String path);
+
+  Future<void> close() async {}
+}
+
+/// The room's pack: one directory, as installed.
+class DirectoryCompanionPack implements CompanionPackSource {
+  const DirectoryCompanionPack(this.directory);
+
+  final Directory directory;
+
+  @override
+  Future<CompanionPackEntry?> open(String path) async {
+    final file = File('${directory.path}/$path');
+    if (await FileSystemEntity.type(file.path, followLinks: false) != FileSystemEntityType.file) return null;
+    return CompanionPackEntry(await file.length(), file.openRead);
+  }
+
+  @override
+  Future<void> close() async {}
+}
 
 class CompanionServer {
-  CompanionServer._(this._server, this._token, this._assets, this._pack);
+  CompanionServer._(this._server, this._token, this._assets, this._source);
 
-  static Future<CompanionServer> start(AssetBundle assets, Directory pack) async {
+  static Future<CompanionServer> start(AssetBundle assets, Directory pack) =>
+      startWith(assets, DirectoryCompanionPack(pack));
+
+  static Future<CompanionServer> startWith(AssetBundle assets, CompanionPackSource source) async {
     final random = Random.secure();
     final token = base64Url.encode(List.generate(24, (_) => random.nextInt(256))).replaceAll('=', '');
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    return CompanionServer._(server, token, assets, pack).._listen();
+    return CompanionServer._(server, token, assets, source).._listen();
   }
 
   final HttpServer _server;
   final String _token;
   final AssetBundle _assets;
-  final Directory _pack;
+  final CompanionPackSource _source;
   final _requests = <Future<void>>{};
   bool _closed = false;
   Future<void>? _closing;
@@ -77,14 +123,17 @@ class CompanionServer {
     _closed = true;
     await _server.close(force: true);
     await Future.wait(List.of(_requests));
+    await _source.close();
   }
 
   void _listen() {
     _server.listen((request) {
       late final Future<void> pending;
-      pending = _handle(request).catchError((Object _) {
-          // The page went away mid-response.
-        }).whenComplete(() => _requests.remove(pending));
+      pending = _handle(request)
+          .catchError((Object _) {
+            // The page went away mid-response.
+          })
+          .whenComplete(() => _requests.remove(pending));
       _requests.add(pending);
     });
   }
@@ -121,16 +170,12 @@ class CompanionServer {
         if (request.method == 'GET') response.add(data);
         await response.close();
       case 'pack':
-        final file = File('${_pack.path}/$path');
-        if (await FileSystemEntity.type(file.path, followLinks: false) != FileSystemEntityType.file) {
-          return _refuse(response);
-        }
+        final entry = await _source.open(path);
+        if (entry == null) return _refuse(response);
         if (_closed) return response.close();
-        final length = await file.length();
-        if (_closed) return response.close();
-        _headers(response, type, length);
+        _headers(response, type, entry.length);
         if (request.method == 'GET') {
-          await consumeCompanionFileStream(file.openRead(), (stream) async {
+          await consumeCompanionFileStream(entry.openRead(), (stream) async {
             await response.addStream(stream);
           });
         }

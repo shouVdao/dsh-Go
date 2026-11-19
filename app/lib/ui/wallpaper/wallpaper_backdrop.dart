@@ -1,10 +1,11 @@
-// The page behind 首页 / 对话 and the drawer over them: the custom wallpaper when one is in use,
-// else the usual gradient ([AppBackdrop]). Settings and other pages keep the gradient, and so
-// does every page with the system's high contrast on.
+// The page behind 首页 / 对话 and the drawer over them: the wallpaper in use — a baked custom
+// picture, a looping video, or a .json scene — else the usual gradient ([AppBackdrop]). Settings
+// and other pages keep the gradient, and so does every page with the system's high contrast on.
 //
-// The picture is baked once for this screen and mode (lib/wallpaper/wallpaper_render.dart) and
-// only drawn after that; a new bake fades in over the old one. While it shows, text colours
-// fainter than the secondary one are guarded for it (WallpaperLook.guardTheme).
+// A custom picture is baked once for this screen and mode (lib/wallpaper/wallpaper_render.dart)
+// and only drawn after that; a new bake fades in over the old one. A live wallpaper (video /
+// .json) is drawn by AppBackdrop's `live` layer instead. While either shows, text colours fainter
+// than the secondary one are guarded for it (WallpaperLook.guardTheme).
 //
 // [WallpaperBackdrop.scene] does the same for a page's own picture (a tavern chat's background)
 // in place of the app's wallpaper: the gradient when it has none.
@@ -16,10 +17,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/wallpaper_state.dart';
 import '../../wallpaper/custom_wallpaper.dart';
+import '../../wallpaper/live_wallpaper.dart';
+import '../../wallpaper/scene_view.dart';
 import '../../wallpaper/wallpaper_look.dart';
 import '../../wallpaper/wallpaper_render.dart';
 import '../chat/chat_header.dart' show ChatHeader;
 import '../theme/theme.dart';
+import 'live_backdrop.dart';
 
 class WallpaperBackdrop extends ConsumerStatefulWidget {
   const WallpaperBackdrop({super.key, required this.child}) : scene = false, picture = null;
@@ -67,12 +71,36 @@ class _WallpaperBackdropState extends ConsumerState<WallpaperBackdrop> with Sing
   ThemeData? _theme;
   ThemeData? _guarded;
 
+  /// 动态壁纸的控制器 / 引擎:整屏一层和 [BackdropVeil] 那一条共用同一份。
+  VideoWallpaperHandle? _video;
+  JsonWallpaperHandle? _json;
+
   @override
   void dispose() {
+    _video?.dispose();
+    _json?.dispose();
     _fade.dispose();
     _image?.dispose();
     _from?.dispose();
     super.dispose();
+  }
+
+  VideoWallpaperHandle _videoFor(VideoWallpaper wallpaper) {
+    final current = _video;
+    if (current != null && current.wallpaper.path == wallpaper.path) {
+      // 改的只是摆放方式,控制器不重开。
+      current.wallpaper = wallpaper;
+      return current;
+    }
+    current?.dispose();
+    return _video = VideoWallpaperHandle(wallpaper);
+  }
+
+  JsonWallpaperHandle _jsonFor(JsonWallpaper wallpaper) {
+    final current = _json;
+    if (current != null && current.wallpaper == wallpaper) return current;
+    current?.dispose();
+    return _json = JsonWallpaperHandle(wallpaper);
   }
 
   void _take(ui.Image? next) {
@@ -105,6 +133,10 @@ class _WallpaperBackdropState extends ConsumerState<WallpaperBackdrop> with Sing
   Widget build(BuildContext context) {
     final frame = WallpaperBackdrop.frameOf(context);
     final scene = widget.picture;
+    Widget? live;
+    // A video layer is a whole page of pixels per frame; the composer's veil must not
+    // re-draw it (see AppBackdrop.liveBand). A .json scene paints twice cheaply.
+    var liveBand = true;
     if (MediaQuery.maybeHighContrastOf(context) ?? false) {
       // The system's high contrast: the plain page.
       _take(null);
@@ -116,22 +148,53 @@ class _WallpaperBackdropState extends ConsumerState<WallpaperBackdrop> with Sing
         if (!baked.isLoading) _take(baked.value);
       }
     } else {
-      final baked = ref.watch(wallpaperImageProvider(frame));
-      // While a new bake runs, the picture on screen stays.
-      if (!baked.isLoading) _take(baked.value);
+      switch (ref.watch(wallpaperKindProvider).value ?? WallpaperKind.gradient) {
+        case WallpaperKind.image:
+          final baked = ref.watch(wallpaperImageProvider(frame));
+          // While a new bake runs, the picture on screen stays.
+          if (!baked.isLoading) _take(baked.value);
+        case WallpaperKind.video:
+          _take(null);
+          liveBand = false;
+          final video = ref.watch(videoWallpaperProvider).value;
+          if (video == null) {
+            _video?.dispose();
+            _video = null;
+          } else {
+            final handle = _videoFor(video);
+            live = VideoWallpaperView(key: ObjectKey(handle), handle: handle);
+          }
+        case WallpaperKind.json:
+          _take(null);
+          final json = ref.watch(jsonWallpaperProvider).value ?? const JsonWallpaper(JsonWallpaper.bundled);
+          final handle = _jsonFor(json)..setAnimationsEnabled(!MediaQuery.disableAnimationsOf(context));
+          live = JsonWallpaperView(key: ObjectKey(handle), handle: handle);
+        case WallpaperKind.gradient:
+          _take(null);
+      }
+    }
+    if (live == null) {
+      // 不在用动态壁纸:别让控制器 / 引擎在后台继续跑。
+      _video?.dispose();
+      _video = null;
+      _json?.dispose();
+      _json = null;
     }
     final picture = _image == null && !_fading
         ? null
         : BackdropPicture(image: _image, from: _from, fade: _fading ? _fade : kAlwaysCompleteAnimation);
     final theme = Theme.of(context);
-    if (_image != null && !identical(theme, _theme)) {
+    final guarded = live != null || _image != null;
+    if (guarded && !identical(theme, _theme)) {
       _theme = theme;
       _guarded = frame.look.guardTheme(theme);
     }
     // Always a Theme, so the page under it keeps its state when a wallpaper comes or goes.
     return AppBackdrop(
       picture: picture,
-      child: Theme(data: _image == null ? theme : _guarded!, child: widget.child),
+      live: live,
+      liveBand: liveBand,
+      child: Theme(data: guarded ? _guarded! : theme, child: widget.child),
     );
   }
 }

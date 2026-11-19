@@ -63,9 +63,9 @@ pack.zip
 │  ├─ cubism-framework.js        Live2D Open Software License，由 build-pack.mjs 打包
 │  ├─ shaders/*.frag|*.vert
 │  └─ LICENSE-framework.md
-└─ character/                    数据：.json .moc3 .png .jpg .jpeg .webp .wav .mp3 .txt .md
+└─ character/                    数据：.json .moc3 .moc .mtn .png .jpg .jpeg .webp .wav .mp3 .txt .md
    ├─ character.json             可选，见下
-   ├─ *.model3.json
+   ├─ *.model3.json              Cubism 3+；Cubism 2 用 model.json + .moc（第四轮加入）
    └─ ...
 ```
 

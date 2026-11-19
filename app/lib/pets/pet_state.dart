@@ -313,6 +313,8 @@ class PetState {
     this.packId = noPetId,
     this.size = PetSize.medium,
     this.bodyHeight = 30,
+    this.overlaySize,
+    this.overlayBodyHeight,
     this.quiet = false,
     this.reduceMotion = false,
     this.canStop = false,
@@ -347,6 +349,18 @@ class PetState {
   /// Body height, dp: [size]'s, or the 自定义 one.
   final double bodyHeight;
 
+  /// 「App 外显示」's own size, or null to follow [size]. The page and the
+  /// floating window are adjusted separately (docs/design/pets.md §2.10).
+  final PetSize? overlaySize;
+
+  /// The overlay's body height when [overlaySize] is set; null follows
+  /// [bodyHeight].
+  final double? overlayBodyHeight;
+
+  /// What the overlay is told to draw at.
+  PetSize get floatingSize => overlaySize ?? size;
+  double get floatingHeight => overlayBodyHeight ?? bodyHeight;
+
   /// 安静模式: moves only, no bubbles.
   final bool quiet;
   final bool reduceMotion;
@@ -365,8 +379,8 @@ class PetState {
     'active': active,
     'foreground': foreground,
     'packId': packId,
-    'size': size.name,
-    if (size == PetSize.custom) 'bodyHeight': bodyHeight,
+    'size': floatingSize.name,
+    if (floatingSize == PetSize.custom) 'bodyHeight': floatingHeight,
     'quiet': quiet,
     'reduceMotion': reduceMotion,
     'canStop': canStop,
@@ -385,6 +399,8 @@ class PetState {
       other.packId == packId &&
       other.size == size &&
       other.bodyHeight == bodyHeight &&
+      other.overlaySize == overlaySize &&
+      other.overlayBodyHeight == overlayBodyHeight &&
       other.quiet == quiet &&
       other.reduceMotion == reduceMotion &&
       other.canStop == canStop &&
@@ -401,6 +417,8 @@ class PetState {
     packId,
     size,
     bodyHeight,
+    overlaySize,
+    overlayBodyHeight,
     quiet,
     reduceMotion,
     canStop,

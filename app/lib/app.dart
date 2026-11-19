@@ -41,6 +41,11 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   bool? _glassBlur;
   bool? _instantPages;
   bool? _fluid;
+
+  /// The material sliders and text ink as of the last build (record equality
+  /// covers the null "follow the theme" ink).
+  (double, double, int?)? _look;
+
   late ThemeData _light;
   late ThemeData _dark;
 
@@ -100,12 +105,23 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   @override
   void didChangeAccessibilityFeatures() => setState(() {});
 
-  void _themesFor(AppAccent accent, bool english, bool glassBlur, bool instantPages, bool fluid) {
+  void _themesFor(
+    AppAccent accent,
+    bool english,
+    bool glassBlur,
+    bool instantPages,
+    bool fluid,
+    double glassOpacity,
+    double glassBlurAmount,
+    int? fontColor,
+  ) {
+    final look = (glassOpacity, glassBlurAmount, fontColor);
     if (accent == _accent &&
         english == _english &&
         glassBlur == _glassBlur &&
         instantPages == _instantPages &&
-        fluid == _fluid) {
+        fluid == _fluid &&
+        look == _look) {
       return;
     }
     _accent = accent;
@@ -113,14 +129,19 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
     _glassBlur = glassBlur;
     _instantPages = instantPages;
     _fluid = fluid;
+    _look = look;
     // Plugin views that ask for `accent: "app"` follow the palette.
     DshUiAppAccent.set(accent.seed.toARGB32());
     // English UI still shows Chinese content: keep its glyphs Chinese.
     final glyphs = english ? AppLocale.zhCN : null;
+    final ink = fontColor == null ? null : Color(fontColor);
     _light = buildLightTheme(
       accent: accent,
       glyphLocale: glyphs,
       glassBlur: glassBlur,
+      glassOpacity: glassOpacity,
+      glassBlurAmount: glassBlurAmount,
+      fontColor: ink,
       instantPages: instantPages,
       fluid: fluid,
     );
@@ -128,6 +149,9 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
       accent: accent,
       glyphLocale: glyphs,
       glassBlur: glassBlur,
+      glassOpacity: glassOpacity,
+      glassBlurAmount: glassBlurAmount,
+      fontColor: ink,
       instantPages: instantPages,
       fluid: fluid,
     );
@@ -171,7 +195,16 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
         performance.reduceMotion || WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
     final fluid = performance.fluidMotion && !reduced;
     FrameClock.instance.enabled = fluid;
-    _themesFor(ref.watch(accentProvider), locale.languageCode == 'en', performance.blur, reduced, fluid);
+    _themesFor(
+      ref.watch(accentProvider),
+      locale.languageCode == 'en',
+      performance.blur,
+      reduced,
+      fluid,
+      appearance.glassOpacity,
+      appearance.glassBlur,
+      appearance.fontColor,
+    );
     if (!waiting && !_settled) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _settled = true);
     }

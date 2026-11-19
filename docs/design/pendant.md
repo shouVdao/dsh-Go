@@ -8,7 +8,7 @@
 
 角色、音效、台词都能在设置 › 主题 › 余额小鲸鱼里换。数据全部来自 App 已有的 `balanceProvider`，**不发新请求**。
 
-参照的外部实现是 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)（DSH 的 Cordis 网页插件，v0.4.2）。dsh-Go 的原生界面不加载网页插件，所以这里是**原生 Flutter 复刻**，不是打包那个插件。上游规格见 `C:\tool\whale-upstream-spec.md`（气泡几何、字号、音效时序、吸附比例都从 `assets/whale-widget.js` 里读出来的）。
+参照的外部实现是 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)（DSH 的 Cordis 网页插件，v0.4.2）。dsh-Go 的原生界面不加载网页插件，所以这里是**原生 Flutter 实现**，不打包该插件。气泡几何、字号、音效时序与吸附比例取自插件的 `assets/whale-widget.js`。
 
 ## 1. 产品规则
 
@@ -72,7 +72,7 @@ LayoutBuilder(AvailableStrip)                     // 可拖动的范围：输入
 3. 谷/峰药丸：谷 `Color(0xFF2E9E4F)`、峰用主题 `tertiary`，文字 `pendantValley` / `pendantPeak`；
 4. 倒计时 `HH:MM:SS`（`FontFeature.tabularFigures`），到下一次切换。
 
-按用户要求**不显示「今日已用」**（那要本地记账，上游是 `accounting.mjs` 一整套）。
+余额气泡不显示「今日已用」：该数值需要本地记账，上游由 `accounting.mjs` 实现一套账本。
 
 **台词气泡**（`_LineCard`，宽 168、高度自适应）：只有那句话，没有标题、没有金额、没有余额。最多 3 行。
 
@@ -154,7 +154,7 @@ prefs key：`pendant_widget`、`pendant_art`、`pendant_art_path`、`pendant_sou
 
 - 「今日已用」：要本地记账（上游 `accounting.mjs`，含修订、断档补偿），这一版不引入。
 - 峰谷**计价**（每 M token 的价格表）：只做时段提示，不做金额估算。
-- 长按菜单（刷新余额 / 收起小鲸鱼）与长按播放的 GIF 表情：2026-11-18 用户要求删掉；收起走设置里的开关。
+- 长按菜单（刷新余额 / 收起小鲸鱼）与长按播放的 GIF 表情：不提供；收起由设置里的开关完成。
 - 任务结束 / 提问 / 授权提示音（`task-end-a.wav`、`ask-default.wav` 等）：属另一套事件，不在挂件里。
 - 气泡 GIF 图库与气泡序列编辑器。
 - 在 App 里运行网页插件：和 `plugin-platform.md` 的边界冲突。

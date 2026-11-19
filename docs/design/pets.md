@@ -456,7 +456,7 @@ app/tool/live2d_pet_kit.py 把「社区整包的 Live2D 模型」转成宠物包
 - **设置 › 宠物 › 「转换 Live2D 模型」**（`app/lib/ui/pets/live2d_convert_page.dart`）把上面的流程
   搬进 App：选 zip → `Live2dKit.inspect` 报告（文件/贴图/动作/表情）→ 11 个状态 + 5 个事件逐个挑动作
   （「不实现」是空值）→ 按名字自动匹配 → 两个状态互换 → 生成宠物包（导入并换上）或伙伴小屋包（存到
-  Download）。Dart 复刻在 `app/lib/pets/live2d_kit.dart`，动作键、建议表、校验、zip 布局都与
+  Download）。Dart 实现在 `app/lib/pets/live2d_kit.dart`，动作键、建议表、校验、zip 布局都与
   `live2d_pet_kit.py` 一致；AI 那条路（`/pet-theme`）保留。
 - **选包先看体积（2026-11-17）。** 解压一把 500 MB 的模型会在第一次校验之前就把机器的内存吃光，所以
   `inspect` 先 `File.length()` 比 `Live2dKit.inspectByteCap`（160 MiB），超了直接给 `too-large`；

@@ -109,6 +109,11 @@ dependencies:
 # 钉住 2.1.x，等上游修好再放开。
 dependency_overrides:
   android_file_picker: 2.1.6
+  # path_provider_android 2.3.x 换成 jnigen/JNI 实现后，`as(Context.type)` 会拿
+  # `Landroid/content/Context;` 这个描述符当类名去 FindClass，抛
+  # ClassNotFoundException（jni 1.1.x 与 1.2.0 都一样）。酒馆、伙伴小屋、创意工坊、
+  # 转换页都要通过它拿目录，一起坏。2.2.20 还是原生插件实现，先钉回它。
+  path_provider_android: 2.2.20
 
 dev_dependencies:
   flutter_test:

@@ -100,9 +100,6 @@ DIAGNOSTIC_EDITS = {
     'node_modules/@deepseek-ai/dsh-tool-bash/lib/index.js': (
         ('鸿蒙本机使用虚拟 shell', 'iOS 本机使用虚拟 shell'),
     ),
-    'node_modules/@deepseek-ai/dsh-mcp-client/lib/index.js': (
-        ('鸿蒙本机不支持 stdio MCP 子进程', 'iOS 本机不支持 stdio MCP 子进程'),
-    ),
     'node_modules/@deepseek-ai/dsh-skill-office/lib/index.js': (
         ('鸿蒙本机不提供 LibreOffice 转换、重算或渲染运行时', 'iOS 本机不提供 LibreOffice 转换、重算或渲染运行时'),
     ),
@@ -171,6 +168,22 @@ def attachments_for_ios(original):
         if text.count(before) != 1:
             raise ValueError('iOS attachment edit differs from the composed store: ' + before[:60])
         text = text.replace(before, after)
+    # Node reports OpenHarmony on iOS for the shared runtime. Keep its atomic
+    # publication path while sending images through the ImageIO-backed shim.
+    publication_gates = (
+        'if (process.platform === "openharmony") await publishOhosExclusive(source, target);',
+        'if (process.platform === "openharmony") await publishOhosExclusive(staged.path, target);',
+    )
+    for index, gate in enumerate(publication_gates):
+        if text.count(gate) != 1:
+            raise ValueError('iOS publication route differs from the composed store')
+        text = text.replace(gate, f'__DSH_IOS_PUBLICATION_GATE_{index}__')
+    image_gate = 'process.platform === "openharmony"'
+    if text.count(image_gate) != 12:
+        raise ValueError('iOS image routes differ from the composed store')
+    text = text.replace(image_gate, 'false')
+    for index, gate in enumerate(publication_gates):
+        text = text.replace(f'__DSH_IOS_PUBLICATION_GATE_{index}__', gate)
     return text.encode()
 
 

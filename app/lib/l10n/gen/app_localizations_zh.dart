@@ -19221,15 +19221,6 @@ class L10nZh extends L10n {
   String get hubChatTipsHint => '显示起始页底部的使用提示';
 
   @override
-  String get searchKwChatTips => '起始页,空白页,新对话,提示,使用提示,底部提示';
-
-  @override
-  String get hubChatTips => '使用提示';
-
-  @override
-  String get hubChatTipsHint => '显示起始页底部的使用提示';
-
-  @override
   String get hubPendant => '余额小鲸鱼';
 
   @override

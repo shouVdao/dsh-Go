@@ -35324,24 +35324,6 @@ abstract class L10n {
   /// **'显示起始页底部的使用提示'**
   String get hubChatTipsHint;
 
-  /// No description provided for @searchKwChatTips.
-  ///
-  /// In zh, this message translates to:
-  /// **'起始页,空白页,新对话,提示,使用提示,底部提示'**
-  String get searchKwChatTips;
-
-  /// No description provided for @hubChatTips.
-  ///
-  /// In zh, this message translates to:
-  /// **'使用提示'**
-  String get hubChatTips;
-
-  /// No description provided for @hubChatTipsHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'显示起始页底部的使用提示'**
-  String get hubChatTipsHint;
-
   /// No description provided for @hubPendant.
   ///
   /// In zh, this message translates to:

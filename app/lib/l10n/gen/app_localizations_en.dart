@@ -20271,15 +20271,6 @@ class L10nEn extends L10n {
   String get hubChatTipsHint => 'Show usage tips at the bottom of the start page';
 
   @override
-  String get searchKwChatTips => 'start page,empty page,new chat,tips,usage tips,tip line';
-
-  @override
-  String get hubChatTips => 'Usage tips';
-
-  @override
-  String get hubChatTipsHint => 'Show usage tips at the bottom of the start page';
-
-  @override
   String get hubPendant => 'Balance whale';
 
   @override

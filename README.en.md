@@ -61,7 +61,7 @@ mygo is an Android client branch of [DSH Go](https://github.com/ccch1mneyyy/dsh-
 
 ### Build and compatibility
 
-- **Pinned dependencies**: `file_picker` is pinned to 13.3.0 and `android_file_picker` to 2.1.6, because `android_file_picker` 2.2.0 (required by 13.4.0) does not compile with Kotlin.
+- **Pinned dependencies**: `file_picker` is pinned to 13.3.0 and `android_file_picker` to 2.1.6, because `android_file_picker` 2.2.0 (required by 13.4.0) does not compile with Kotlin; `path_provider_android` is pinned to 2.2.20, because its 2.3.x JNI implementation passes the `Landroid/content/Context;` descriptor to `JClass.forName` as a class name and throws `ClassNotFoundException`, which takes down the tavern, companion, workshop, and converter pages together.
   - `app/pubspec.yaml`
 
 ## Differences from upstream main

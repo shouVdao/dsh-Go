@@ -61,7 +61,7 @@ mygo 是 [DSH Go](https://github.com/ccch1mneyyy/dsh-Go) 的 Android 客户端�
 
 ### 构建与兼容
 
-- **依赖版本固定**：`file_picker` 固定 13.3.0、`android_file_picker` 固定 2.1.6，因为 13.4.0 对应的 `android_file_picker` 2.2.0 无法通过 Kotlin 编译。
+- **依赖版本固定**：`file_picker` 固定 13.3.0、`android_file_picker` 固定 2.1.6，因为 13.4.0 对应的 `android_file_picker` 2.2.0 无法通过 Kotlin 编译；`path_provider_android` 固定 2.2.20，因为 2.3.x 的 JNI 实现会把 `Landroid/content/Context;` 描述符当类名交给 `JClass.forName`，抛 `ClassNotFoundException`，酒馆、伙伴小屋、创意工坊与转换页一起失效。
   - `app/pubspec.yaml`
 
 ## 与上游 main 的差异

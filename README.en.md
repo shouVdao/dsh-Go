@@ -1,361 +1,184 @@
-<p align="center">
-  <a href="README.md">简体中文</a> · <b>English</b>
-</p>
+# mygo
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-en-dark.webp">
-    <img src="docs/assets/hero-en-light.webp" alt="DSH Go: DeepSeek Harness, in your pocket" width="100%">
-  </picture>
-</p>
+[简体中文](README.md) · English
 
-<p align="center">
-  A mobile client for DeepSeek Harness. Android is released; iOS is in development and device testing, and currently needs a Mac build signed with your own team (<a href="app/ios/README.md">iOS project</a> · <a href="docs/architecture.md">architecture</a>).
-</p>
+**mygo** is a personal fork of [ccch1mneyyy/dsh-Go](https://github.com/ccch1mneyyy/dsh-Go) (branch `harmonyos`; the repository itself is still `shouVdao/dsh-Go`).
+Upstream's `main` is the mainline: mygo follows it while maintaining a set of UI, wallpaper, Live2D, pet and pendant changes that upstream **does not** have.
 
-<p align="center">
-  <a href="https://github.com/ccch1mneyyy/dsh-go/releases/latest"><img alt="Android 8+" src="https://img.shields.io/badge/Android-8%2B-4B67B4?style=flat-square&logo=android&logoColor=white&labelColor=2B3245"></a>
-  <a href="LICENSE"><img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-4B67B4?style=flat-square&labelColor=2B3245"></a>
-  <a href="https://forum.dshtui.com"><img alt="Forum" src="https://img.shields.io/badge/forum-forum.dshtui.com-4B67B4?style=flat-square&labelColor=2B3245"></a>
-  <a href="https://qm.qq.com/q/OEy2RqZnqY"><img alt="QQ group 1132118290" src="https://img.shields.io/badge/QQ%20group-1132118290-4B67B4?style=flat-square&logo=tencentqq&logoColor=white&labelColor=2B3245"></a>
-</p>
+- Upstream: <https://github.com/ccch1mneyyy/dsh-Go> (default branch `main`)
+- This repository: <https://github.com/shouVdao/dsh-Go> (branch `harmonyos`)
+- Current baseline: merged up to upstream `9ad11167c`, **141 upstream commits** in total, both merges **conflict-free**; mygo is 4 commits ahead
+- Diff against upstream: **115 files** (36 added, 79 modified, 0 deleted), `+17323 / −487`
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/319451"><img src="https://trendshift.io/api/badge/trendshift/repositories/319451/daily" alt="DSH Go: #1 on Trendshift's all-language daily ranking (2026-10-30)" width="250" height="55"></a><br>
-  <sub>#1 on Trendshift's all-language daily ranking · 2026-10-30</sub>
-</p>
+> Upstream's two original landing pages (Chinese `README.md`, English `README.en.md`) have been replaced by this branch note; the originals remain readable via `git show upstream/main:README.md` and `git show upstream/main:README.en.md`, and the details on features, installation and contributing live in [docs/](docs/) and [CONTRIBUTING.md](CONTRIBUTING.md). This file only covers **how this branch differs from the mainline**.
 
-<br>
+---
 
-<h3 align="center">Deepy and Whale girl keep you company</h3>
+## 1. Relation to the mainline
 
-<p align="center">They code, flip, wave and nap along with DSH, and can follow you to the home screen.</p>
+| Item | `main` (upstream) | mygo (`harmonyos`) |
+|---|---|---|
+| Role | Mainline | Replica + local enhancements, follows upstream merges |
+| Merge policy | — | Periodic `git merge upstream/main`; on conflicts **local features win**, upstream features kept wherever possible |
+| Build | Plain Flutter/Gradle | Plus an out-of-tree build script (see [section 6](#6-build)): signing, package rename and artifact verification in one pass |
+| Test baseline | Linux + bundled Noto CJK fonts | The same tests as upstream; goldens need substitute fonts on this machine (see [section 7](#7-development-and-checks)) |
 
-<p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-typing-en-dark.gif"><img src="docs/assets/pet-deepy-typing-en-light.gif" width="168" alt="Deepy coding"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-happy-en-dark.gif"><img src="docs/assets/pet-deepy-happy-en-light.gif" width="168" alt="Deepy done"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-notification-en-dark.gif"><img src="docs/assets/pet-deepy-notification-en-light.gif" width="168" alt="Deepy needs you"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-sleeping-en-dark.gif"><img src="docs/assets/pet-deepy-sleeping-en-light.gif" width="168" alt="Deepy asleep"></picture>
-</p>
+Upstream's default branch is `main`; this branch tracks the `harmonyos` line. The two merges took in `95588b696` (139 commits) and `9ad11167c` (2 commits: offer tawcroot after a PRoot startup failure). Merge commits: `aa6827a82`, `b9074649a`.
 
-<p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-typing-en-dark.gif"><img src="docs/assets/pet-girl-typing-en-light.gif" width="168" alt="Whale girl coding"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-happy-en-dark.gif"><img src="docs/assets/pet-girl-happy-en-light.gif" width="168" alt="Whale girl done"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-notification-en-dark.gif"><img src="docs/assets/pet-girl-notification-en-light.gif" width="168" alt="Whale girl needs you"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-sleeping-en-dark.gif"><img src="docs/assets/pet-girl-sleeping-en-light.gif" width="168" alt="Whale girl asleep"></picture>
-</p>
+---
 
-<br>
+## 2. Differences at a glance
 
-<a id="download"></a>
-<h3 align="center">Download DSH Go</h3>
+| Feature | Upstream `main` | mygo | Main locations |
+|---|---|---|---|
+| Start-page "usage tips" switch | Always shown | Can be turned off in Settings → Interface | `app/lib/state/settings_state.dart` (`chat_tips`), `app/lib/ui/chat/chat_screen.dart` |
+| "Material & text" | Absent | Three controls: opacity / blur / text colour | `app/lib/state/appearance_state.dart`, `app/lib/ui/theme/*` |
+| Looping live wallpaper (video) | Absent | Looping MP4/WebM | `app/lib/wallpaper/live_wallpaper.dart`, `app/lib/ui/wallpaper/video_wallpaper_editor_page.dart` |
+| `.json` live wallpaper | Absent | `.jsonwall` scene bundles with day / dusk / night sets | `app/lib/wallpaper/scene_{document,engine,view}.dart`, [docs/json-wallpaper.md](docs/json-wallpaper.md) |
+| Foreign Live2D models | `.moc3` only (Cubism 3+) | Also Cubism 2 (`.moc` + `model.json`); the `live2d.min.js` runtime is injected by the app | `app/assets/companion/live2d.min.js`, `app/assets/companion/stage.js`, [docs/live2d/README.md](docs/live2d/README.md) |
+| "Convert Live2D model" wizard | Absent | In-app: pick a zip → preview/assign motions → build a pet pack or companion-room pack | [`app/lib/ui/pets/live2d_convert_page.dart`](app/lib/ui/pets/live2d_convert_page.dart) |
+| Live2D pet sharpness | Bundled assets | Models render at screen density; textures stay crisp | `app/lib/pets/live2d_kit.dart`, `app/lib/ui/pets/pet_live2d_view.dart` |
+| Pet overlay size | Shares the chat-page "size" | Two independent steps (`pet.overlay_size` / `pet.overlay_custom_height`) | `app/lib/pets/pet_prefs.dart` |
+| Custom character image import | Absent | A pet's character can be a local image | `app/lib/pets/pet_library.dart` and friends |
+| Balance whale pendant | Absent | Draggable balance widget above the composer: avatar / sounds / lines / custom image | `app/lib/ui/chat/pendant/whale_pendant.dart`, [docs/design/pendant.md](docs/design/pendant.md) |
+| "Let AI make a pet" entry | Present | **Removed (scrapped)**, replaced by "Convert Live2D model"; the `/pet-theme` skill stays and is extended | `app/lib/ui/pets/pet_settings_page.dart` |
+| `file_picker` | 13.4.x | Pinned to `13.3.0` + `android_file_picker 2.1.6` | `app/pubspec.yaml` |
+| Voice capture | Assumes a recording exists when stopping | `stop()` is idempotent, safe with no recording | `app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/speech/CallCapture.kt` |
+| Pet skill hosting | `pet-theme` on Android | Added to iOS and HarmonyOS | `app/ios/Runner/EngineSkills.swift`, `app/ohos/entry/src/main/ets/runtime/ManagedSkillCore.ets` |
 
-<p align="center">Get the latest APK from GitHub Releases or the download page at go.dshtui.com. Most phones need the arm64 package.</p>
+---
 
-<p align="center">
-  <a href="https://github.com/ccch1mneyyy/dsh-go/releases/latest"><img alt="Download from GitHub Releases" src="https://img.shields.io/badge/GitHub%20Releases-Download%20APK-4B67B4?style=for-the-badge&logo=github&logoColor=white&labelColor=2B3245"></a>&emsp;<a href="https://go.dshtui.com/download"><img alt="Download from go.dshtui.com" src="https://img.shields.io/badge/go.dshtui.com-Download%20page-4B67B4?style=for-the-badge&labelColor=2B3245"></a>
-</p>
+## 3. What mygo adds
 
-<p align="center">
-  <b>Thank you for supporting DSH Go! The download page currently provides Android APKs. iOS is still in development and device testing, with no public install package yet; HarmonyOS work continues too.</b>
-</p>
+### 1. Interface: material & text, start-page tips switch
 
-<p align="center">
-  <a href="https://github.com/ccch1mneyyy/dsh-go/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ccch1mneyyy/dsh-go?style=flat-square&logo=github&label=Star&color=4B67B4&labelColor=2B3245"></a>
-</p>
+- "Material & text" lives in **Settings → Appearance**. Opacity and blur only affect glass panels and cards; text colour only affects text (optionally following the theme).
+- The usage tips at the bottom of the start page ("hold send while generating to interject, queue or interrupt…") can be turned off in **Settings → Interface**; on by default.
+- Both are wired into the settings search index, with Chinese and English strings kept in sync.
 
-<p align="center">
-  <sub>New here? Start with the <a href="docs/guide/README.md">user guide</a>, and bring questions to the <a href="#community">forum and QQ group</a>.</sub><br>
-  <sub>An early test build signed with a different key can't be updated in place: uninstall it first, which clears your chats, the Linux environment and settings.</sub>
-</p>
+Files: `app/lib/state/appearance_state.dart`, `app/lib/ui/theme/{surfaces,glass,app_theme}.dart`, `app/lib/app.dart`, `app/lib/ui/settings/appearance/appearance_page.dart`, `app/lib/ui/settings/interface_page.dart`.
 
-<br>
+### 2. Wallpapers: looping video and `.json` scenes
 
-<h3 align="center">Runs on your phone. Drives your computer.</h3>
+Four wallpaper kinds are mutually exclusive (`enum WallpaperKind { gradient, image, video, json }`, persisted as `wallpaper_kind`):
 
-<p align="center">A Linux environment built in, no root and no Termux. Switch to the DSH on your computer in one tap.</p>
+- **Looping live wallpaper**: a local MP4/WebM (≤300 MB), fit or centre, with adjustable position; ExoPlayer on Android.
+- **`.json` live wallpaper**: a single `.json` (≤20 MB) or a scene bundle (≤300 MB), switching day/dusk/night by system time; format in [docs/json-wallpaper.md](docs/json-wallpaper.md).
+- Black bars above and below animated backgrounds are fixed; blur is baked into one image when the wallpaper is built and each frame draws just that image — no per-frame Gaussian blur (`app/lib/wallpaper/wallpaper_render.dart`).
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-remote-en-dark.webp">
-    <img src="docs/assets/f-remote-en-light.webp" width="100%" alt="A chat on the phone, the host switcher, a chat on the computer">
-  </picture>
-</p>
+### 3. Live2D: Cubism 2 support and the conversion wizard
 
-<br>
+- The companion stage accepts Cubism 2 models (`.moc` + `model.json`, including `*.mtn` motions); physics, pose, expressions and blinking are not executed and say so in the docs. Cubism 3+ stays on the `.moc3` path. The `live2d.min.js` runtime is injected by the app, so authors need not bundle it.
+- The pet-page entry changed from "Let AI make a pet" to **"Convert Live2D model"** (`Live2dConvertPage`): pick a zip → read model/textures/motions/expressions → auto-match states by name → swap, skip or play-once → produce a pet pack (install directly) or a companion-room pack (save to Download, install in the companion room).
+- Pet packs no longer require a `poster.png`: the converter writes no cover, and the app captures the first frame the stage draws (`app/lib/pets/live2d_kit.dart`).
 
-<h3 align="center">Chime in, interrupt, stay tidy</h3>
+### 4. Pets: overlay and custom characters
 
-<p align="center">Send a message while DSH is replying, and tap "Send now" whenever you like. Finished steps fold into one line.</p>
+- The pet overlay outside the app has its own size, separate from the pet size inside the chat page (`botsPetOverlaySize` / `botsPetOverlayCustomSize`); the two no longer affect each other.
+- Character images can be imported from a local picture; tap lag (repeated parsing and rebuilding) is fixed.
+- The `pet-theme` skill is registered for iOS and HarmonyOS hosting (Android already had it upstream).
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-steer-en-dark.webp">
-    <img src="docs/assets/f-steer-en-light.webp" width="100%" alt="A queued message during a reply; the folded process after it">
-  </picture>
-</p>
+### 5. Balance whale pendant
 
-<br>
+A small whale above the composer: dragged to the left edge it faces outward; tap it for a line, hold the left/right buttons for press/release sounds.
 
-<h3 align="center">Native, with the web interface one tap away</h3>
+- Three built-in options: avatar (`assets/pendant/whale_girl.png`), sounds (rubber duck `Ya1/Ya2`, sound set one `D1/D2`, mute), and bubble lines (one per row, editable, restorable).
+- Can be swapped for a custom image and custom audio; it can fetch the balance (by key, showing "grant / top-up / balance running low") and, when unfocused or offline, shows status without errors.
+- Position and size persist separately (`app/lib/state/pendant_options.dart`); docs in [docs/design/pendant.md](docs/design/pendant.md).
 
-<p align="center">Switch between the native app and the official web interface on the same chat. It reopens in whichever you used last.</p>
+### 6. Miscellaneous
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-web-en-dark.webp">
-    <img src="docs/assets/f-web-en-light.webp" width="100%" alt="The same chat in the native and the web interface">
-  </picture>
-</p>
+- `CallCapture.stop()` is idempotent: it returns cleanly when no session is recording instead of crashing on a null reference (`SpeechGates.kt` and `SpeechPlugin.kt` adjusted accordingly).
+- The "Let AI make a pet" copy and its tests are gone; `pet_import_test.dart` now checks "tapping the entry opens the conversion page".
+- `file_picker` is pinned at `13.3.0` (`android_file_picker 2.1.6`): 13.4.0's Android implementation is written in Kotlin and does not compile with the current AGP/Kotlin combination (`Unresolved reference` in `FileUtils.kt`).
 
-<br>
+---
 
-<h3 align="center">Share cards, replays and links</h3>
+## 4. Upstream content removed or replaced
 
-<p align="center">Turn a reply into a share card. Share a whole chat as a link that replays in any browser, end-to-end encrypted.</p>
+| Upstream content | What mygo does | Why |
+|---|---|---|
+| The pet page's "Let AI make a pet" entry (`botsPetMake`) | Deleted, replaced by "Convert Live2D model" | The entry only typed `/pet-theme ` into the composer, a command the engine does not have; and the skill then only understood sprite assets, so foreign Live2D models had no path forward |
+| Pet packs must carry `poster.png` | A model's first frame is enough | Foreign models rarely ship a cover |
+| `.moc` (Cubism 2) always rejected | Import and display supported | Plenty of existing models are still Cubism 2, so the conversion bar was too high |
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-share-en-dark.webp">
-    <img src="docs/assets/f-share-en-light.webp" width="100%" alt="A share card, a chat replay and the list of shared links">
-  </picture>
-</p>
+**The `/pet-theme` skill itself is not gone**: upstream's sprite-asset flow (`pet_theme_convert.py`, `pet_pack_check.py` — clawd-on-desk, GIF/APNG/WebP, frame folders, Aseprite, single images) coexists with the locally added Live2D flow (`live2d_pet_kit.py`), documented in [app/assets/skills/pet-theme/SKILL.md](app/assets/skills/pet-theme/SKILL.md). In other words: the page offers the wizard, and typing `/pet-theme` still lets the AI build one in conversation.
 
-<br>
+---
 
-<h3 align="center">Landscape and tablets</h3>
+## 5. Project layout
 
-<p align="center">New layouts for landscape phones and tablets: the sidebar stays, content stays centered, the keyboard never crowds.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-adaptive-en-dark.webp">
-    <img src="docs/assets/f-adaptive-en-light.webp" width="100%" alt="A tablet and a phone on its side">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Colors and home screen icons</h3>
-
-<p align="center">Six accent colors, your wallpaper's, or your own. Four home screen icons and three icon styles.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-theme-en-dark.webp">
-    <img src="docs/assets/f-theme-en-light.webp" width="100%" alt="Theme settings and two accent colors">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">English and 中文</h3>
-
-<p align="center">The whole app speaks both. It follows your system, or pick one in Settings.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-lang-dark.webp">
-    <img src="docs/assets/f-lang-light.webp" width="100%" alt="The same chat in Chinese and in English">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Phone control</h3>
-
-<p align="center">DSH reads the screen and taps for you. Sensitive actions stay with you by default; understand the risks before relaxing app rules or lifting limits.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-phone-en-dark.webp">
-    <img src="docs/assets/f-phone-en-light.webp" width="100%" alt="Phone control and its confirmation modes">
-  </picture>
-</p>
-
-<br>
-
-## Features
-
-DSH Go combines a chat interface, an on-device runtime and remote connections. It is a third-party project built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). The DSH engine runs on your phone; model requests are still handled by the model provider you configure.
-
-- **On-device runtime:** install Ubuntu, Node.js and DSH from the app without Root or a separate Termux installation.
-- **Remote connections:** use DSH on a computer or server through SSH or [DSHarness Remote](https://github.com/liguobao/ds-harness-remote), developed by Li Guobao (liguobao).
-- **Chat and tools:** switch models, send images, use voice input, and respond to tool approvals and questions. Chat and web interfaces are available.
-- **Plugin interfaces:** use native tool cards, forms and panels from plugins adapted for DSH Go. This repository includes an SDK, guides and examples.
-- **Phone control:** after you enable the required permissions, let the local engine read the screen, tap and type. You can stop it at any time.
-- **Sharing and appearance:** share, export and replay conversations, and customize themes, icons and pets.
-
-Capabilities depend on the host and connection. DSHarness Remote currently accepts image attachments only, does not open the web interface inside the app, limits plugin management to enabling or disabling plugins, and does not support DS Bot or conversation-log export. See [Engine and remote hosts](docs/guide/en/03-engine-hosts.md).
-
-## Install
-
-Installation requires Android 8.0 (API 26) or later. The **arm64** package on the Releases page is for typical 64-bit Android phones; the x64 package for x86_64 devices and emulators is under “Other builds” at the end of the release notes. This repository has no 32-bit ARM build.
-
-1. Download the APK for your device architecture from [GitHub Releases](https://github.com/ccch1mneyyy/dsh-go/releases/latest) or the [download page](https://go.dshtui.com/download), and follow Android's prompt to allow that installation source.
-2. On first launch, choose an on-device runtime or a remote host.
-3. Configure a model and its credentials for the selected host, then start a conversation. Some remote providers must be configured on the host itself.
-
-A remote-only setup does not need a local runtime on the phone. Phone control works with the local engine outside safe mode and requires permissions such as Accessibility, as explained in the app. Non-disruptive mode additionally requires Android 14 or later and Shizuku or self-ADB. Follow the [user guide](docs/guide/README.md) for setup.
-
-The local engine uses compatible PRoot startup by default. Direct startup is off by default in Developer options; see [Troubleshooting](docs/guide/en/11-faq.md) for compatibility and fallback behavior. The current Android build targets APK sideloading, not Google Play distribution.
-
-## Data and permissions
-
-Model requests go to the provider you configure. During phone-control tasks, relevant screen text may be sent to the model, and vision-capable models may receive screenshots. Read the app's permission disclosure before enabling the feature.
-
-“Send anonymous usage statistics” is on by default. You can turn it off during onboarding or in Settings → Privacy and sharing. See [Troubleshooting](docs/guide/en/11-faq.md) for the fields collected and what happens when it is disabled. Review content before sharing it; recipients can save a copy of a shared link or file's contents.
-
-## Risks and disclaimer
-
-DSH Go is an unofficial community project. It is not affiliated with, endorsed by, or a representative of DeepSeek. Before using it, please understand:
-
-- **AI is fallible:** answers, code and actions may be wrong, and malicious instructions in web pages, messages or files may mislead it. Verify important results; do not rely solely on AI output for high-stakes medical, legal or investment decisions.
-- **Tools have real effects:** commands and file changes on local or remote hosts, as well as phone control, may cause data loss, privacy breaches, or harm to accounts, funds or devices. Skipping confirmations, relaxing app rules or lifting limits reduces safeguards; confirmation and blocking mechanisms cannot eliminate all risks. Keep default protections, grant only necessary permissions, and avoid lifting limits on devices holding payment or banking details. See the [phone-control guide](docs/guide/en/04-phone-control.md).
-- **Third-party services and costs:** models, remote hosts and plugins operate under their own terms. Data handling, availability and charges depend on the services and configuration you choose. Running locally does not mean the model is offline or that data never leaves the device.
-- **Take precautions:** back up important data, connect only to trusted hosts, install only trusted plugins, and monitor model usage and costs. Do not leave AI unattended on irreversible or high-risk tasks.
-- **No warranty and limits of liability:** to the extent permitted by applicable law, the software is provided “as is,” without guarantees of accuracy, continuous availability or fitness for a particular purpose. See sections 15–17 of [LICENSE](LICENSE) for warranty disclaimers and liability limits. This notice does not exclude or limit liability that cannot legally be excluded or limited, or reduce your statutory rights.
-
-## FAQ
-
-<details>
-<summary><b>Is this an official DeepSeek app?</b></summary>
-<br>
-
-No. DSH Go is an unofficial client made by the community, built on the open-source [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). DSH itself runs on your phone; model requests go to the provider you configure, so it needs a connection and bills your account with that provider.
-
-</details>
-
-<details>
-<summary><b>Is it safe?</b></summary>
-<br>
-
-The local web interface only answers to the app itself. Shared links are end-to-end encrypted: the key lives only in the link, and the server never sees the content, but anyone with the complete link can read and save it. Phone control retains sensitive-action protections by default; relaxing app rules or using “Lift limits” reduces those protections. Safeguards cannot guarantee zero risk. See [Risks and disclaimer](#risks-and-disclaimer) and the [phone-control guide](docs/guide/en/04-phone-control.md).
-
-</details>
-
-<details>
-<summary><b>Will the system kill it in the background?</b></summary>
-<br>
-
-Some battery savers hold apps back. When that happens, DSH Go tells you and opens the right setting, on vivo, Xiaomi, Huawei, Honor and OPPO.
-
-</details>
-
-<details>
-<summary><b>What phone do I need?</b></summary>
-<br>
-
-Android 8 or later. On a phone, download the package on the Releases page; the x86_64 build for emulators is under “Other builds” at the end of the release notes. Running DSH on the phone needs the built-in environment, so keep about 1 GB free; connecting to DSH on a computer or server doesn't.
-
-</details>
-
-<details>
-<summary><b>Is it open source?</b></summary>
-<br>
-
-Yes. The code is in this repository under [AGPL-3.0](LICENSE); `sdk/` and `examples/` are MIT. The DSH Go name and logo, and the mascots Deepy and Whale girl, are not covered by the open-source license; see [ASSETS.md](ASSETS.md). Credit requirements for forks and redistributed builds are in [License scope and redistribution](#license-scope-and-redistribution).
-
-</details>
-
-## Build from source
-
-The following workflow targets **Linux x86_64**. The toolchain script currently defaults to JDK 17, Flutter 3.47.7 and the Android SDK/NDK. The app requires Dart `^3.13.5`. Prepare Bash, Git, curl, tar, unzip, xz, Python 3, zstd (for unpacking zstd-compressed deb archives when Python does not provide `compression.zstd`), file and standard GNU utilities. Resolving Ubuntu package locks again also requires gpgv.
-
-Start with the complete source tree and project assets. Fonts, images and other files declared in `app/pubspec.yaml` are build inputs. The following script generates the runtime bundle.
-
-```bash
-git clone https://github.com/ccch1mneyyy/dsh-go.git
-cd dsh-go
-
-bash tooling/setup-toolchain.sh
-source tooling/env.sh
-flutter --version
-java -version
-
-bash runtime/build-runtime.sh arm64-v8a
-DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f arm64 --keep-daemon
+```
+app/            Flutter app (lib/ is Dart; android/ ios/ ohos/ are the three shells)
+runtime/        Engine runtime and patches (versions pinned by pins.json)
+packages/       Dependencies shipped with the repository
+docs/           Design, guides, Live2D / pet / plugin docs
+tooling/        Validation and replay tools
 ```
 
-The toolchain script downloads the SDK/NDK and emulator images and runs Android SDK license acceptance. Its default location is `~/dev`; set `DEV_ROOT` to use a separate directory. The script reuses existing installations, so check their versions before building.
+Added docs: [docs/json-wallpaper.md](docs/json-wallpaper.md), [docs/design/pendant.md](docs/design/pendant.md), [docs/design/pets.md](docs/design/pets.md) (updated for this branch), [docs/live2d/README.md](docs/live2d/README.md) (Cubism 2 added).
 
-The output is `app/build/app/outputs/flutter-apk/app-arm64-release.apk`. Runtime assembly uses the versions and verification data pinned in the repository and needs network access to download dependencies. `DSH_BETA_TOKEN_FILE=` leaves out the maintainer's beta-channel token. `--keep-daemon` preserves Gradle daemons, which is useful when working on other Android projects at the same time.
+---
 
-For an x86_64 APK, generate its runtime first:
+## 6. Build
 
-```bash
-bash runtime/build-runtime.sh x86_64
-DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f x64 --keep-daemon
+Release builds use an out-of-tree script, `C:\tool\build-release.ps1` (Windows + Flutter SDK + Android SDK + a signing key):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\tool\build-release.ps1 -NoCopy -OutDir C:\tool\out
 ```
 
-Without `app/android/key.properties`, a local release build uses debug signing. It cannot replace an official installation signed with a different key. Use a test device and preserve existing data; do not uninstall your daily-use app just to resolve a signing mismatch. Do not commit signing keys or their configuration.
+| Parameter | Default | Meaning |
+|---|---|---|
+| `-Package` | `io.dsh.go` | applicationId (changed only during the build, restored afterwards) |
+| `-Version` | `1.2.1-beta` | versionName |
+| `-Abi` | `arm64` | `arm64` / `x64` |
+| `-Keystore` / `-KeyAlias` | `C:\tool\my-release-key.jks` / `my-key-alias` | Signing |
+| `-StorePassword` / `-KeyPassword` | read from `key.properties` | Never written to disk or echoed |
+| `-OutDir` / `-NoCopy` / `-BuildNumber` | — | Artifact destination, whether to copy, versionCode |
+| `-DryRun` / `-SkipSourcePatches` | — | Print only / skip source patches |
 
-To inspect APK build commands without building:
+What the script does: verify the `runtime/out` artifacts → apply 12 groups of embedded patches (wallpaper, Live2D, start-page tips, material & text, material tests, pet page fixes, pet sharpness, pet skill cover, model conversion, balance whale, conversion hardening, whale bubbles) → temporarily change applicationId and write `key.properties` → `flutter build apk` → check package name, ABI and signature with `aapt2` / `apksigner` → check whether the ONNX JNI classes survived → restore every temporary change byte-for-byte in `finally`.
 
-```bash
-DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh --dry-run -f all
+> As of 2026-11-19 all 12 groups **already live in the repository** (commit `fd2f459ef`), so the script now only prints "already in the repository, skipping". If it ever prints "N places do not match (upstream changed the same region)", upstream has touched that code: merge it by hand once before running. The script deliberately refuses to skip silently.
+
+Artifacts: `app/build/app/outputs/apk/<abi>/release/app-<abi>-release.apk`. Last verified build: `io.dsh.go` / `1.2.1-beta` / `arm64-v8a` / 222.5 MB / signature `CN=Silver Wolf` / ONNX JNI check passed / build exit code 0.
+
+---
+
+## 7. Development and checks
+
+```powershell
+cd app
+flutter pub get
+flutter analyze          # currently: 34 issues, all info, 0 errors / 0 warnings
+flutter test             # see the environment notes below
 ```
 
-## Repository layout
+- **l10n: only edit `app/lib/l10n/parts/*.arb`**, then run `python app/tool/l10n_merge.py` (regenerates `gen/` and `app_{zh,en}.arb`).
+  Verify with `--check`: currently `✓ 76 parts, 8462 keys`.
+- **User guides: only edit `docs/guide/`**, then run `python app/tool/guide_sync.py`; `--check` currently reports `38 files checked`.
+- **Test fonts**: golden tests want `/usr/share/fonts/noto-cjk/NotoSansCJK-*.ttc` (a Linux path). On Windows, point
+  `DSH_TEST_FONT_DIR=<dir>` at substitute fonts — but the screenshots will always differ, so **golden results are not evidence of anything on Windows**.
+- Windows adds three fixed false failures: path separators (expected `/`, actual `\`), symlink creation `errno 1314`, and CRLF checkouts producing different SHA-256 values (after LF normalisation they match the expected hashes).
+- Last targeted run (`test/safe_mode test/runtime test/l10n test/launch test/phone test/pets`): **1207 passed / 122 failed**, every failure falling into the environment causes above (mostly golden pixel differences).
 
-| Path | Contents |
-| --- | --- |
-| `app/` | Flutter interface, Android Kotlin code, and iOS Swift/WidgetKit code under development |
-| `packages/dsh_client/` | Dart client for the DSH Web API |
-| `packages/dsh_remote/` | Dart client for DSH Remote |
-| `runtime/` | Android Linux runtime assembly, iOS runtime specialization, engine patches and the app bridge |
-| `sdk/plugin-kit/` | Native plugin authoring kit, used from the repository and not published to npm |
-| `examples/plugins/` | Example plugins |
-| `docs/guide/`, `docs/plugins/`, `docs/pets/`, `docs/live2d/` | User guides, plugin development, pet packs and Live2D companion authoring |
-| `docs/assets/` | Showcase images, pet animations and community QR codes used on this page |
-| `tooling/` | Toolchain, Android APK/iOS development build, and diagnostic scripts |
-| `services/`, `site/`, `infra/` | Companion sharing service, website and deployment materials |
+---
 
-## Contribute
+## 8. Merging upstream (maintainer notes)
 
-Report bugs and suggest improvements in [Issues](https://github.com/ccch1mneyyy/dsh-go/issues). For code, documentation and translation changes, start with [CONTRIBUTING.en.md](CONTRIBUTING.en.md). Plugin authors can use the [plugin guides](docs/plugins/en/README.md) and [SDK](sdk/plugin-kit/README.en.md).
+```powershell
+git fetch upstream
+git merge --no-ff upstream/main -m "Merge upstream/main into harmonyos"
+```
 
-Report security issues through [SECURITY.en.md](SECURITY.en.md). Keep vulnerability details and credentials out of public issues.
+1. Resolve conflicts as "local features first, keep upstream wherever possible"; then run `flutter analyze` and both l10n / guide `--check`s.
+2. Run the build script once more: it is clean only when everything prints "already in the repository, skipping"; any "N places do not match" must be merged by hand per the docs first.
+3. Re-confirm the upstream content mygo replaced (especially the "Let AI make a pet" entry): `git grep -n botsPetMake -- app` should be empty.
+4. Reference rollback point: tag `pre-upstream-merge-20261119`.
 
-<a id="community"></a>
+---
 
-## Community
+## 9. License
 
-- **Forum**: [forum.dshtui.com](https://forum.dshtui.com)
-- **QQ group**: `1132118290` ([join](https://qm.qq.com/q/OEy2RqZnqY))
-- **WeChat group**: scan the code below; if it has expired, join the QQ group
-<!-- Telegram: link to come, add a line here -->
-
-<p align="center">
-  <a href="https://qm.qq.com/q/OEy2RqZnqY"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/qr-qq-en-dark.webp"><img src="docs/assets/qr-qq-en-light.webp" width="300" alt="QQ group DSH-Go!!, number 1132118290"></picture></a>&emsp;&emsp;<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/qr-wechat-en-dark.webp"><img src="docs/assets/qr-wechat-en-light.webp" width="300" alt="WeChat group DSHGo 2群"></picture>
-</p>
-
-<p align="center">
-  <sub>QQ group <code>1132118290</code>. On a computer, <a href="https://qm.qq.com/q/OEy2RqZnqY">join with one click</a>. The WeChat code changes every week; if it has expired, join the QQ group.</sub>
-</p>
-
-## Friends' Links
-
-- **[DSH-TUI](https://dshtui.com/)**: the interactive terminal UI for DeepSeek Harness by the same author — the desktop counterpart to DSH Go, with a pixel whale, live status and time travel ([GitHub](https://github.com/ccch1mneyyy/dsh-TUI)).
-
-## License scope and redistribution
-
-The code is open source under [AGPL-3.0](LICENSE), and forking it to study, self-host or build on is welcome. Please respect the original author and project origin:
-
-- **Please contact the author before making modifications.** If you plan to modify this project, develop it further or publish a derivative product, please contact the original author, ccch1mneyyy, through [Issues](https://github.com/ccch1mneyyy/dsh-go/issues) or the [community](#community) in advance and describe your intended use and plans.
-- **Please credit the upstream repository and author in forks.** When publishing a modified version, please clearly credit <https://github.com/ccch1mneyyy/dsh-go> and the original author, [ccch1mneyyy](https://github.com/ccch1mneyyy), in the repository README, in-app About screen and release page. Retain copyright, license and modification notices as required by the applicable license.
-- **No unauthorized commercial reskins.** Do not use this project's brand graphics or protected assets, including Deepy and Whale girl, in reskinned products for sale, paid distribution or other commercial products without permission. Do not violate the applicable license by removing required copyright and license notices or distributing derivative code without the required source, or impersonate the original author or an official release.
-- **The name and assets are separate.** The DSH Go name and logo, and the Deepy and Whale girl mascots, are not covered by AGPL-3.0. Ship a modified build under your own name and assets; see [ASSETS.md](ASSETS.md).
-
-**License clarification:** AGPL-3.0 permits modification, redistribution and commercial use subject to its terms. Advance contact and the requested credit locations above are collaboration requests from the author, not additional restrictions on the code license. Brand and asset use remains subject to their own terms; this notice does not change the licenses of `sdk/`, `examples/` or third-party content.
-
-## License and acknowledgments
-
-This project is licensed under [AGPL-3.0](LICENSE). `sdk/` and `examples/` remain **MIT**. Third-party code and assets retain the terms stated in their own notices.
-
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): the agent DSH Go runs and connects to.
-- [DSH-TUI](https://github.com/ccch1mneyyy/dsh-TUI): home of the mascots, Deepy and Whale girl.
-
-Code derived from Phase is used under the MIT License with the author's permission. DeepSeek Harness, PiPilot, DS Bot, DSH Remote and other third-party components and assets retain their own licenses and attribution. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for sources and terms.
-
-The DSH Go name, logo and mascots (Deepy and Whale girl) are not covered by the AGPL; see [ASSETS.md](ASSETS.md) for their terms.
-
-<sub>Remote connections follow the [ds-harness-remote](https://github.com/liguobao/ds-harness-remote) (MIT) protocol; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for sources and terms.</sub>
-
-<br>
-
-<p align="center"><sub>DSH Go is an unofficial client made by the community. It is not affiliated with or endorsed by DeepSeek. DeepSeek names and marks belong to their owners.</sub></p>
+Inherited from upstream. Third-party components and asset licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [ASSETS.md](ASSETS.md).

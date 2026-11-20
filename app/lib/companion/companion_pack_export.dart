@@ -83,7 +83,7 @@ Map<String, Object?> _exportAdapter(Object? value) {
   }
   if (raw['tail'] is List) out['tail'] = _exportNames(raw['tail']);
   if (raw['pose'] is Map) out['pose'] = _exportNumbers(raw['pose']);
-  if (raw['framing'] is Map) out['framing'] = _exportNumbers(raw['framing'], {'zoom', 'y'});
+  if (raw['framing'] is Map) out['framing'] = _exportNumbers(raw['framing'], {'zoom', 'x', 'y'});
   return out;
 }
 

@@ -3255,7 +3255,107 @@ class L10nEn extends L10n {
   String get botsPetConvertRoom => 'Build a companion room pack';
 
   @override
-  String get botsPetConvertRoomHint => 'Saved to Download, install it from the companion room';
+  String get botsPetConvertRoomHint => 'Saved to Download; it can also be installed just below';
+
+  @override
+  String get botsPetConvertTarget => 'What to build';
+
+  @override
+  String get botsPetConvertTargetHint =>
+      'A pet pack switches motions by state; a companion pack switches by emotion and action';
+
+  @override
+  String get botsPetConvertTargetPet => 'Pet pack';
+
+  @override
+  String get botsPetConvertTargetRoom => 'Companion pack';
+
+  @override
+  String get botsPetConvertRoomEmotions => 'Expression per emotion';
+
+  @override
+  String get botsPetConvertRoomEmotionsHint => 'One row per emotion; the picker previews each one with ▶';
+
+  @override
+  String get botsPetConvertRoomNoExpressions => 'This model has no expression files: emotions can only ride on motions';
+
+  @override
+  String get botsPetConvertRoomActions => 'Motion per action';
+
+  @override
+  String get botsPetConvertRoomActionsHint => 'The companion plays the motion the character asks for';
+
+  @override
+  String get botsPetConvertChooseExpression => 'Pick an expression';
+
+  @override
+  String get botsPetConvertExpressionNone => 'No expression';
+
+  @override
+  String botsPetConvertPreviewExpressionTitle(String name) {
+    return 'Preview 「$name」';
+  }
+
+  @override
+  String get botsPetConvertRuntime => 'Runtime';
+
+  @override
+  String get botsPetConvertRuntimeBundle => 'Bundle the runtime';
+
+  @override
+  String get botsPetConvertRuntimeBundleHint =>
+      'With it inside, the pack also installs on a phone that never had the companion';
+
+  @override
+  String get botsPetConvertRuntimeReady => 'The runtime is on this phone and can be bundled';
+
+  @override
+  String get botsPetConvertRuntimeMissing => 'No runtime on this phone yet: import a companion pack, or bundle one';
+
+  @override
+  String get botsPetConvertRuntimeImport => 'Import a companion pack';
+
+  @override
+  String get botsPetConvertRuntimeImportHint => 'This is how to get a runtime; it replaces the current companion';
+
+  @override
+  String get botsPetConvertRuntimeDone => 'Runtime ready';
+
+  @override
+  String get botsPetConvertResult => 'Result';
+
+  @override
+  String get botsPetConvertRoomImport => 'Install into the companion';
+
+  @override
+  String get botsPetConvertRoomImportHint => 'Replaces the current companion';
+
+  @override
+  String botsPetConvertRoomImported(String name) {
+    return 'Installed 「$name」 into the companion';
+  }
+
+  @override
+  String get botsPetConvertFraming => 'Placement';
+
+  @override
+  String get botsPetConvertFramingHint =>
+      'The companion starts at 1.2× and centred; these three numbers are the pack\'s framing, and ▶ shows the result';
+
+  @override
+  String get botsPetConvertFramingZoom => 'Scale';
+
+  @override
+  String get botsPetConvertFramingX => 'Left / right';
+
+  @override
+  String get botsPetConvertFramingY => 'Up / down';
+
+  @override
+  String get botsPetConvertFramingPreview => 'Preview the placement';
+
+  @override
+  String get botsPetConvertFramingReset => 'Reset';
 
   @override
   String botsPetConvertPetDone(String name) {

@@ -3070,7 +3070,104 @@ class L10nZh extends L10n {
   String get botsPetConvertRoom => '生成伙伴小屋包';
 
   @override
-  String get botsPetConvertRoomHint => '存到手机的 Download，去伙伴小屋安装';
+  String get botsPetConvertRoomHint => '存到手机的 Download；也可以直接在下面导入';
+
+  @override
+  String get botsPetConvertTarget => '生成什么';
+
+  @override
+  String get botsPetConvertTargetHint => '宠物包按状态切动作；伙伴小屋包按情绪和动作切';
+
+  @override
+  String get botsPetConvertTargetPet => '宠物包';
+
+  @override
+  String get botsPetConvertTargetRoom => '伙伴小屋包';
+
+  @override
+  String get botsPetConvertRoomEmotions => '情绪绑哪个表情';
+
+  @override
+  String get botsPetConvertRoomEmotionsHint => '一行一个情绪；挑选的时候可以 ▶ 试看';
+
+  @override
+  String get botsPetConvertRoomNoExpressions => '这个模型没有表情文件：情绪只能靠动作表达';
+
+  @override
+  String get botsPetConvertRoomActions => '动作绑哪个动作';
+
+  @override
+  String get botsPetConvertRoomActionsHint => '伙伴小屋让角色做这些动作时，播放对应的动作';
+
+  @override
+  String get botsPetConvertChooseExpression => '挑一个表情';
+
+  @override
+  String get botsPetConvertExpressionNone => '不套表情';
+
+  @override
+  String botsPetConvertPreviewExpressionTitle(String name) {
+    return '试看表情「$name」';
+  }
+
+  @override
+  String get botsPetConvertRuntime => '运行库';
+
+  @override
+  String get botsPetConvertRuntimeBundle => '把运行库一起打包';
+
+  @override
+  String get botsPetConvertRuntimeBundleHint => '带上之后，这个包在没装过伙伴小屋的手机上也能直接导入';
+
+  @override
+  String get botsPetConvertRuntimeReady => '手机上已经有运行库，可以一起打包';
+
+  @override
+  String get botsPetConvertRuntimeMissing => '手机上还没有运行库：先导入一个伙伴小屋包，或者让包自带运行库';
+
+  @override
+  String get botsPetConvertRuntimeImport => '导入伙伴小屋包';
+
+  @override
+  String get botsPetConvertRuntimeImportHint => '用来取得运行库；会替换伙伴小屋里现在的角色';
+
+  @override
+  String get botsPetConvertRuntimeDone => '运行库已就绪';
+
+  @override
+  String get botsPetConvertResult => '结果';
+
+  @override
+  String get botsPetConvertRoomImport => '导入到伙伴小屋';
+
+  @override
+  String get botsPetConvertRoomImportHint => '会替换伙伴小屋里现在的角色';
+
+  @override
+  String botsPetConvertRoomImported(String name) {
+    return '已把「$name」装进伙伴小屋';
+  }
+
+  @override
+  String get botsPetConvertFraming => '位置与缩放';
+
+  @override
+  String get botsPetConvertFramingHint => '伙伴小屋默认按 1.2 倍、居中摆放；这三个数就是包里的取景，改完可以点▶看效果';
+
+  @override
+  String get botsPetConvertFramingZoom => '缩放';
+
+  @override
+  String get botsPetConvertFramingX => '左右';
+
+  @override
+  String get botsPetConvertFramingY => '上下';
+
+  @override
+  String get botsPetConvertFramingPreview => '预览取景';
+
+  @override
+  String get botsPetConvertFramingReset => '恢复默认';
 
   @override
   String botsPetConvertPetDone(String name) {

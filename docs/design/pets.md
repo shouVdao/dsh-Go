@@ -471,6 +471,36 @@ app/tool/live2d_pet_kit.py 把「社区整包的 Live2D 模型」转成宠物包
 技能 app/assets/skills/pet-theme/ 的 SKILL.md 改成两条路：Live2D 走上面的脚本，精灵素材仍走
 pet_theme_convert.py；两者都要求「必须报告没实现的状态与事件」。
 
+### 3.9.1 同一份模型的两个目标（2026-11-20）
+
+**宠物的状态与伙伴小屋的状态不能直接对应。** 宠物侧是 11 个状态（`PetStateName`，见 §4）加 5 个触摸
+事件，由 App 的信号机选动作；伙伴小屋侧没有状态枚举，是 10 个情绪（`companionAdaptEmotions`）加 12 个
+动作（`companionAdaptActions`），由回复里的标记选表情与动作（`companion_reply.dart`）。所以转换页在读出
+模型后先问「生成什么」，两条路的产物不同：
+
+- **宠物包**（不变）：11 状态 + 5 事件的映射，导入并换上。
+- **伙伴小屋包**：10 个情绪各绑一个 `.exp3` 表情、12 个动作各绑一个 motion，写成
+  `character/character.json` 的 `emotions` / `actions`。Cubism 3 模型才有表情文件；Cubism 2 没有
+  `.exp3`（`stage.js` 的 `startExpression()` 是空实现），页面会说明情绪只能靠动作表达。
+- **表情能试看。** 与动作的 ▶ 同一套机制：`Live2dPreviewSheet` 多一个 `expression` 参数，
+  `PetLive2dView` 多一个 `expression` 字段，就绪后发 `emotion` 命令（`hold` 一小时，舞台的
+  `setEmotion` 认模型自带表情的原始名，不需要 `character.json` 映射）。
+- **小屋包直接按安装格式排。** 模型放 `character/` 下、带 `character.json` 与 `character/index.json`，
+  `model` 是 `character/` 内的相对路径；这样 `CompanionPackStore.install` 不会把它当裸模型重写（裸模型的
+  默认 `character.json` 会丢掉 `emotions` / `actions`）。
+- **运行库可一起打包。** 运行库只能来自手机上已装的伙伴小屋包
+  （`<app support>/companion/pack/runtime`，仓库里没有随包的 `whale-girl.zip`）。开关默认开，装了才可点；
+  打进去的 `runtime/` 会由 `install` 按 `companionRuntimeDigest` 校验。没有运行库的手机可以先「导入伙伴
+  小屋包」——那既是安装角色，也是取得运行库；生成的包还能在结果区一键「导入到伙伴小屋」。
+- **结果区在最下面。** 生成的结果（Download 路径、导入按钮、错误）统一放在页面末尾，避免和「生成什么」
+  的选择行混在一起；生成完用 `Scrollable.ensureVisible` 把它滚进视野（对齐到顶部，到底就停在页尾），
+  否则结果只露出半行。
+- **位置与缩放可调。** 小屋包的 `character.json` 可以带 `framing`：`zoom`、`x`、`y` 三个数，就是舞台
+  的相机（`stage.js` 的 `camera`，默认 1.2 倍居中）。转换页给三个滑杆加「恢复默认」，`.exp` 之外还有
+  「预览取景」——预览仍走 `PetLive2dView`（`mode=pet`），所以舞台多了 `roomZoom` / `roomX` / `roomY`
+  三个查询参数，只在宠物模式下覆盖相机，宠物自己用不到。导出白名单
+  （`companion_pack_export.dart` 的 `_exportNumbers`）同步加了 `x`。
+
 已知限制：`contentBox` / `anchor` 由 App 首次显示时按截图的 alpha 校准（只对带 `.content-box-auto`
 的包），那是「整张画布里的不透明区」，比脚本里手填的坐标更糙但不再需要人量；Cubism 2 能装但降级
 （无物理、表情少）；模型只有一个动作组时所有状态只能共用。

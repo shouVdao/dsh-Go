@@ -17,7 +17,12 @@ On HarmonyOS the pet stays in the app: it can't show outside the app, and there'
 
 ## Make your own pet
 
-The new **Convert a Live2D model** item on the pet page: pick a zip of a Live2D model folder. The app reads the motions the model already has and lets you choose one for each state and for each reaction to a tap — whatever the model can't do stays **Leave it out**, and the build lists it; two states can trade motions. **Build the pet and switch to it** puts her in the chat; **Build a companion room pack** saves a zip to Download to install in the companion room. No AI is needed for this; typing `/pet-theme` in a chat still works too.
+The new **Convert a Live2D model** item on the pet page: pick a zip of a Live2D model folder. The app reads the motions and expressions the model already has, then asks what to build.
+
+- **Pet pack**: choose one motion for each of the 11 states and for each reaction to a tap — whatever the model can't do stays **Leave it out**, and the build lists it; two states can trade motions. **Build the pet and switch to it** puts her in the chat.
+- **Companion pack**: the companion room is driven by emotions and actions, not by pet states, so here each of the 10 emotions is bound to an expression and each of the 12 actions to a motion, and both can be played with ▶ first. The pack is saved to Download; when the phone has no **Runtime** yet, turn on **Bundle the runtime** (install a companion pack once first). A phone without a runtime can start with **Import a companion pack**, and the pack just built can then be installed with **Install into the companion**. Where the model sits in her room is adjustable on the same page (**Placement**: scale, left / right, up / down), with **Preview the placement** to check it.
+
+The **Result** — where it was saved, the install button, why it failed — stays at the bottom of the page. No AI is needed for this; typing `/pet-theme` in a chat still works too.
 
 ## In chats
 

@@ -5705,8 +5705,194 @@ abstract class L10n {
   /// No description provided for @botsPetConvertRoomHint.
   ///
   /// In zh, this message translates to:
-  /// **'存到手机的 Download，去伙伴小屋安装'**
+  /// **'存到手机的 Download；也可以直接在下面导入'**
   String get botsPetConvertRoomHint;
+
+  /// No description provided for @botsPetConvertTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成什么'**
+  String get botsPetConvertTarget;
+
+  /// No description provided for @botsPetConvertTargetHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'宠物包按状态切动作；伙伴小屋包按情绪和动作切'**
+  String get botsPetConvertTargetHint;
+
+  /// No description provided for @botsPetConvertTargetPet.
+  ///
+  /// In zh, this message translates to:
+  /// **'宠物包'**
+  String get botsPetConvertTargetPet;
+
+  /// No description provided for @botsPetConvertTargetRoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴小屋包'**
+  String get botsPetConvertTargetRoom;
+
+  /// No description provided for @botsPetConvertRoomEmotions.
+  ///
+  /// In zh, this message translates to:
+  /// **'情绪绑哪个表情'**
+  String get botsPetConvertRoomEmotions;
+
+  /// No description provided for @botsPetConvertRoomEmotionsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'一行一个情绪；挑选的时候可以 ▶ 试看'**
+  String get botsPetConvertRoomEmotionsHint;
+
+  /// No description provided for @botsPetConvertRoomNoExpressions.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个模型没有表情文件：情绪只能靠动作表达'**
+  String get botsPetConvertRoomNoExpressions;
+
+  /// No description provided for @botsPetConvertRoomActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'动作绑哪个动作'**
+  String get botsPetConvertRoomActions;
+
+  /// No description provided for @botsPetConvertRoomActionsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴小屋让角色做这些动作时，播放对应的动作'**
+  String get botsPetConvertRoomActionsHint;
+
+  /// No description provided for @botsPetConvertChooseExpression.
+  ///
+  /// In zh, this message translates to:
+  /// **'挑一个表情'**
+  String get botsPetConvertChooseExpression;
+
+  /// No description provided for @botsPetConvertExpressionNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不套表情'**
+  String get botsPetConvertExpressionNone;
+
+  /// No description provided for @botsPetConvertPreviewExpressionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'试看表情「{name}」'**
+  String botsPetConvertPreviewExpressionTitle(String name);
+
+  /// No description provided for @botsPetConvertRuntime.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行库'**
+  String get botsPetConvertRuntime;
+
+  /// No description provided for @botsPetConvertRuntimeBundle.
+  ///
+  /// In zh, this message translates to:
+  /// **'把运行库一起打包'**
+  String get botsPetConvertRuntimeBundle;
+
+  /// No description provided for @botsPetConvertRuntimeBundleHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'带上之后，这个包在没装过伙伴小屋的手机上也能直接导入'**
+  String get botsPetConvertRuntimeBundleHint;
+
+  /// No description provided for @botsPetConvertRuntimeReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'手机上已经有运行库，可以一起打包'**
+  String get botsPetConvertRuntimeReady;
+
+  /// No description provided for @botsPetConvertRuntimeMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'手机上还没有运行库：先导入一个伙伴小屋包，或者让包自带运行库'**
+  String get botsPetConvertRuntimeMissing;
+
+  /// No description provided for @botsPetConvertRuntimeImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入伙伴小屋包'**
+  String get botsPetConvertRuntimeImport;
+
+  /// No description provided for @botsPetConvertRuntimeImportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用来取得运行库；会替换伙伴小屋里现在的角色'**
+  String get botsPetConvertRuntimeImportHint;
+
+  /// No description provided for @botsPetConvertRuntimeDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行库已就绪'**
+  String get botsPetConvertRuntimeDone;
+
+  /// No description provided for @botsPetConvertResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果'**
+  String get botsPetConvertResult;
+
+  /// No description provided for @botsPetConvertRoomImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入到伙伴小屋'**
+  String get botsPetConvertRoomImport;
+
+  /// No description provided for @botsPetConvertRoomImportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'会替换伙伴小屋里现在的角色'**
+  String get botsPetConvertRoomImportHint;
+
+  /// No description provided for @botsPetConvertRoomImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已把「{name}」装进伙伴小屋'**
+  String botsPetConvertRoomImported(String name);
+
+  /// No description provided for @botsPetConvertFraming.
+  ///
+  /// In zh, this message translates to:
+  /// **'位置与缩放'**
+  String get botsPetConvertFraming;
+
+  /// No description provided for @botsPetConvertFramingHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'伙伴小屋默认按 1.2 倍、居中摆放；这三个数就是包里的取景，改完可以点▶看效果'**
+  String get botsPetConvertFramingHint;
+
+  /// No description provided for @botsPetConvertFramingZoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'缩放'**
+  String get botsPetConvertFramingZoom;
+
+  /// No description provided for @botsPetConvertFramingX.
+  ///
+  /// In zh, this message translates to:
+  /// **'左右'**
+  String get botsPetConvertFramingX;
+
+  /// No description provided for @botsPetConvertFramingY.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下'**
+  String get botsPetConvertFramingY;
+
+  /// No description provided for @botsPetConvertFramingPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览取景'**
+  String get botsPetConvertFramingPreview;
+
+  /// No description provided for @botsPetConvertFramingReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get botsPetConvertFramingReset;
 
   /// No description provided for @botsPetConvertPetDone.
   ///

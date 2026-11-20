@@ -388,7 +388,52 @@
   "botsPetConvertPet": "Build the pet and switch to it",
   "botsPetConvertPetHint": "The model folder goes in too; the phone needs the Live2D runtime installed",
   "botsPetConvertRoom": "Build a companion room pack",
-  "botsPetConvertRoomHint": "Saved to Download, install it from the companion room",
+  "botsPetConvertRoomHint": "Saved to Download; it can also be installed just below",
+  "botsPetConvertTarget": "What to build",
+  "botsPetConvertTargetHint": "A pet pack switches motions by state; a companion pack switches by emotion and action",
+  "botsPetConvertTargetPet": "Pet pack",
+  "botsPetConvertTargetRoom": "Companion pack",
+  "botsPetConvertRoomEmotions": "Expression per emotion",
+  "botsPetConvertRoomEmotionsHint": "One row per emotion; the picker previews each one with ▶",
+  "botsPetConvertRoomNoExpressions": "This model has no expression files: emotions can only ride on motions",
+  "botsPetConvertRoomActions": "Motion per action",
+  "botsPetConvertRoomActionsHint": "The companion plays the motion the character asks for",
+  "botsPetConvertChooseExpression": "Pick an expression",
+  "botsPetConvertExpressionNone": "No expression",
+  "botsPetConvertPreviewExpressionTitle": "Preview 「{name}」",
+  "@botsPetConvertPreviewExpressionTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertRuntime": "Runtime",
+  "botsPetConvertRuntimeBundle": "Bundle the runtime",
+  "botsPetConvertRuntimeBundleHint": "With it inside, the pack also installs on a phone that never had the companion",
+  "botsPetConvertRuntimeReady": "The runtime is on this phone and can be bundled",
+  "botsPetConvertRuntimeMissing": "No runtime on this phone yet: import a companion pack, or bundle one",
+  "botsPetConvertRuntimeImport": "Import a companion pack",
+  "botsPetConvertRuntimeImportHint": "This is how to get a runtime; it replaces the current companion",
+  "botsPetConvertRuntimeDone": "Runtime ready",
+  "botsPetConvertResult": "Result",
+  "botsPetConvertRoomImport": "Install into the companion",
+  "botsPetConvertRoomImportHint": "Replaces the current companion",
+  "botsPetConvertRoomImported": "Installed 「{name}」 into the companion",
+  "@botsPetConvertRoomImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertFraming": "Placement",
+  "botsPetConvertFramingHint": "The companion starts at 1.2× and centred; these three numbers are the pack's framing, and ▶ shows the result",
+  "botsPetConvertFramingZoom": "Scale",
+  "botsPetConvertFramingX": "Left / right",
+  "botsPetConvertFramingY": "Up / down",
+  "botsPetConvertFramingPreview": "Preview the placement",
+  "botsPetConvertFramingReset": "Reset",
   "botsPetConvertPetDone": "{name} is your pet now",
   "@botsPetConvertPetDone": {
     "placeholders": {

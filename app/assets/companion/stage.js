@@ -1273,6 +1273,7 @@
     }
     defaultZoom ?? (defaultZoom = camera.zoom);
     camera.zoom = Number(adapter?.framing?.zoom) || Number(character.framing?.zoom) || defaultZoom;
+    camera.x = Number(adapter?.framing?.x ?? character.framing?.x) || 0;
     camera.y = Number(adapter?.framing?.y ?? character.framing?.y) || 0;
     if (FLOAT) {
       // Separate, explicit float framing; never write it into the room's adapter.
@@ -1284,7 +1285,16 @@
     if (PET) {
       // The pet layer sizes the canvas to the character's own box: no room framing.
       camera.zoom = 1;
+      camera.x = 0;
       camera.y = 0;
+      // …unless the converter asks for the room's framing, to preview a pack
+      // before it is installed (live2d_convert_page.dart).
+      if (query.has('roomZoom') || query.has('roomX') || query.has('roomY')) {
+        const roomZoom = Number(query.get('roomZoom'));
+        camera.zoom = roomZoom > 0 ? clamp(roomZoom, 0.55, 3.2) : 1.2;
+        camera.x = clamp(Number(query.get('roomX')) || 0, -2, 2);
+        camera.y = clamp(Number(query.get('roomY')) || 0, -2, 2);
+      }
     }
   }
 

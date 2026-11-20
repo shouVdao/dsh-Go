@@ -21,21 +21,29 @@ import '../../pets/pet_state.dart';
 import '../theme/app_icons.dart';
 import 'pet_live2d_view.dart';
 
-/// A dialog that plays [motion] of [report]'s model, with the model's other
-/// motions one button away.
+/// A dialog that plays [motion] of [report]'s model — and holds one of its
+/// expressions, when [expression] says so — with the model's other motions and
+/// expressions one button away.
 class Live2dPreviewSheet extends ConsumerStatefulWidget {
-  const Live2dPreviewSheet({super.key, required this.report, required this.motion});
+  const Live2dPreviewSheet({super.key, required this.report, required this.motion, this.expression, this.framing});
 
   final Live2dKitReport report;
   final String motion;
+  final String? expression;
+
+  /// The room's framing (`zoom`, `x`, `y`) to show the model with, so a pack's
+  /// placement can be judged before it is built.
+  final Map<String, double>? framing;
 
   static Future<void> show(
     BuildContext context, {
     required Live2dKitReport report,
     required String motion,
+    String? expression,
+    Map<String, double>? framing,
   }) => showDialog<void>(
     context: context,
-    builder: (context) => Live2dPreviewSheet(report: report, motion: motion),
+    builder: (context) => Live2dPreviewSheet(report: report, motion: motion, expression: expression, framing: framing),
   );
 
   @override
@@ -50,6 +58,7 @@ class _Live2dPreviewSheetState extends ConsumerState<Live2dPreviewSheet> {
   late Directory? _dir;
   PetPack? _pack;
   late String _motion = widget.motion;
+  late String? _expression = widget.expression;
 
   @override
   void initState() {
@@ -118,7 +127,9 @@ class _Live2dPreviewSheetState extends ConsumerState<Live2dPreviewSheet> {
           'loop': true,
         },
       },
-      'states': {for (final state in PetStateName.values) state.name: ['poster']},
+      'states': {
+        for (final state in PetStateName.values) state.name: ['poster'],
+      },
       'live2d': {
         'model': descriptor,
         'states': {PetStateName.idle.name: _motion},
@@ -155,7 +166,9 @@ class _Live2dPreviewSheetState extends ConsumerState<Live2dPreviewSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      l10n.botsPetConvertPreviewTitle(_motion),
+                      _expression == null
+                          ? l10n.botsPetConvertPreviewTitle(_motion)
+                          : l10n.botsPetConvertPreviewExpressionTitle(_expression!),
                       style: theme.textTheme.titleSmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -180,10 +193,29 @@ class _Live2dPreviewSheetState extends ConsumerState<Live2dPreviewSheet> {
                         state: PetStateName.idle,
                         reaction: null,
                         motion: _motion,
+                        expression: _expression,
+                        framing: widget.framing,
                         child: _Placeholder(text: l10n.botsPetConvertPreviewHint),
                       ),
               ),
             ),
+            if (widget.report.expressions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final expression in widget.report.expressions)
+                      ChoiceChip(
+                        label: Text(expression.name, style: theme.textTheme.labelSmall),
+                        selected: _expression == expression.name,
+                        onSelected: (selected) => setState(() => _expression = selected ? expression.name : null),
+                      ),
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Row(

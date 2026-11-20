@@ -79,7 +79,7 @@ pack.zip
 |---|---|
 | `name`、`author`、`license`、`source` | 菜单底部如实显示 |
 | `model` | 模型文件；缺省取第一个 `*.model3.json` |
-| `framing` | `{zoom, y}` 默认取景 |
+| `framing` | `{zoom, x, y}` 默认取景（相机缩放与横向、纵向偏移） |
 | `mark` | 漫符出现的位置，模型坐标 |
 | `tail` | 尾巴的参数 ID，从根到尖 |
 | `zones` | 触摸分区：`{id, from, to, xFrom?, xTo?}`，纵向是从头顶算的比例 |

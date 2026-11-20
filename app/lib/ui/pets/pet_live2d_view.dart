@@ -105,6 +105,8 @@ class PetLive2dView extends ConsumerStatefulWidget {
     required this.state,
     required this.reaction,
     this.motion,
+    this.expression,
+    this.framing,
     this.paused = false,
     this.child,
   });
@@ -121,6 +123,16 @@ class PetLive2dView extends ConsumerStatefulWidget {
   /// there is no state to name them through (live2d_convert_page.dart).
   final String? motion;
 
+  /// One of the model's own expressions, held while it shows — the converter's
+  /// expression preview (live2d_preview.dart). A pet never sets it.
+  final String? expression;
+
+  /// The room's framing (`zoom`, `x`, `y`), applied to the preview only: a pet
+  /// draws the model alone and lets the stage size the canvas to it, while the
+  /// converter wants to show how the same keys will place the model in her room
+  /// (live2d_convert_page.dart). A pet never sets it.
+  final Map<String, double>? framing;
+
   /// The pet is hidden or the page is not the visible one.
   final bool paused;
   final Widget? child;
@@ -131,6 +143,9 @@ class PetLive2dView extends ConsumerStatefulWidget {
 
 class _PetLive2dViewState extends ConsumerState<PetLive2dView> with WidgetsBindingObserver {
   static const _readyTimeout = Duration(seconds: 30);
+
+  /// The zoom the room starts from when a pack sets no framing (stage.js).
+  static const _roomZoom = 1.2;
 
   CompanionServer? _server;
   WebViewController? _web;
@@ -187,6 +202,8 @@ class _PetLive2dViewState extends ConsumerState<PetLive2dView> with WidgetsBindi
       _reactionTimer?.cancel();
       _cue = null;
       _send('state', {'name': _stateMotion()});
+    } else if (old.expression != widget.expression) {
+      _sendExpression();
     } else if (old.reaction != widget.reaction && widget.reaction != null) {
       _cue = _motionFor();
       _send('state', {'name': _cue});
@@ -220,6 +237,14 @@ class _PetLive2dViewState extends ConsumerState<PetLive2dView> with WidgetsBindi
     if (config == null) return '';
     final key = widget.reaction;
     return (key == null ? null : config.reactions[key]) ?? _stateMotion();
+  }
+
+  /// Holds [PetLive2dView.expression] on the stage; the expression preview is
+  /// the only caller, and it wants it to stay, not relax back to calm.
+  void _sendExpression() {
+    final expression = widget.expression;
+    if (expression == null) return;
+    _send('emotion', {'name': expression, 'hold': const Duration(hours: 1).inMilliseconds});
   }
 
   void _syncPause() {
@@ -295,7 +320,17 @@ class _PetLive2dViewState extends ConsumerState<PetLive2dView> with WidgetsBindi
       if (!mounted) return;
       setState(() => _web = web);
       _timeout = Timer(_readyTimeout, () => _fail('timeout'));
-      await web.loadRequest(server.pageUrl(query: {'mode': 'pet'}));
+      final framing = widget.framing;
+      await web.loadRequest(
+        server.pageUrl(
+          query: {
+            'mode': 'pet',
+            if (framing != null) 'roomZoom': '${framing['zoom'] ?? _roomZoom}',
+            if (framing != null) 'roomX': '${framing['x'] ?? 0}',
+            if (framing != null) 'roomY': '${framing['y'] ?? 0}',
+          },
+        ),
+      );
     } on Object catch (error) {
       _fail('$error');
     }
@@ -316,6 +351,7 @@ class _PetLive2dViewState extends ConsumerState<PetLive2dView> with WidgetsBindi
         setState(() => _ready = true);
         _syncPause();
         _send('state', {'name': _motionFor()});
+        _sendExpression();
         unawaited(_capturePoster());
       case 'poster':
         unawaited(_savePoster(message));
@@ -513,11 +549,7 @@ class _PetLive2dViewState extends ConsumerState<PetLive2dView> with WidgetsBindi
         // and the model keeps moving, so a still left behind it reads as a
         // second silhouette (a doubled outline at the feet).
         if (widget.child != null)
-          AnimatedOpacity(
-            opacity: _ready ? 0 : 1,
-            duration: const Duration(milliseconds: 220),
-            child: widget.child!,
-          ),
+          AnimatedOpacity(opacity: _ready ? 0 : 1, duration: const Duration(milliseconds: 220), child: widget.child!),
         if (web != null && !_failed)
           IgnorePointer(
             child: AnimatedOpacity(

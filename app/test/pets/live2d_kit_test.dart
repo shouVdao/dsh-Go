@@ -39,7 +39,7 @@ void main() {
 
       // What the kit writes back is clean: re-reading it repairs nothing.
       final room = await Live2dKit.buildRoom(report);
-      final descriptor = utf8.decode(entryBytes(room, 'cat.model3.json'));
+      final descriptor = utf8.decode(entryBytes(room, 'character/cat.model3.json'));
       expect(RegExp(r',\s*[}\]]').hasMatch(descriptor), isFalse);
       expect(() => jsonDecode(descriptor), returnsNormally);
 
@@ -177,7 +177,7 @@ void main() {
       expect(report.fixedCommas, 0);
 
       final room = await Live2dKit.buildRoom(report);
-      final written = entryBytes(room, 'cat.model3.json');
+      final written = entryBytes(room, 'character/cat.model3.json');
       final hasBom = written.length >= 3 && written[0] == 0xEF && written[1] == 0xBB && written[2] == 0xBF;
       expect(hasBom, isFalse);
     });
@@ -384,23 +384,89 @@ void main() {
       expect(problems.any((problem) => problem.contains('pack.json 读不出来')), isTrue);
     });
 
-    test('room pack keeps the model at the root', () async {
+    test('room pack puts the model under character/', () async {
       final report = await inspectFixture(temp);
       final room = await Live2dKit.buildRoom(report, name: 'Test Pet');
       expect(await Live2dKit.checkPack(room, pet: false), isEmpty);
 
       final files = unzip(room);
-      expect(files.keys, contains('cat.model3.json'));
-      expect(files.keys, contains('character.json'));
-      expect(files.keys, contains('bgm.mp3'));
-      expect(files.keys.any((name) => name.startsWith('character/')), isFalse);
+      expect(files.keys, contains('character/cat.model3.json'));
+      expect(files.keys, contains('character/character.json'));
+      expect(files.keys, contains('character/bgm.mp3'));
+      expect(files.keys, contains('character/index.json'));
+      expect(files.keys, isNot(contains('cat.model3.json')));
       expect(files.keys, isNot(contains('pack.json')));
-      expect(files.length, 10);
-      expect(objectOf(jsonEntry(room, 'character.json')), <String, Object?>{
+      expect(files.length, 11);
+      expect(objectOf(jsonEntry(room, 'character/character.json')), <String, Object?>{
         'schema': 1,
         'name': 'Test Pet',
         'model': 'cat.model3.json',
       });
+      expect(jsonEntry(room, 'character/index.json'), isNotEmpty);
+    });
+
+    test('room pack carries emotions and actions', () async {
+      final report = await inspectFixture(temp);
+      final expression = report.expressions.first.name;
+      final room = await Live2dKit.buildRoom(
+        report,
+        name: 'Room',
+        emotions: <String, String?>{'happy': expression, 'sad': null},
+        actions: const <String, String?>{'wave': 'Wave_1', 'nod': null},
+      );
+      expect(await Live2dKit.checkPack(room, pet: false), isEmpty);
+      final character = objectOf(jsonEntry(room, 'character/character.json'));
+      // An unmapped emotion or action is left out rather than written as null.
+      expect(objectOf(character['emotions']), <String, Object?>{
+        'happy': <String, Object?>{'expression': expression},
+      });
+      expect(objectOf(character['actions']), <String, Object?>{
+        'wave': <String, Object?>{'motion': 'Wave_1'},
+      });
+    });
+
+    test('room pack carries the framing the converter chose', () async {
+      final report = await inspectFixture(temp);
+      final framed = await Live2dKit.buildRoom(
+        report,
+        framing: const <String, double>{'zoom': 1.35, 'x': -0.2, 'y': 0.15},
+      );
+      expect(await Live2dKit.checkPack(framed, pet: false), isEmpty);
+      final character = objectOf(jsonEntry(framed, 'character/character.json'));
+      expect(objectOf(character['framing']), <String, Object?>{'zoom': 1.35, 'x': -0.2, 'y': 0.15});
+
+      // A pack without framing leaves the room's own 1.2× camera alone.
+      final plain = await Live2dKit.buildRoom(report);
+      expect(objectOf(jsonEntry(plain, 'character/character.json')).containsKey('framing'), isFalse);
+    });
+
+    test('room pack carries a runtime folder, a pet pack may not', () async {
+      final report = await inspectFixture(temp);
+      final room = await Live2dKit.buildRoom(
+        report,
+        runtime: <String, Uint8List>{
+          'live2dcubismcore.min.js': Uint8List.fromList(<int>[1, 2, 3]),
+          'sub/x.js': Uint8List.fromList(<int>[4]),
+        },
+      );
+      expect(await Live2dKit.checkPack(room, pet: false), isEmpty);
+      final files = unzip(room);
+      expect(files.keys, contains('runtime/live2dcubismcore.min.js'));
+      expect(files.keys, contains('runtime/sub/x.js'));
+
+      final pet = await Live2dKit.buildPet(report, petMapping(report));
+      final withRuntime = withEntry(pet, 'runtime/x.js', <int>[1]);
+      expect(await Live2dKit.checkPack(withRuntime, pet: true), isNotEmpty);
+    });
+
+    test('runtime folder is read with forward slashes', () async {
+      final dir = Directory('${temp.path}/runtime')..createSync();
+      File('${dir.path}/sub/a.js')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(<int>[1]);
+      final read = await Live2dKit.readRuntime(dir);
+      expect(read?.keys.toList(), <String>['sub/a.js']);
+      expect(await Live2dKit.readRuntime(Directory('${temp.path}/none')), isNull);
     });
 
     test('textures are downscaled to the cap', () async {
@@ -426,7 +492,7 @@ void main() {
 
       final room = await Live2dKit.buildRoom(report, name: 'Legacy');
       expect(await Live2dKit.checkPack(room, pet: false), isEmpty);
-      final descriptor = objectOf(jsonEntry(room, 'model.json'));
+      final descriptor = objectOf(jsonEntry(room, 'character/model.json'));
       final idle = objectOf(descriptor['motions'])['Idle'];
       expect(idle, isA<List>());
       if (idle is List && idle.isNotEmpty) {

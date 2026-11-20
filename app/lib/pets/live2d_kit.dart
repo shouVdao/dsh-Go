@@ -20,6 +20,7 @@ import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
 
+import '../companion/companion_adapt_contract.dart';
 import 'pet_name_alias.dart';
 import 'pet_pack_validator.dart'
     show
@@ -692,39 +693,135 @@ abstract final class Live2dKit {
     return _writeZip(entries);
   }
 
-  /// Builds a companion-room pack: the model files at the zip root, sounds kept.
+  /// Builds a companion-room pack: `character/` holds the model and the room's
+  /// `character.json`, sounds kept, and — when the caller has it — `runtime/`
+  /// carries the stage so the pack installs on a phone that has none.
   ///
-  /// This is exactly what the room installer accepts; it is also the way to try
-  /// a model's motions in 「动作和表情」 before deciding on a pet mapping.
-  static Future<Uint8List> buildRoom(Live2dKitReport report, {String? name}) async {
+  /// [emotions] maps a feeling of hers (`companionAdaptEmotions`) to one of the
+  /// model's own expressions, by name; [actions] maps a gesture
+  /// (`companionAdaptActions`) to one of its motion groups. Nothing is invented:
+  /// a model without expressions gets no `emotions` block, and the room's
+  /// defaults keep working.
+  ///
+  /// [framing] is the room's camera — `zoom`, `x` and `y`, the keys the stage
+  /// reads from `character.json` (docs/design/companion.md). Omitted, the room
+  /// keeps its own 1.2× framing.
+  static Future<Uint8List> buildRoom(
+    Live2dKitReport report, {
+    String? name,
+    Map<String, String?> emotions = const {},
+    Map<String, String?> actions = const {},
+    Map<String, double>? framing,
+    Map<String, Uint8List> runtime = const {},
+  }) async {
     final model = report.model;
-    final files = <String, Uint8List>{...model.files};
+    final character = <String, Uint8List>{...model.files};
     var total = 0;
     for (final data in model.files.values) {
       total += data.length;
     }
-    if (files.length > _roomFilesCap) {
-      throw Live2dKitException('too-large', '角色有 ${files.length} 个文件，超过 $_roomFilesCap 个的上限');
+    var runtimeBytes = 0;
+    for (final data in runtime.values) {
+      runtimeBytes += data.length;
     }
-    if (total > _roomTotalCap) {
-      throw Live2dKitException('too-large', '角色文件共 ${_size(total)}，超过 400 MB 的上限');
+    if (character.length + runtime.length > _roomFilesCap) {
+      throw Live2dKitException('too-large', '角色有 ${character.length + runtime.length} 个文件，超过 $_roomFilesCap 个的上限');
+    }
+    if (total + runtimeBytes > _roomTotalCap) {
+      throw Live2dKitException('too-large', '角色文件共 ${_size(total + runtimeBytes)}，超过 400 MB 的上限');
     }
     // Rewritten only so the file the room installs has no trailing commas; the
     // sounds stay, because the room's stage plays them.
-    files[model.descriptor] = _encodeJson(_petDescriptor(model, keepSound: true));
-    if (name != null && name.isNotEmpty) {
-      files['character.json'] = _encodeJson(<String, Object?>{'schema': 1, 'name': name, 'model': model.descriptor});
-    }
+    character[model.descriptor] = _encodeJson(_petDescriptor(model, keepSound: true));
 
-    final names = files.keys.toList()..sort();
+    final feelings = <String, Object?>{};
+    for (final MapEntry(:key, :value) in emotions.entries) {
+      if (value == null || value.isEmpty) continue;
+      feelings[key] = <String, Object?>{'expression': value};
+    }
+    final gestures = <String, Object?>{};
+    for (final MapEntry(:key, :value) in actions.entries) {
+      if (value == null || value.isEmpty) continue;
+      gestures[key] = <String, Object?>{'motion': value};
+    }
+    character['character.json'] = _encodeJson(<String, Object?>{
+      'schema': 1,
+      'name': name == null || name.isEmpty ? model.name : name,
+      'model': model.descriptor,
+      if (framing != null && framing.isNotEmpty) 'framing': framing,
+      if (feelings.isNotEmpty) 'emotions': feelings,
+      if (gestures.isNotEmpty) 'actions': gestures,
+    });
+    // What the installer rewrites anyway; written here so the zip reads as a
+    // pack before it is installed, and so `checkPack` can see the file list.
+    final index = character.keys.where((rel) => rel != 'index.json').toList()..sort();
+    character['index.json'] = _encodeJson(index);
+
     final entries = <(String, Uint8List)>[];
+    final names = character.keys.toList()..sort();
     for (final rel in names) {
-      final data = files[rel];
+      final data = character[rel];
       if (data != null) {
-        entries.add((rel, data));
+        entries.add(('character/$rel', data));
+      }
+    }
+    final runtimeNames = runtime.keys.toList()..sort();
+    for (final rel in runtimeNames) {
+      final data = runtime[rel];
+      if (data != null) {
+        entries.add(('runtime/$rel', data));
       }
     }
     return _writeZip(entries);
+  }
+
+  /// The first of the model's expressions whose name reads like each feeling;
+  /// null where nothing matches. What the page starts from, not a decision.
+  static Map<String, String?> suggestRoomEmotions(Live2dKitReport report) {
+    final result = <String, String?>{for (final key in companionAdaptEmotions) key: null};
+    final expressions = <Live2dKitExpression>[...report.expressions]..sort((a, b) => a.name.compareTo(b.name));
+    for (final expression in expressions) {
+      final label = '${expression.name} ${_basename(expression.file)}';
+      for (final hint in _emotionHints) {
+        if (result[hint.target] != null) continue;
+        if (hint.pattern.hasMatch(label)) result[hint.target] = expression.name;
+      }
+    }
+    return result;
+  }
+
+  /// The first motion whose name reads like each gesture of hers.
+  static Map<String, String?> suggestRoomActions(Live2dKitReport report) {
+    final result = <String, String?>{for (final key in companionAdaptActions) key: null};
+    for (final motion in report.motions) {
+      final label = '${motion.group} ${_basename(motion.file)}';
+      for (final hint in _gestureHints) {
+        if (result[hint.target] != null) continue;
+        if (hint.pattern.hasMatch(label)) result[hint.target] = motion.key;
+      }
+    }
+    return result;
+  }
+
+  /// The stage's runtime, as `runtime/`-relative name → bytes, from an installed
+  /// companion pack. Null when this phone has none: a room pack without one
+  /// only installs where a runtime already is.
+  static Future<Map<String, Uint8List>?> readRuntime(Directory dir) async {
+    if (!await dir.exists()) return null;
+    final files = <String, Uint8List>{};
+    var count = 0;
+    var bytes = 0;
+    await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      count++;
+      final data = await entity.readAsBytes();
+      bytes += data.length;
+      if (bytes > _live2dTotalCap || count > _live2dFilesCap) {
+        throw const Live2dKitException('too-large', '运行库太大，不能一起打包');
+      }
+      files[entity.path.substring(dir.path.length + 1).replaceAll('\\', '/')] = data;
+    }
+    return files.isEmpty ? null : files;
   }
 
   /// The install gates, as problem sentences; empty means the pack imports.
@@ -774,6 +871,12 @@ abstract final class Live2dKit {
     var characterBytes = 0;
     for (final info in infos) {
       final suffix = _suffix(info.name);
+      final runtime = info.name.startsWith('runtime/');
+      if (runtime) {
+        // The room's stage travels with the pack; a pet never carries one.
+        if (pet) problems.add('宠物包不能带 ${info.name}');
+        continue;
+      }
       if (!_dataExtensions.contains(suffix)) {
         problems.add('不能带 ${info.name}');
         continue;
@@ -1395,6 +1498,38 @@ final List<({String target, RegExp pattern})> _hints = <({String target, RegExp 
   (target: 'tickle', pattern: RegExp(r'tickle|挠|痒|laugh|笑', caseSensitive: false)),
   (target: 'annoyed', pattern: RegExp(r'angry|生气|annoy|怒|pout|鼓脸|shy|害羞', caseSensitive: false)),
   (target: 'drag', pattern: RegExp(r'drag|拖|fly|飞|float|飘|swing', caseSensitive: false)),
+];
+
+/// An expression whose name reads like one of her feelings. The room's ten
+/// feelings are fixed (`companionAdaptEmotions`); a model's expression names are
+/// not, so the page offers these as guesses.
+final List<({String target, RegExp pattern})> _emotionHints = <({String target, RegExp pattern})>[
+  (target: 'calm', pattern: RegExp(r'calm|平静|neutral|normal|default|普通|默认|平淡', caseSensitive: false)),
+  (target: 'happy', pattern: RegExp(r'happ|smil|joy|fun|laugh|笑|开心|高兴|喜', caseSensitive: false)),
+  (target: 'shy', pattern: RegExp(r'shy|blush|embarrass|fluster|害羞|脸红|羞|腼腆', caseSensitive: false)),
+  (target: 'sad', pattern: RegExp(r'sad|sorrow|cry|tear|down|难过|伤心|哭|悲|委屈', caseSensitive: false)),
+  (target: 'angry', pattern: RegExp(r'ang|mad|annoy|irritat|rage|怒|生气|恼|不爽', caseSensitive: false)),
+  (target: 'surprised', pattern: RegExp(r'surpris|shock|star(e|ed)|gasp|惊讶|吃惊|震惊|愣', caseSensitive: false)),
+  (target: 'confused', pattern: RegExp(r'confus|puzzl|frown|question|疑惑|困惑|不解|茫然', caseSensitive: false)),
+  (target: 'smug', pattern: RegExp(r'smug|proud|confiden|smirk|得意|自信|傲', caseSensitive: false)),
+  (target: 'sleepy', pattern: RegExp(r'sleep|sleepy|tired|drow|doz|zzz|困|睡|乏|倦', caseSensitive: false)),
+  (target: 'worried', pattern: RegExp(r'worr|nervous|anxious|uneasy|担心|不安|紧张|忧虑', caseSensitive: false)),
+];
+
+/// A motion whose name reads like one of her gestures (`companionAdaptActions`).
+final List<({String target, RegExp pattern})> _gestureHints = <({String target, RegExp pattern})>[
+  (target: 'nod', pattern: RegExp(r'nod|点头|点头|肯', caseSensitive: false)),
+  (target: 'nodSmall', pattern: RegExp(r'nod|点头|small', caseSensitive: false)),
+  (target: 'shake', pattern: RegExp(r'shak|deny|摇头|不', caseSensitive: false)),
+  (target: 'tilt', pattern: RegExp(r'tilt|歪头|倾|歪', caseSensitive: false)),
+  (target: 'tiltLeft', pattern: RegExp(r'tilt|歪头|倾', caseSensitive: false)),
+  (target: 'lookUp', pattern: RegExp(r'look.?up|抬头|仰|up', caseSensitive: false)),
+  (target: 'recoil', pattern: RegExp(r'recoil|lean.?back|退|闪|缩', caseSensitive: false)),
+  (target: 'duck', pattern: RegExp(r'duck|bow|低头|俯|低', caseSensitive: false)),
+  (target: 'sway', pattern: RegExp(r'sway|swing|摇|摆|晃', caseSensitive: false)),
+  (target: 'stretch', pattern: RegExp(r'stretch|伸|伸展|懒腰', caseSensitive: false)),
+  (target: 'yawn', pattern: RegExp(r'yawn|哈欠|awake|醒', caseSensitive: false)),
+  (target: 'wave', pattern: RegExp(r'wave|挥手|hi\b|hello|greet|打招呼', caseSensitive: false)),
 ];
 
 /// Downscales a texture to [limit] on its longest side; `null` means "copy the

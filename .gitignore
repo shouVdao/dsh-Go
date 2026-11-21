@@ -44,3 +44,21 @@ site/build/
 runtime/ohos/process/build/
 # NodeMobile, the runtime archive and addon sources: tooling/ios/prepare-engine.sh
 app/ios/Engine/
+
+# IDE / editor state (JetBrains, VS Code, Fleet)
+.idea/
+*.iml
+.vscode/
+.fleet/
+*.swp
+*.swo
+*~
+
+# OS metadata files (macOS Finder, Windows Explorer)
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# patch / merge leftovers
+*.orig
+*.rej

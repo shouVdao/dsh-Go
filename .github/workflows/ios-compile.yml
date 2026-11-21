@@ -32,6 +32,10 @@ concurrency:
   group: ios-compile-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # app/pubspec.lock was resolved from this registry; pub must read the same one.
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+
 jobs:
   phone-protocol:
     if: ${{ !inputs.regression_only }}

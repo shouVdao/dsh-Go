@@ -22,6 +22,8 @@ env:
   NODE_VERSION: 24.22.1
   GRADLE_VERSION: 9.3.1
   TZ: Asia/Shanghai
+  # app/pubspec.lock was resolved from this registry; pub must read the same one.
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
 
 jobs:
   changes:

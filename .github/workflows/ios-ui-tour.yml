@@ -21,6 +21,10 @@ concurrency:
   group: ios-ui-tour-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # app/pubspec.lock was resolved from this registry; pub must read the same one.
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+
 jobs:
   tour:
     runs-on: macos-26

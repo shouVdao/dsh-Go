@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../l10n/l10n.dart';
 import '../../../state/pendant_options.dart';
 import '../../../state/settings_state.dart';
+import '../../theme/app_icons.dart';
 import '../settings_widgets.dart';
 
 class PendantSection extends ConsumerWidget {
@@ -171,7 +172,7 @@ class PendantSection extends ConsumerWidget {
         ),
         SettingsTile(
           spot: Spots.pendantArt,
-          icon: Icons.face_retouching_natural,
+          icon: AppIcons.avatar,
           title: l10n.pendantArtTitle,
           value: Text(settings.pendantArt == pendantArtCustom ? l10n.pendantArtCustom : l10n.pendantArtHead),
           onTap: settings.pendant == false
@@ -183,19 +184,19 @@ class PendantSection extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.image),
+                          leading: const Icon(AppIcons.image),
                           title: Text(l10n.pendantArtHead),
-                          trailing: settings.pendantArt == pendantArtHead ? const Icon(Icons.check) : null,
+                          trailing: settings.pendantArt == pendantArtHead ? const Icon(AppIcons.selected) : null,
                           onTap: () {
                             unawaited(notifier.setPendantArt(pendantArtHead));
                             Navigator.of(context).pop();
                           },
                         ),
                         ListTile(
-                          leading: const Icon(Icons.photo_library_outlined),
+                          leading: const Icon(AppIcons.gallery),
                           title: Text(l10n.pendantArtCustom),
                           subtitle: settings.pendantArtPath.isEmpty ? Text(l10n.pendantArtPick) : null,
-                          trailing: settings.pendantArt == pendantArtCustom ? const Icon(Icons.check) : null,
+                          trailing: settings.pendantArt == pendantArtCustom ? const Icon(AppIcons.selected) : null,
                           onTap: () {
                             Navigator.of(context).pop();
                             unawaited(_pickArt(page, ref));
@@ -208,7 +209,7 @@ class PendantSection extends ConsumerWidget {
         ),
         SettingsTile(
           spot: Spots.pendantSound,
-          icon: Icons.volume_up_outlined,
+          icon: AppIcons.readAloud,
           title: l10n.pendantSoundTitle,
           value: Text(switch (settings.pendantSound) {
             pendantSoundOff => l10n.pendantSoundOff,
@@ -230,19 +231,19 @@ class PendantSection extends ConsumerWidget {
                           (pendantSoundOff, l10n.pendantSoundOff),
                         ])
                           ListTile(
-                            leading: Icon(key == pendantSoundOff ? Icons.volume_off : Icons.volume_up),
+                            leading: Icon(key == pendantSoundOff ? AppIcons.micMuted : AppIcons.readAloud),
                             title: Text(label),
-                            trailing: settings.pendantSound == key ? const Icon(Icons.check) : null,
+                            trailing: settings.pendantSound == key ? const Icon(AppIcons.selected) : null,
                             onTap: () {
                               unawaited(notifier.setPendantSound(key));
                               Navigator.of(context).pop();
                             },
                           ),
                         ListTile(
-                          leading: const Icon(Icons.audiotrack),
+                          leading: const Icon(AppIcons.audio),
                           title: Text(l10n.pendantSoundCustom),
                           subtitle: settings.pendantSoundPath.isEmpty ? Text(l10n.pendantSoundPick) : null,
-                          trailing: settings.pendantSound == pendantSoundCustom ? const Icon(Icons.check) : null,
+                          trailing: settings.pendantSound == pendantSoundCustom ? const Icon(AppIcons.selected) : null,
                           onTap: () {
                             Navigator.of(context).pop();
                             unawaited(_pickSound(page, ref));
@@ -255,14 +256,14 @@ class PendantSection extends ConsumerWidget {
         ),
         SettingsTile(
           spot: Spots.pendantLines,
-          icon: Icons.chat_bubble_outline,
+          icon: AppIcons.chat,
           title: l10n.pendantLinesTitle,
           subtitle: l10n.pendantLinesHint,
           onTap: settings.pendant == false ? null : () => unawaited(_editLines(context, ref)),
         ),
         SettingsTile(
           spot: Spots.pendantReset,
-          icon: Icons.my_location,
+          icon: AppIcons.pin,
           title: l10n.pendantResetPlace,
           onTap: settings.pendant == false ? null : () => unawaited(notifier.setPendantPlace(0.04, 0)),
         ),

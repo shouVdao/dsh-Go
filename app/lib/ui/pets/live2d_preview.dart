@@ -222,7 +222,7 @@ class _Live2dPreviewSheetState extends ConsumerState<Live2dPreviewSheet> {
                 children: [
                   IconButton(
                     onPressed: motions.length < 2 ? null : () => _step(-1),
-                    icon: const Icon(Icons.chevron_left, size: 22),
+                    icon: const Icon(AppIcons.pagePrevious, size: 22),
                     tooltip: MaterialLocalizations.of(context).previousPageTooltip,
                   ),
                   Expanded(
@@ -234,7 +234,7 @@ class _Live2dPreviewSheetState extends ConsumerState<Live2dPreviewSheet> {
                   ),
                   IconButton(
                     onPressed: motions.length < 2 ? null : () => _step(1),
-                    icon: const Icon(Icons.chevron_right, size: 22),
+                    icon: const Icon(AppIcons.pageNext, size: 22),
                     tooltip: MaterialLocalizations.of(context).nextPageTooltip,
                   ),
                 ],

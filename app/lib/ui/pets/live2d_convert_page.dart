@@ -553,13 +553,13 @@ class _Live2dConvertPageState extends ConsumerState<Live2dConvertPage> {
               SettingsTile(
                 icon: AppIcons.image,
                 title: l10n.botsPetConvertTargetPet,
-                value: pet ? const Icon(Icons.check, size: 18) : null,
+                value: pet ? const Icon(AppIcons.selected, size: 18) : null,
                 onTap: () => setState(() => _target = _Target.pet),
               ),
               SettingsTile(
                 icon: AppIcons.chat,
                 title: l10n.botsPetConvertTargetRoom,
-                value: pet ? null : const Icon(Icons.check, size: 18),
+                value: pet ? null : const Icon(AppIcons.selected, size: 18),
                 onTap: () => setState(() => _target = _Target.room),
               ),
             ],
@@ -879,14 +879,14 @@ class _ExpressionSheet extends StatelessWidget {
           Padding(padding: const EdgeInsets.fromLTRB(20, 18, 20, 8), child: Text(l10n.botsPetConvertChooseExpression)),
           SettingsTile(
             title: l10n.botsPetConvertExpressionNone,
-            value: selected == null ? const Icon(Icons.check, size: 18) : null,
+            value: selected == null ? const Icon(AppIcons.selected, size: 18) : null,
             onTap: () => Navigator.of(context).pop(''),
           ),
           for (final expression in report.expressions)
             SettingsTile(
               title: expression.name,
               subtitle: expression.file,
-              value: expression.name == selected ? const Icon(Icons.check, size: 18) : null,
+              value: expression.name == selected ? const Icon(AppIcons.selected, size: 18) : null,
               trailing: IconButton(
                 onPressed: () => onPreview(expression.name),
                 icon: const Icon(AppIcons.play, size: 20),
@@ -980,7 +980,7 @@ class _MotionSheet extends StatelessWidget {
           Padding(padding: const EdgeInsets.fromLTRB(20, 18, 20, 8), child: Text(l10n.botsPetConvertChooseMotion)),
           SettingsTile(
             title: l10n.botsPetConvertNone,
-            value: selected == null ? const Icon(Icons.check, size: 18) : null,
+            value: selected == null ? const Icon(AppIcons.selected, size: 18) : null,
             onTap: () => Navigator.of(context).pop(''),
           ),
           for (final motion in report.motions)
@@ -988,7 +988,7 @@ class _MotionSheet extends StatelessWidget {
               title: motion.key,
               subtitle: motion.gesture ? null : l10n.botsPetConvertPhysicsOnly,
               value: motion.key == selected
-                  ? const Icon(Icons.check, size: 18)
+                  ? const Icon(AppIcons.selected, size: 18)
                   : Text('${motion.duration.toStringAsFixed(1)}s'),
               trailing: IconButton(
                 onPressed: () => onPreview(motion.key),

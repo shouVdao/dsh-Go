@@ -260,7 +260,7 @@ class _SettingsSearchPageState extends ConsumerState<SettingsSearchPage> {
 /// Only when the host's settings were read already: opening search doesn't
 /// ask the host for them.
 final _pluginSpotsProvider = Provider.autoDispose<List<SettingSpot>>((ref) {
-  if (ref.exists(pluginConfigProvider)) {
+  if (ref.read(pluginConfigProvider.exists)) {
     if (ref.watch(pluginConfigProvider).value case final config?) {
       final bundles = ref.watch(installedPluginsProvider.select((s) => s.value));
       return [
@@ -269,11 +269,11 @@ final _pluginSpotsProvider = Provider.autoDispose<List<SettingSpot>>((ref) {
       ];
     }
   }
-  if (!ref.exists(engineSettingsProvider)) return const [];
+  if (!ref.read(engineSettingsProvider.exists)) return const [];
   final settings = ref.watch(engineSettingsProvider).value;
   if (settings == null) return const [];
   // Plugins only (PluginConfigScope), so only once the plugin list was read.
-  if (!ref.exists(installedPluginsProvider)) return const [];
+  if (!ref.read(installedPluginsProvider.exists)) return const [];
   final scope = ref.watch(pluginConfigScopeProvider);
   return [
     for (final view in settings.namespaces.values)

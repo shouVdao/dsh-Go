@@ -174,7 +174,7 @@ class _WorkshopSubmissionSheetState extends ConsumerState<WorkshopSubmissionShee
         });
         showBriefNotice(context, l10n.workshopMineWithdrawDone);
         // A public release just left the catalogue: let 发现 read it again.
-        if (submission.status == WorkshopSubmissionStatus.approved && ref.exists(workshopCatalogProvider)) {
+        if (submission.status == WorkshopSubmissionStatus.approved && ref.read(workshopCatalogProvider.exists)) {
           unawaited(ref.read(workshopCatalogProvider.notifier).refresh());
         }
       case WorkshopWithdrawalPhase.unknown:

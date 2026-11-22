@@ -165,7 +165,7 @@ class PluginInstallsController extends Notifier<Map<String, PluginInstallJob>> {
   /// Queues [request]; resolves with the finished job. A plugin that is
   /// already being installed returns its running job.
   Future<PluginInstallJob> install(PluginInstallRequest request) {
-    if (ref.exists(installedPluginsProvider)) {
+    if (ref.read(installedPluginsProvider.exists)) {
       final removals = ref.read(installedPluginsProvider.notifier);
       if (removals._removals[request.name]?._committing == true) throw StateError('uninstall in progress');
       removals.cancelRemoval(request.name);

@@ -135,7 +135,7 @@ class _NativeInvokeGuard {
   _NativeInvokeGuard(this.ref, this.package, this.client, this.target, this.stillCurrent)
     : host = ref.read(activeHostProvider) {
     final key = target;
-    if (key != null && ref.exists(nativeSurfaceProvider(key))) {
+    if (key != null && ref.read(nativeSurfaceProvider(key).exists)) {
       surface = ref.read(nativeSurfaceProvider(key).notifier);
       generation = surface!.generation;
     }
@@ -161,7 +161,7 @@ class _NativeInvokeGuard {
     }
     final key = target;
     if (key == null) return true;
-    if (surface == null || !ref.exists(nativeSurfaceProvider(key))) return false;
+    if (surface == null || !ref.read(nativeSurfaceProvider(key).exists)) return false;
     if (!identical(surface, ref.read(nativeSurfaceProvider(key).notifier)) || surface!.generation != generation) {
       return false;
     }
@@ -681,7 +681,7 @@ NativeSurfaceController? _dataEffect(
     final panel = plugin.panels.where((p) => p.id == named).firstOrNull;
     key = panel == null ? null : nativePanelKey(panel, target?.scope ?? DshGoScope.none);
   }
-  if (key == null || !ref.exists(nativeSurfaceProvider(key))) return null;
+  if (key == null || !ref.read(nativeSurfaceProvider(key).exists)) return null;
   final surface = ref.read(nativeSurfaceProvider(key).notifier);
   switch (effect) {
     case PatchEffect(:final data):

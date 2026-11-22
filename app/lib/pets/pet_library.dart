@@ -189,8 +189,9 @@ class PetLibrary {
     final root = await _root();
     await _tidy(root);
     final receipt = await WorkshopReceipt.read(Directory('${root.path}/$id'));
-    if (receipt != null && (receipt.kind != 'pet' || userPetIdFor(receipt.id) != id))
+    if (receipt != null && (receipt.kind != 'pet' || userPetIdFor(receipt.id) != id)) {
       workshopInvalid('workshop_install_record');
+    }
     return receipt;
   });
 
@@ -468,8 +469,9 @@ Future<({String id, String? backup})> _install((String, String, int, String?, bo
     final json = validated.json, pack = validated.pack, bytes = validated.sheets;
     if (receiptJson != null) {
       final receipt = WorkshopReceipt.fromJson(jsonDecode(receiptJson));
-      if (receipt.kind != 'pet' || receipt.id != pack.id)
+      if (receipt.kind != 'pet' || receipt.id != pack.id) {
         throw const PetImportException(PetImportProblem.badPack, 'workshop_identity');
+      }
     }
 
     // Written aside, then swapped in, so a pet is never half there.
@@ -484,12 +486,13 @@ Future<({String id, String? backup})> _install((String, String, int, String?, bo
     await File('${staging.path}/pack.json').writeAsString(jsonEncode(kept), flush: true);
     if (receiptJson != null) await File('${staging.path}/$workshopReceiptName').writeAsString(receiptJson, flush: true);
     final live = Directory('$rootPath/$id');
-    if (receiptJson != null)
+    if (receiptJson != null) {
       await workshopCheckReplacement(
         live,
         WorkshopReceipt.fromJson(jsonDecode(receiptJson)),
         replaceExisting: replaceExisting,
       );
+    }
     final old = Directory('$rootPath/.old-$stamp-$id');
     final replaced = await live.exists();
     if (replaced) await live.rename(old.path);

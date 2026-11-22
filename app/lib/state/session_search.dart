@@ -724,7 +724,7 @@ final _remoteProjectionCache = Expando<Map<String, _CachedRemoteProjection>>('re
 /// Builds the user-message corpus for the active host's sessions from local
 /// `session_projcache` files (when on-device) and `SessionProjections`.
 Future<({List<ContentHit> items, bool hasMore})?> _searchHostUserCorpus(Ref ref, DshClient client, String query) async {
-  if (!ref.exists(sessionsProvider)) return null;
+  if (!ref.read(sessionsProvider.exists)) return null;
   final sessionsAsync = ref.read(sessionsProvider);
   if (!sessionsAsync.hasValue) return null;
   final sessions = sessionsAsync.value;

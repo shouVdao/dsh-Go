@@ -558,7 +558,7 @@ class ChatAlertsController extends Notifier<ChatAlert?> {
         if (attached()) scope.read(petEventBusProvider).companionSignal(delivery);
       },
       skipApproval: (sessionId) =>
-          attached() && scope.exists(chatProvider(sessionId)) && scope.read(chatProvider(sessionId)).autoApprove,
+          attached() && scope.read(chatProvider(sessionId).exists) && scope.read(chatProvider(sessionId)).autoApprove,
       announceDelay: timing.announce,
       reconcileDelay: timing.reconcile,
     );

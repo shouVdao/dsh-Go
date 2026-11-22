@@ -512,7 +512,7 @@ class _MarkdownImageState extends ConsumerState<MarkdownImage> {
   /// already open is asked: reading one would start watching the session.
   String? _cwdOf(String sessionId) {
     final chat = chatProvider(sessionId);
-    final header = ref.exists(chat) ? ref.read(chat.notifier).header : null;
+    final header = ref.read(chat.exists) ? ref.read(chat.notifier).header : null;
     return header?.cwd ?? ref.read(sessionsProvider).value?.where((s) => s.sessionId == sessionId).firstOrNull?.cwd;
   }
 
@@ -645,7 +645,7 @@ class _MarkdownImageState extends ConsumerState<MarkdownImage> {
     if (_source is WorkspaceImageSource &&
         _sessionId != null &&
         _path != null &&
-        ref.exists(chatProvider(_sessionId!))) {
+        ref.read(chatProvider(_sessionId!).exists)) {
       final shown = ref.watch(sessionMediaPathsProvider(_sessionId!));
       if (shownInMediaCard(shown, _path!)) return const SizedBox.shrink();
     }

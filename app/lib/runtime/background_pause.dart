@@ -80,7 +80,7 @@ class BackgroundPauseController extends Notifier<bool> {
   /// The conversation open now has a turn going.
   bool get _turnRunning {
     final sessionId = ref.read(currentSessionProvider);
-    return sessionId != null && ref.exists(chatProvider(sessionId)) && ref.read(chatProvider(sessionId)).running;
+    return sessionId != null && ref.read(chatProvider(sessionId).exists) && ref.read(chatProvider(sessionId)).running;
   }
 
   void _onTask(RuntimeBackgroundTask? task) {

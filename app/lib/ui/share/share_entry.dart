@@ -56,7 +56,7 @@ Future<void> shareConversation(BuildContext context, String sessionId) =>
 
 /// The title of [sessionId] from the session list, when it is loaded (no
 /// live subscription; never starts loading it).
-String? _sessionTitle(ProviderContainer container, String sessionId) => container.exists(sessionsProvider)
+String? _sessionTitle(ProviderContainer container, String sessionId) => container.read(sessionsProvider.exists)
     ? container.read(sessionsProvider).value?.where((s) => s.sessionId == sessionId).firstOrNull?.projections.title
     : null;
 

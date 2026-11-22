@@ -78,6 +78,7 @@ const _rows = {
   'pet-outside-app',
   'pet-display-when',
   'pet-overlay-shows',
+  'pet-overlay-size',
   'pet-overlay-framing',
   'auto-safe',
 };

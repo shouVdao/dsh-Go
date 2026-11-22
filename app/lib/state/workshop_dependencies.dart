@@ -90,10 +90,10 @@ final workshopRepositoryProvider = FutureProvider<WorkshopRepository>((ref) asyn
 
 /// Called only by explicit actions. Healthy dependencies remain shared/open.
 void retryWorkshopDependencies(Ref ref, {bool includeLocal = false}) {
-  final clientFailed = ref.exists(workshopClientProvider) && ref.read(workshopClientProvider).hasError;
-  final packagesFailed = includeLocal && ref.exists(workshopPackagesProvider) &&
+  final clientFailed = ref.read(workshopClientProvider.exists) && ref.read(workshopClientProvider).hasError;
+  final packagesFailed = includeLocal && ref.read(workshopPackagesProvider.exists) &&
       ref.read(workshopPackagesProvider).hasError;
-  final repositoryFailed = includeLocal && ref.exists(workshopRepositoryProvider) &&
+  final repositoryFailed = includeLocal && ref.read(workshopRepositoryProvider.exists) &&
       ref.read(workshopRepositoryProvider).hasError;
   if (clientFailed) ref.invalidate(workshopClientProvider);
   if (packagesFailed) ref.invalidate(workshopPackagesProvider);

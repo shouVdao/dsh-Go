@@ -63,7 +63,7 @@ void main() {
   Future<void> drainCatalogs(WidgetTester tester, SyncHarness h) async {
     expect(identical(h.client.mux.generation, catalogGeneration[h]), isTrue,
       reason: 'Catalog cleanup must not read a replacement connection generation');
-    expect(h.container.exists(skillsProvider('S')), isTrue);
+    expect(h.container.read(skillsProvider('S').exists), isTrue);
     var done = false;
     Object? error;
     StackTrace? stack;

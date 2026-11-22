@@ -372,7 +372,7 @@ class _ShareImageCellState extends ConsumerState<_ShareImageCell> {
   /// own images resolve relative paths); only a chat already open is asked.
   String? _cwdOf(String sessionId) {
     final chat = chatProvider(sessionId);
-    final header = ref.exists(chat) ? ref.read(chat.notifier).header : null;
+    final header = ref.read(chat.exists) ? ref.read(chat.notifier).header : null;
     return header?.cwd ?? ref.read(sessionsProvider).value?.where((s) => s.sessionId == sessionId).firstOrNull?.cwd;
   }
 

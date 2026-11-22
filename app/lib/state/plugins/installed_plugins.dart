@@ -192,7 +192,7 @@ class InstalledPluginsController extends AsyncNotifier<List<PluginBundle>?> {
     final host = ref.read(pluginHostProvider);
     final client = _client;
     final installing =
-        ref.exists(pluginInstallsProvider) && (ref.read(pluginInstallsProvider)[bundle.name]?.isActive ?? false);
+        ref.read(pluginInstallsProvider.exists) && (ref.read(pluginInstallsProvider)[bundle.name]?.isActive ?? false);
     final current = _latest.where((b) => b.name == bundle.name).firstOrNull;
     if (host == null ||
         client == null ||

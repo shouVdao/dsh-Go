@@ -119,7 +119,7 @@ class SettingsScreen extends ConsumerWidget {
         : l10n.hubValueOneStep;
     final plugins = ref.watch(installedPluginsProvider.select((s) => s.value?.length));
     // Read only once the host's settings are at hand: the hub asks for nothing.
-    final search = ref.exists(engineSettingsProvider) ? ref.watch(engineSettingsProvider).value : null;
+    final search = ref.read(engineSettingsProvider.exists) ? ref.watch(engineSettingsProvider).value : null;
     final newApi = search == null
         ? null
         : search.valueOf(const FieldRef(WebSearchSettingsPage.webNs, ['searchProvider'])) == 'deepseek-search-api';

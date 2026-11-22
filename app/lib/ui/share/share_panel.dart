@@ -559,7 +559,7 @@ class SharePanelModel extends ChangeNotifier {
     final sessionId = _sessionId!;
     final state = chat;
     final notifier = _ref.read(chatProvider(sessionId).notifier);
-    final listed = _ref.exists(sessionsProvider) ? _ref.read(sessionsProvider).value : null;
+    final listed = _ref.read(sessionsProvider.exists) ? _ref.read(sessionsProvider).value : null;
     final title =
         state.title ??
         listed?.where((s) => s.sessionId == sessionId).firstOrNull?.projections.title ??

@@ -50,8 +50,9 @@ Future<Object?> _companionJson(File file) async {
   try {
     var bytes = await _companionBytes(file, companionJsonCap);
     // Some editors save a UTF-8 BOM; the JSON under it is still fine.
-    if (bytes.length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf)
+    if (bytes.length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf) {
       bytes = Uint8List.sublistView(bytes, 3);
+    }
     return decodePetJson(bytes, maxBytes: companionJsonCap);
   } on PetValidationException {
     throw const _CompanionIntegrity('companion_bad_json');

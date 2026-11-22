@@ -614,7 +614,7 @@ class AccountController extends Notifier<AccountState> {
   Future<void> _start(_Run run) async {
     // Nothing to wait 90 s for: say so at once. (The runtime's state lives
     // as long as the app; without it there is no report to go by.)
-    if (ref.exists(localRuntimeProvider) && ref.read(localRuntimeProvider).status.runtimeMissing) {
+    if (ref.read(localRuntimeProvider.exists) && ref.read(localRuntimeProvider).status.runtimeMissing) {
       _fail(run, const SignInFailure(SignInFailureKind.noRuntime));
       return;
     }

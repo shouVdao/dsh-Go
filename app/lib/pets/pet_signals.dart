@@ -64,7 +64,7 @@ class UserPetsController extends AsyncNotifier<List<PetPack>> {
     // put right by this listing) is read again.
     for (final pack in found) {
       final read = petPackProvider(pack.id);
-      if (ref.exists(read) && ref.read(read).hasError) ref.invalidate(read);
+      if (ref.read(read.exists) && ref.read(read).hasError) ref.invalidate(read);
     }
     if (ticket < _landed) return _latest;
     _landed = ticket;

@@ -188,7 +188,7 @@ class BackgroundNetController extends Notifier<BackgroundNetReason?> {
     final connection = ref.read(activeConnectionProvider).value;
     final sessionId = ref.read(currentSessionProvider);
     if (connection == null || !connection.isLocal || sessionId == null) return false;
-    if (!ref.exists(chatProvider(sessionId))) return false;
+    if (!ref.read(chatProvider(sessionId).exists)) return false;
     return BackgroundNetPolicy.transportFailedIn(ref.read(chatProvider(sessionId).notifier).events, since, until);
   }
 

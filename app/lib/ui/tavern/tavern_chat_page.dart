@@ -293,7 +293,7 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// The host's connection, only if the app already has one: a chat page
   /// never starts connecting just to offer dictation.
   HostConnection? get _connection =>
-      mounted && ref.exists(activeConnectionProvider) ? ref.read(activeConnectionProvider).value : null;
+      mounted && ref.read(activeConnectionProvider.exists) ? ref.read(activeConnectionProvider).value : null;
 
   void _reportVoice() => _voiceFlag.set(_voice.active);
 

@@ -368,9 +368,10 @@ void main() {
       expect(companionPersonaCore, startsWith(companionPersonaDefault));
       final own = companionPersona(custom: '你是一只猫娘。', name: '小蓝', callMe: '阿周');
       expect(own, startsWith('你的名字是「小蓝」。\n你是一只猫娘。\n称呼对方为「阿周」。'));
-      expect(own, endsWith('可以去普通对话里做。'));
+      expect(own, endsWith('你就去做。'));
       expect(own, contains(companionPersonaRules));
-      expect(companionPersona(custom: '你是一只猫娘。', tools: true), isNot(contains('你现在没有工具')));
+      expect(companionPersona(custom: '你是一只猫娘。', tools: true), isNot(contains('用不上工具')));
+      expect(companionPersona(custom: '你是一只猫娘。', tools: true), endsWith('说做完了什么。'));
       expect(companionPersonaUpdate(), isNull);
       expect(companionPersonaUpdate(callMe: '阿周'), contains('称呼对方为「阿周」'));
       expect(companionPersonaUpdate(custom: '你是一只猫娘。'), isNot(contains('[表情:')));
@@ -495,17 +496,57 @@ void main() {
         await gate.future;
         return http.Response.bytes(_wav(quiet: 0, loud: 40), 200);
       });
-      final speaker = CompanionSpeaker(CompanionVoice(), () => client, () async => folder);
+      var holdFolder = false;
+      final folderEntered = Completer<void>();
+      final folderReady = Completer<Directory>();
+      final speaker = CompanionSpeaker(CompanionVoice(), () => client, () {
+        if (!holdFolder) return Future.value(folder);
+        folderEntered.complete();
+        return folderReady.future;
+      });
       addTearDown(speaker.dispose);
-      await speaker.ready(const CompanionVoiceSettings(on: true, source: CompanionVoiceSource.openai));
+      const external = CompanionVoiceSettings(on: true, source: CompanionVoiceSource.openai);
+      await speaker.ready(external);
+      final fetchedPreview = speaker.preview(external, '试听。');
       speaker
         ..speak('a', '一。')
         ..speak('b', '二。')
         ..stop();
       gate.complete();
+      expect(await fetchedPreview, 'cancelled');
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(calls.where((c) => c.method == 'play'), isEmpty);
       expect(calls.map((c) => c.method), contains('stop'));
+
+      // The response already arrived, but the original file write is pending.
+      holdFolder = true;
+      final writingPreview = speaker.preview(external, '写入中的试听。');
+      await folderEntered.future;
+      speaker.stop();
+      folderReady.complete(folder);
+      expect(await writingPreview, 'cancelled');
+      expect(calls.where((c) => c.method == 'play'), isEmpty);
+
+      // Android's first system-voice initialization can also finish after stop.
+      final readyEntered = Completer<void>();
+      final ready = Completer<bool>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        if (call.method == 'ready') {
+          readyEntered.complete();
+          return ready.future;
+        }
+        return switch (call.method) {
+          'speak' || 'play' => true,
+          _ => null,
+        };
+      });
+      final systemPreview = speaker.preview(const CompanionVoiceSettings(on: true), '系统试听。');
+      await readyEntered.future;
+      speaker.stop();
+      ready.complete(true);
+      expect(await systemPreview, 'cancelled');
+      expect(calls.where((c) => c.method == 'speak'), isEmpty);
     });
   });
 }

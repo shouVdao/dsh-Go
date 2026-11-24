@@ -19,10 +19,14 @@
 #   --keep-daemon                    leave the Gradle daemon running afterwards
 #   --no-companion                   release without the licensed companion pack
 #   --beta                           embed the beta channel token (internal builds only)
+#   --side                           test build that installs next to the released app
+#                                    (package ...dsh_app.test, named DSH Go 测试, own data)
+#   --no-star                        release without the star prompt
 #   --dry-run                        print what would run
 #
 # The version name comes from app/pubspec.yaml; its `+N` is only a placeholder.
-# Public release builds ask GitHub only. `--beta` embeds the beta channel token
+# Public release builds ask GitHub only, and ask for a star (DSH_STAR_PROMPT,
+# docs/design/star-prompt.md); --beta, --side and --no-star builds don't. `--beta` embeds the beta channel token
 # (lib/update/update_config.dart) for internal builds; the token file is
 # ~/keys/dshgo-beta-channel.token (mode 600), DSH_BETA_TOKEN_FILE points
 # elsewhere. Never printed, never part of a public release.
@@ -36,10 +40,10 @@ ROOT=$(CDPATH= cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 APP="$ROOT/app"
 OUT="$APP/build/app/outputs/flutter-apk"
 
-usage() { sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { echo "build-apk: $*" >&2; exit 1; }
 
-flavor=arm64 mode=release target='' code='' name='' dry=0 keep_daemon=0 want_beta=0 companion=1 no_companion=0
+flavor=arm64 mode=release target='' code='' name='' dry=0 keep_daemon=0 want_beta=0 side=0 companion=1 no_companion=0 star=1
 extra=()
 while (($#)); do
   case "$1" in
@@ -54,6 +58,8 @@ while (($#)); do
     --build-name=*) name=${1#*=}; shift ;;
     --keep-daemon) keep_daemon=1; shift ;;
     --beta) want_beta=1; shift ;;
+    --side) side=1; shift ;;
+    --no-star) star=0; shift ;;
     --no-companion) companion=0 no_companion=1; shift ;;
     --dry-run) dry=1; shift ;;
     -h | --help) usage; exit 0 ;;
@@ -118,17 +124,32 @@ if ((want_beta)) && [[ $mode == release && -n $beta_file && -s $beta_file ]]; th
   beta=1
 fi
 
+# The star prompt: on in every public release build. Handed to flutter as a file
+# ahead of the extra flags, so a DSH_STAR_PROMPT among them (inline, or in a later
+# file) still wins: flutter merges files in order, then inline defines over them.
+star_on=0
+((star && !want_beta && !side)) && [[ $mode == release ]] && star_on=1
+
 commands=()
 for f in "${flavors[@]}"; do
   cmd=(flutter build apk "--$mode" --flavor "$f" --target-platform "$(platform_of "$f")"
     --build-name "$name" --build-number "$code" "--dart-define=DSH_APP_VERSION=$name+$code")
   [[ -n $target ]] && cmd+=(-t "$target")
   ((beta)) && cmd+=("--dart-define-from-file=$beta_json")
+  ((star_on)) && cmd+=("--dart-define-from-file=../tooling/star-prompt-on.json")
   cmd+=("${extra[@]}")
   commands+=("$(printf '%q ' "${cmd[@]}")")
 done
 
-echo "dsh-go $name ($code, $when) · $mode · ${flavors[*]}$( ((beta)) && echo ' · beta channel')"
+# Side builds: own package (app/android/app/build.gradle.kts). Their in-app updater still
+# fetches the released APK, which installs as the released app, not over this one.
+if ((side)); then
+  [[ $mode == release ]] || die "--side is for release builds"
+  export DSH_SIDE_BUILD=1
+else
+  unset DSH_SIDE_BUILD
+fi
+echo "dsh-go $name ($code, $when) · $mode · ${flavors[*]}$( ((beta)) && echo ' · beta channel')$( ((side)) && echo ' · side (dsh_app.test)')$( ((star_on)) && echo ' · star prompt')"
 if ((dry)); then
   for c in "${commands[@]}"; do echo "(cd app && ${c% })"; done
   ((keep_daemon)) || echo "(cd app/android && ./gradlew --stop)"
@@ -150,6 +171,10 @@ fi
 ((companion)) && [[ $mode == release ]] || companion=0
 if ((companion)) && [[ ! -f $APP/assets/companion/whale-girl.zip ]]; then
   pack=${DSH_COMPANION_PACK-$HOME/keys/dsh-go/companion-pack-whale-girl.zip}
+  # A killed --no-companion build may have left the only copy here.
+  if [[ ! -f $pack && -f $APP/build/.whale-girl.zip.held ]]; then
+    pack="$APP/build/.whale-girl.zip.held"
+  fi
   [[ -f $pack ]] || die "no companion pack at $pack; set DSH_COMPANION_PACK, or pass --no-companion"
   python3 -I "$ROOT/tooling/companion_pack.py" place "$pack"
 fi

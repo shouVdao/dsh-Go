@@ -58,6 +58,7 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
   bool group = false,
   Duration tick = Duration.zero,
   List<Override> overrides = const [],
+  int lines = 0,
 }) async {
   SharedPreferences.setMockInitialValues({TavernSettingsController.canvasKey: true, ...prefs});
   final tavern = PreviewTavern(tick: tick);
@@ -72,7 +73,13 @@ Future<(PreviewTavern, String, _Canvas)> _chat(
     ))!;
   } else {
     chat = (await tester.runAsync(() => tavern.createChat('sample-innkeeper')))!;
-    await tester.runAsync(() => tavern.narrate(chat, '*雨停了。*\n\n"进来吧，" 她说。'));
+    await tester.runAsync(() async {
+      // [lines] of yours before the narration.
+      for (var i = 1; i <= lines; i++) {
+        await tavern.sendOnly(chat, '第$i句');
+      }
+      await tavern.narrate(chat, '*雨停了。*\n\n"进来吧，" 她说。');
+    });
   }
   tester.view.physicalSize = const Size(390, 844) * 2;
   tester.view.devicePixelRatio = 2;
@@ -177,6 +184,20 @@ void main() {
     expect(tavernStoryHtml('a_b_c 和 _斜_'), '<p>a_b_c 和 <em>斜</em></p>');
   });
 
+  test("a front-end card's pages go as written, in a code block of any language or bare", () {
+    const page = '<!DOCTYPE html>\n<html><head><style>\n.a{}\n\n.b{}\n</style></head><body><div>状态</div></body></html>';
+    // No language: 酒馆助手 draws a whole page whatever the block says.
+    expect(tavernStoryHtml('```\n$page\n```'), page);
+    expect(tavernStoryHtml('```text\n$page\n```'), page);
+    expect(tavernStoryHtml('```\n<div>x</div>\n```'), '<pre><code>&lt;div&gt;x&lt;/div&gt;</code></pre>');
+    // Bare, its CSS and code across blank lines kept whole.
+    expect(tavernStoryHtml(page), page);
+    expect(
+      tavernStoryHtml('<script>\nvar a = 1;\n\nvar b = a*2*3;\n</script>\n\n她*笑*了。'),
+      '<script>\nvar a = 1;\n\nvar b = a*2*3;\n</script>\n<p>她<em>笑</em>了。</p>',
+    );
+  });
+
   test('the page has ST structure and colour variables, our script by nonce, and the chosen guards', () {
     String page({
       bool noScripts = false,
@@ -202,10 +223,11 @@ void main() {
     );
     final open = page();
     expect(open, contains('<div id="chat"></div>'));
-    // A long story: only the latest messages are always laid out, and one
-    // drawn as it was is kept (the script itself was checked in Edge).
-    expect(open, contains('.mes.far{content-visibility:auto;'));
-    expect(open, contains("m.classList.toggle('far',i<list.length-$tavernCanvasNear)"));
+    // A long story: only the latest messages are always drawn, the rest while
+    // in sight (tavern_page_perf_test.dart), and one drawn as it was is kept
+    // (the script itself was checked in Edge).
+    expect(open, contains('.mes.dsh-off{content-visibility:auto;}'));
+    expect(open, contains('sight.watch(m,i>=list.length-$tavernCanvasTail)'));
     expect(open, contains('if(m&&m._dsh===key)'));
     // A card's scripts run unless 不运行卡的脚本 is on; never with our nonce.
     expect(open, contains('var runScripts=true'));
@@ -234,8 +256,11 @@ void main() {
     ]) {
       expect(open, contains("['$name',$name]"));
     }
-    expect(open, contains('--SmartThemeQuoteColor:rgba(170,85,0,1.000)'));
-    expect(open, contains('--SmartThemeEmColor:rgba(85,102,119,1.000)'));
+    // Colours are variables, so a theme change sets them in place (tavernPageColorsJs).
+    expect(open, contains('--dsh-quote:rgba(170,85,0,1.000)'));
+    expect(open, contains('--SmartThemeQuoteColor:var(--dsh-quote)'));
+    expect(open, contains('--dsh-emphasis:rgba(85,102,119,1.000)'));
+    expect(open, contains('--SmartThemeEmColor:var(--dsh-emphasis)'));
     expect(open, contains('font:var(--mainFontSize)/1.65'));
     expect(open, contains('<script nonce="n0nce">'));
     expect(open, contains("m.className='mes'"));
@@ -267,9 +292,12 @@ void main() {
     for (final name in ['generate', 'generateRaw', 'stopGenerationById', 'stopAllGeneration']) {
       expect(open, contains("['$name',"));
     }
-    expect(open, contains("if(d.kind==='generation'){generationEvent(d);return;}"));
+    expect(open, contains("if(d.kind==='helperState'){helperIds=d.activeIds||[];return;}"));
     expect(open, contains("if(d.kind==='invoke'){invoke(d);return;}"));
-    expect(open, contains("['custom_api','tools','tool_choice','json_schema','image']"));
+    // The whole config goes to the engine's Helper requests; the engine's
+    // iframe-namespace events are 酒馆助手's js_ ones.
+    expect(open, contains("return ask(kind,{config:json});"));
+    expect(open, contains("var name=d.namespace==='iframe'?'js_'+String(d.name||'').toLowerCase():(d.name||'');"));
     expect(open, contains('if(!window.iframe_events)window.iframe_events=iframe_events;'));
     expect(open, contains('if(!window.injectPrompts)window.injectPrompts=injectPrompts;'));
     // The rest of 酒馆助手's events and its displayed messages (their
@@ -440,6 +468,13 @@ void main() {
     expect(find.text('复制'), findsOneWidget);
   });
 
+  testWidgets('a page of display passes, one a frame, is taken in together: not a canvas build each', (tester) async {
+    final (_, _, canvas) = await _chat(tester, lines: 58);
+    expect(canvas.entries, hasLength(60));
+    expect(canvas.entries.where((e) => e.html == '<p>第58句</p>'), hasLength(1));
+    expect(canvas.builds, lessThan(15));
+  });
+
   testWidgets('in a group, the reply being written goes under whoever speaks now', (tester) async {
     final (tavern, chat, canvas) = await _chat(tester, group: true, tick: const Duration(milliseconds: 1));
     final writers = <String>{};
@@ -513,6 +548,42 @@ void main() {
     ]);
   });
 
+  testWidgets("what scripts put in ST's QR bar sits after their own buttons; a tap is pressed in the page", (
+    tester,
+  ) async {
+    final (_, _, canvas) = await _chat(
+      tester,
+      overrides: [
+        _scripts([
+          _script('s1', buttons: ['前往']),
+        ]),
+      ],
+    );
+    await tester.pumpAndSettle();
+    canvas.calls!.hostButtons.value = [(id: '7', label: '猫神·剧场')];
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('tavern-quick-replies'));
+    expect(find.descendant(of: row, matching: find.text('猫神·剧场')), findsOneWidget);
+    final own = tester.getTopLeft(find.byKey(const ValueKey('tavern-script-button-0'))).dx;
+    final host = tester.getTopLeft(find.byKey(const ValueKey('tavern-script-button-1'))).dx;
+    expect(own < host, isTrue);
+
+    final pressed = <Map<String, Object?>>[];
+    canvas.calls!.deliver = (d) async {
+      pressed.add(d);
+      return true;
+    };
+    await tester.tap(find.byKey(const ValueKey('tavern-script-button-1')));
+    await tester.pump();
+    expect(pressed, [
+      {'kind': 'press', 'id': '7'},
+    ]);
+    // A new page: none until it says.
+    canvas.calls!.hostButtons.value = const [];
+    await tester.pumpAndSettle();
+    expect(find.text('猫神·剧场'), findsNothing);
+  });
+
   testWidgets('no script buttons where the scripts do not run: 不运行卡的脚本 on, or the native list', (tester) async {
     final override = _scripts([
       _script('s1', buttons: ['前往']),
@@ -535,7 +606,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final hint = find.byKey(const ValueKey('tavern-scripts-hint'));
-    expect(find.descendant(of: hint, matching: find.text('这张卡带了 2 个脚本，打开「整页画布（试用）」才会运行')), findsOneWidget);
+    expect(find.descendant(of: hint, matching: find.text('2 个卡片脚本要在整页画布里运行')), findsOneWidget);
     expect(find.byKey(const ValueKey('fake-canvas')), findsNothing);
 
     await tester.tap(find.descendant(of: hint, matching: find.text('打开')));
@@ -570,7 +641,7 @@ void main() {
     await _chat(tester, prefs: {TavernSettingsController.canvasKey: false}, overrides: [override]);
     await tester.pumpAndSettle();
     final hint = find.byKey(const ValueKey('tavern-scripts-hint'));
-    expect(find.descendant(of: hint, matching: find.text('这张卡带了 1 个脚本，打开「整页画布（试用）」才会运行')), findsOneWidget);
+    expect(find.descendant(of: hint, matching: find.text('1 个卡片脚本要在整页画布里运行')), findsOneWidget);
     await tester.tap(find.descendant(of: hint, matching: find.byType(IconButton)));
     await tester.pumpAndSettle();
     expect(hint, findsNothing);

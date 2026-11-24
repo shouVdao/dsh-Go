@@ -18,6 +18,7 @@ class PhonePrompts(
     private val notifications: NotificationGate,
     private val reopen: (String?, String?) -> Boolean,
     private val displaySelection: PhoneDisplaySelection,
+    private val onUserIntervened: (PhoneTasks.Owner) -> Unit = {},
     private val resolveTask: (Long, String?) -> PhoneTasks? = { id, _ -> tasks.takeIf { it.snapshot().id == id } },
 ) : UserGate {
     private val main = Handler(Looper.getMainLooper())
@@ -68,7 +69,8 @@ class PhonePrompts(
 
     override fun confirm(request: ConfirmRequest): Decision = confirmFor(tasks, null, request)
 
-    private fun confirmFor(task: PhoneTasks, sessionId: String?, request: ConfirmRequest): Decision {
+    private fun confirmFor(task: PhoneTasks, sessionId: String?, request: ConfirmRequest,
+                           enabled: () -> Boolean = this.enabled): Decision {
         if (Looper.myLooper() == Looper.getMainLooper()) return Decision.UNAVAILABLE
         val taskOwner = request.owner ?: task.activeOwner() ?: return Decision.STOP
         if (!task.isCurrent(taskOwner)) return Decision.STOP
@@ -84,7 +86,8 @@ class PhonePrompts(
             PromptOutcome.ALLOW_ONCE -> Decision.ALLOW_ONCE
             PromptOutcome.ALLOW_APP -> Decision.ALLOW_APP_FOR_TASK
             PromptOutcome.ALLOW_VISUAL -> Decision.ALLOW_VISUAL_FOR_TASK
-            PromptOutcome.STOPPED -> Decision.STOP
+            PromptOutcome.REJECT -> { onUserIntervened(taskOwner); Decision.DENY }
+            PromptOutcome.STOPPED -> { onUserIntervened(taskOwner); Decision.STOP }
             PromptOutcome.UNAVAILABLE -> Decision.UNAVAILABLE
             else -> Decision.DENY
         }
@@ -98,7 +101,8 @@ class PhonePrompts(
     override fun handoff(reason: String, timeoutMs: Long, cause: HandoffCause?, owner: PhoneTasks.Owner): HandoffResult =
         handoffFor(tasks, null, reason, timeoutMs, cause, owner)
 
-    private fun handoffFor(task: PhoneTasks, sessionId: String?, reason: String, timeoutMs: Long, cause: HandoffCause?, owner: PhoneTasks.Owner?): HandoffResult {
+    private fun handoffFor(task: PhoneTasks, sessionId: String?, reason: String, timeoutMs: Long, cause: HandoffCause?, owner: PhoneTasks.Owner?,
+                           enabled: () -> Boolean = this.enabled): HandoffResult {
         if (Looper.myLooper() == Looper.getMainLooper()) return HandoffResult.STOP
         val taskOwner = owner ?: return HandoffResult.STOP
         if (!task.isCurrent(taskOwner)) return HandoffResult.STOP
@@ -109,19 +113,20 @@ class PhonePrompts(
         // Revocation/lock is not a user STOP. Reuse the worker interruption path.
         if (result.outcome == PromptOutcome.STOPPED && result.reason != null) throw InterruptedException()
         return when (result.outcome) {
-            PromptOutcome.CONTINUE -> HandoffResult.CONTINUE
+            PromptOutcome.CONTINUE -> { onUserIntervened(taskOwner); HandoffResult.CONTINUE }
+            PromptOutcome.STOPPED -> { onUserIntervened(taskOwner); HandoffResult.STOP }
             PromptOutcome.TIMEOUT -> HandoffResult.TIMEOUT
             else -> HandoffResult.STOP
         }
     }
 
     /** One UI arbiter, but every native ticket retains its own task and conversation. */
-    fun scoped(task: PhoneTasks, sessionId: String?): UserGate = object : UserGate {
-        override fun confirm(request: ConfirmRequest): Decision = confirmFor(task, sessionId, request)
+    fun scoped(task: PhoneTasks, sessionId: String?, enabled: () -> Boolean = this.enabled): UserGate = object : UserGate {
+        override fun confirm(request: ConfirmRequest): Decision = confirmFor(task, sessionId, request, enabled)
         override fun handoff(reason: String, timeoutMs: Long): HandoffResult =
-            handoffFor(task, sessionId, reason, timeoutMs, null, task.activeOwner())
+            handoffFor(task, sessionId, reason, timeoutMs, null, task.activeOwner(), enabled)
         override fun handoff(reason: String, timeoutMs: Long, cause: HandoffCause?, owner: PhoneTasks.Owner): HandoffResult =
-            handoffFor(task, sessionId, reason, timeoutMs, cause, owner)
+            handoffFor(task, sessionId, reason, timeoutMs, cause, owner, enabled)
         override fun status(text: String?) = status(text, displaySelection.currentGuard(task))
         override fun status(text: String?, ifCurrent: (() -> Unit) -> Boolean) =
             publishStatus(text, displaySelection.scoped(task, ifCurrent))

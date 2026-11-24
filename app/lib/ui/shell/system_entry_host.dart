@@ -10,6 +10,8 @@
 //                      conversation → that conversation, on its host
 //   Quick Settings     新对话
 //   pet screenshot     新对话 with the image attached, focused and unsent
+//   companion phone    back to her room when the task was asked for there;
+//   task               otherwise the app as it was
 //   a file opened with the app that no feature claims → 新对话 with it attached
 //
 // and keeps the launcher's recent conversations current. Bridges:
@@ -38,6 +40,8 @@ import '../../state/draft_store.dart';
 import '../../state/hosts_state.dart';
 import '../../state/sessions_state.dart';
 import '../common/discard_guard.dart';
+import '../companion/companion_page.dart';
+import '../companion/companion_tasks_page.dart';
 import '../tavern/tavern_deepseek_import.dart';
 import '../tavern/tavern_intake.dart';
 
@@ -169,6 +173,20 @@ class _SystemEntryHostState extends ConsumerState<SystemEntryHost> {
         // one from switching away on a cold start (as notification taps do).
         ref.read(activeHostProvider.notifier).select(host);
         ref.read(currentSessionProvider.notifier).select(sessionId);
+      case OpenCompanionTaskEntry(:final taskId, :final taskRev):
+        await _untilResumed();
+        if (mounted) {
+          await Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CompanionTasksPage(taskId: taskId, openedRevision: taskRev),
+            ),
+          );
+        }
+      case CompanionAssistantEntry():
+        if (mounted) await openCompanionAssistant(context, ref, entry);
+      case OpenCompanionEntry(:final room):
+        // Never _showChat: closing the room would end her turn, and she is no chat.
+        if (room && mounted) await showCompanionRoom(context, ref);
     }
   }
 

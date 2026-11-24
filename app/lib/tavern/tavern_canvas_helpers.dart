@@ -22,8 +22,9 @@ const _js = r'''
   function adoptResources(r,context){
     if(context)ctx=context;
     if(!r||!Object.keys(r).length)return;
-    var before=(res.presetLibrary||{}).version;
+    var before=(res.presetLibrary||{}).version,was=res.preset;
     res=r;
+    presetDelivered(was,r.preset);
     if(card&&r.characterData&&r.characterData.data)card=r.characterData.data;
     if(r.regex)regexes=regexBuckets(r.regex);
     if((r.presetLibrary||{}).version!==before)storedPresets={};
@@ -48,6 +49,9 @@ const _js = r'''
     return new Promise(function(ok){(globalWaiters[name]||(globalWaiters[name]=[])).push(ok);});
   }
   share('initializeGlobal',initializeGlobal);share('waitGlobalInitialized',waitGlobalInitialized);
+  // The bundled zod and YAML, as 酒馆助手 gives them: on every script's frame,
+  // and what waitGlobalInitialized('z') waits for.
+  ['z','YAML'].forEach(function(n){if(window[n]!==undefined)initializeGlobal(n,window[n]);});
 
   // MVU (MagVarUpdate) as a local module: the engine keeps the variables
   // ([initvar], <UpdateVariable>, its four events); Mvu reads and writes

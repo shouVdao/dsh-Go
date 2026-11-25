@@ -411,12 +411,14 @@ class _RootGateState extends ConsumerState<RootGate> {
     if (child is! _Splash && !_launchReady) {
       // 启动画面: the first page is up. A warm start's launch screen goes now; a cold start of
       // this phone's engine finishes its motion first (or goes when the engine is up).
+      // The onboarding comes before the interactive launch screen's show.
       _launchReady = true;
+      final guided = child is OnboardingFlow;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         StartupTrace.mark('first page');
         final launch = LaunchController.active.value;
         if (launch == null) return StartupTrace.finished();
-        launch.ready(waitsForEngine: ref.read(activeHostProvider).isLocal);
+        launch.ready(waitsForEngine: ref.read(activeHostProvider).isLocal, guided: guided);
       });
     }
     return AnimatedSwitcher(

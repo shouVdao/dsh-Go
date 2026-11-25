@@ -21822,6 +21822,330 @@ abstract class L10n {
   /// **'快捷方式,自定义图标,桌面图片,换图标'**
   String get searchKwIconShortcut;
 
+  /// No description provided for @launchInteractive.
+  ///
+  /// In zh, this message translates to:
+  /// **'互动'**
+  String get launchInteractive;
+
+  /// No description provided for @launchShowSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get launchShowSkip;
+
+  /// No description provided for @launchShowSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'随身智能工作台'**
+  String get launchShowSubtitle;
+
+  /// No description provided for @launchShowStatusStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'准备开始'**
+  String get launchShowStatusStart;
+
+  /// No description provided for @launchShowStatusConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认你的资料'**
+  String get launchShowStatusConfirm;
+
+  /// No description provided for @launchShowStatusScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在展开工作区'**
+  String get launchShowStatusScan;
+
+  /// No description provided for @launchShowStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get launchShowStart;
+
+  /// No description provided for @launchShowConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认资料'**
+  String get launchShowConfirm;
+
+  /// No description provided for @launchShowWelcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'欢迎回来'**
+  String get launchShowWelcome;
+
+  /// No description provided for @launchShowNickname.
+  ///
+  /// In zh, this message translates to:
+  /// **'DSH 用户'**
+  String get launchShowNickname;
+
+  /// No description provided for @launchShowHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'轻点按钮继续'**
+  String get launchShowHint;
+
+  /// No description provided for @launchShowName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get launchShowName;
+
+  /// No description provided for @launchShowNumber.
+  ///
+  /// In zh, this message translates to:
+  /// **'编号'**
+  String get launchShowNumber;
+
+  /// No description provided for @launchShowDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期'**
+  String get launchShowDate;
+
+  /// No description provided for @launchShowLook.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观'**
+  String get launchShowLook;
+
+  /// No description provided for @launchShowLookAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get launchShowLookAuto;
+
+  /// No description provided for @launchShowLookLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色'**
+  String get launchShowLookLight;
+
+  /// No description provided for @launchShowLookDark.
+  ///
+  /// In zh, this message translates to:
+  /// **'深色'**
+  String get launchShowLookDark;
+
+  /// No description provided for @launchShowEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑互动启动画面'**
+  String get launchShowEdit;
+
+  /// No description provided for @launchShowAccent.
+  ///
+  /// In zh, this message translates to:
+  /// **'强调色'**
+  String get launchShowAccent;
+
+  /// No description provided for @launchShowTexts.
+  ///
+  /// In zh, this message translates to:
+  /// **'文字'**
+  String get launchShowTexts;
+
+  /// No description provided for @launchShowTextsFooter.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空即用默认文字。编号只是装饰，不做任何校验'**
+  String get launchShowTextsFooter;
+
+  /// No description provided for @launchShowTextTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题'**
+  String get launchShowTextTitle;
+
+  /// No description provided for @launchShowTextSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'副标题'**
+  String get launchShowTextSubtitle;
+
+  /// No description provided for @launchShowTextNickname.
+  ///
+  /// In zh, this message translates to:
+  /// **'昵称'**
+  String get launchShowTextNickname;
+
+  /// No description provided for @launchShowTextNumber.
+  ///
+  /// In zh, this message translates to:
+  /// **'编号'**
+  String get launchShowTextNumber;
+
+  /// No description provided for @launchShowTextStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'第一个按钮'**
+  String get launchShowTextStart;
+
+  /// No description provided for @launchShowTextConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'第二个按钮'**
+  String get launchShowTextConfirm;
+
+  /// No description provided for @launchShowTextWelcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'欢迎语'**
+  String get launchShowTextWelcome;
+
+  /// No description provided for @launchShowTextCaption.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空恢复默认'**
+  String get launchShowTextCaption;
+
+  /// No description provided for @launchShowBackgrounds.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景'**
+  String get launchShowBackgrounds;
+
+  /// No description provided for @launchShowBackgroundsFooter.
+  ///
+  /// In zh, this message translates to:
+  /// **'每一幕可以单独换成图片或视频（静音播放，30 MB 以内）。不换就用内置的画面'**
+  String get launchShowBackgroundsFooter;
+
+  /// No description provided for @launchShowSceneStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get launchShowSceneStart;
+
+  /// No description provided for @launchShowSceneConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认资料'**
+  String get launchShowSceneConfirm;
+
+  /// No description provided for @launchShowSceneScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开工作区'**
+  String get launchShowSceneScan;
+
+  /// No description provided for @launchShowBackgroundNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'内置'**
+  String get launchShowBackgroundNone;
+
+  /// No description provided for @launchShowBackgroundImage.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片'**
+  String get launchShowBackgroundImage;
+
+  /// No description provided for @launchShowBackgroundVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频'**
+  String get launchShowBackgroundVideo;
+
+  /// No description provided for @launchShowBackgroundRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除背景'**
+  String get launchShowBackgroundRemove;
+
+  /// No description provided for @launchShowPace.
+  ///
+  /// In zh, this message translates to:
+  /// **'节奏'**
+  String get launchShowPace;
+
+  /// No description provided for @launchShowWait.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待时'**
+  String get launchShowWait;
+
+  /// No description provided for @launchShowWaitLoop.
+  ///
+  /// In zh, this message translates to:
+  /// **'循环播放'**
+  String get launchShowWaitLoop;
+
+  /// No description provided for @launchShowWaitHold.
+  ///
+  /// In zh, this message translates to:
+  /// **'停在最后一帧'**
+  String get launchShowWaitHold;
+
+  /// No description provided for @launchShowVideoSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频速度'**
+  String get launchShowVideoSpeed;
+
+  /// No description provided for @launchShowEffectSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'特效速度'**
+  String get launchShowEffectSpeed;
+
+  /// No description provided for @launchShowExit.
+  ///
+  /// In zh, this message translates to:
+  /// **'出场'**
+  String get launchShowExit;
+
+  /// No description provided for @launchShowTransition.
+  ///
+  /// In zh, this message translates to:
+  /// **'转场'**
+  String get launchShowTransition;
+
+  /// No description provided for @launchShowTransitionFade.
+  ///
+  /// In zh, this message translates to:
+  /// **'淡出'**
+  String get launchShowTransitionFade;
+
+  /// No description provided for @launchShowTransitionBloom.
+  ///
+  /// In zh, this message translates to:
+  /// **'光晕'**
+  String get launchShowTransitionBloom;
+
+  /// No description provided for @launchShowTransitionChroma.
+  ///
+  /// In zh, this message translates to:
+  /// **'色散'**
+  String get launchShowTransitionChroma;
+
+  /// No description provided for @launchShowFrequency.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放频率'**
+  String get launchShowFrequency;
+
+  /// No description provided for @launchShowFrequencyAlways.
+  ///
+  /// In zh, this message translates to:
+  /// **'每次冷启动'**
+  String get launchShowFrequencyAlways;
+
+  /// No description provided for @launchShowFrequencyDaily.
+  ///
+  /// In zh, this message translates to:
+  /// **'每天第一次'**
+  String get launchShowFrequencyDaily;
+
+  /// No description provided for @launchShowPreviewFooter.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览从头播放，可以点按钮、跳过，不影响引擎，也不计入每天第一次'**
+  String get launchShowPreviewFooter;
+
   /// No description provided for @linuxTitle.
   ///
   /// In zh, this message translates to:

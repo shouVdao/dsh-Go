@@ -36,9 +36,13 @@ class LaunchClipChannel {
   static const _channel = MethodChannel('dsh/launch_clip');
   final _open = <int, LaunchClip>{};
 
-  Future<({int texture, int rotation})?> open(String path) async {
+  Future<({int texture, int rotation})?> open(String path, {bool loop = false, double speed = 1}) async {
     try {
-      final raw = await _channel.invokeMapMethod<String, Object?>('open', {'path': path});
+      final raw = await _channel.invokeMapMethod<String, Object?>('open', {
+        'path': path,
+        if (loop) 'loop': true,
+        if (speed != 1) 'speed': speed,
+      });
       final id = raw?['texture'];
       return id is int ? (texture: id, rotation: raw?['rotation'] as int? ?? 0) : null;
     } on MissingPluginException {
@@ -49,6 +53,8 @@ class LaunchClipChannel {
   }
 
   Future<void> play(int texture) => _quiet('play', texture);
+  Future<void> pause(int texture) => _quiet('pause', texture);
+  Future<void> resume(int texture) => _quiet('resume', texture);
 
   Future<void> close(int texture) {
     _open.remove(texture);
@@ -68,7 +74,11 @@ class LaunchClipChannel {
 
 /// A short clip as a launch picture.
 class LaunchClip extends LaunchMedia {
-  LaunchClip._(this._poster, this._size, this._length);
+  LaunchClip._(this._poster, this._size, this._length, {this.loop = false});
+
+  /// Starts again at its end and never reports done (the interactive launch screen's waiting
+  /// scenes).
+  final bool loop;
 
   final ui.Image _poster;
   final Size _size;
@@ -85,7 +95,7 @@ class LaunchClip extends LaunchMedia {
   Timer? _safety;
 
   /// Opens [custom]'s clip: its poster first (null when that doesn't read), the player behind it.
-  static Future<LaunchMedia?> open(CustomLaunch custom) async {
+  static Future<LaunchMedia?> open(CustomLaunch custom, {bool loop = false, double speed = 1}) async {
     final poster = custom.poster;
     if (poster == null) return null;
     final codec = await ui.instantiateImageCodecFromBuffer(await ui.ImmutableBuffer.fromFilePath(poster));
@@ -99,14 +109,15 @@ class LaunchClip extends LaunchMedia {
       image,
       Size(custom.width.toDouble(), custom.height.toDouble()),
       // Its own length and a margin: only a player that stalls is cut short.
-      Duration(milliseconds: (custom.durationMs ?? 60000) + 2000),
+      Duration(milliseconds: ((custom.durationMs ?? 60000) / speed).round() + 2000),
+      loop: loop,
     );
-    unawaited(clip._prepare(custom.path));
+    unawaited(clip._prepare(custom.path, loop: loop, speed: speed));
     return clip;
   }
 
-  Future<void> _prepare(String path) async {
-    final opened = await LaunchClipChannel.instance.open(path);
+  Future<void> _prepare(String path, {required bool loop, required double speed}) async {
+    final opened = await LaunchClipChannel.instance.open(path, loop: loop, speed: speed);
     if (opened == null) return;
     final id = opened.texture;
     if (_disposed) {
@@ -156,8 +167,18 @@ class LaunchClip extends LaunchMedia {
     if (_wantPlay) return;
     _wantPlay = true;
     _onDone = onDone;
-    _safety = Timer(_length, _done);
+    if (!loop) _safety = Timer(_length, _done);
     if (_texture case final id?) unawaited(LaunchClipChannel.instance.play(id));
+  }
+
+  @override
+  void pause() {
+    if (_texture case final id?) unawaited(LaunchClipChannel.instance.pause(id));
+  }
+
+  @override
+  void resume() {
+    if (_texture case final id?) unawaited(LaunchClipChannel.instance.resume(id));
   }
 
   @override

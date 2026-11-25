@@ -21,6 +21,7 @@ import '../../runtime/runtime_bridge.dart';
 import '../../runtime/runtime_state.dart';
 import '../../state/app_info.dart';
 import '../theme/theme.dart';
+import 'interactive_launch_view.dart';
 
 /// Where the launch screen goes: over everything in the app (MaterialApp.builder), for as long
 /// as [LaunchController.active] has one. Always in the tree, so the app under it keeps its place.
@@ -178,7 +179,9 @@ class _LaunchOverlayState extends State<LaunchOverlay> with TickerProviderStateM
       case LaunchPhase.cover || LaunchPhase.gone:
         break;
       case LaunchPhase.playing:
-        if (_c.showsCustom) {
+        if (_c.interactive != null) {
+          // InteractiveLaunchView plays it and reports its end.
+        } else if (_c.showsCustom) {
           _startCustom();
         } else if (!_reduced && !_play.isAnimating && _play.value == 0) {
           unawaited(_play.forward().then((_) => _c.motionDone()));
@@ -233,8 +236,12 @@ class _LaunchOverlayState extends State<LaunchOverlay> with TickerProviderStateM
     final leaving = _c.phase == LaunchPhase.leaving;
     final cover = _c.phase == LaunchPhase.cover;
     final custom = _c.custom;
+    final interactive = _c.interactive;
+    final interactiveDark = interactive?.look.darkFor(systemDark: snapshot.dark) ?? snapshot.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: dshSystemOverlay(snapshot.dark ? Brightness.dark : Brightness.light),
+      value: dshSystemOverlay(
+        (cover ? snapshot.dark : interactiveDark) ? Brightness.dark : Brightness.light,
+      ),
       child: IgnorePointer(
         ignoring: leaving,
         child: FadeTransition(
@@ -243,11 +250,12 @@ class _LaunchOverlayState extends State<LaunchOverlay> with TickerProviderStateM
             container: true,
             label: AppInfo.name,
             child: BlockSemantics(
-              // A tap anywhere ends it (the page under it takes no taps meanwhile).
+              // A tap anywhere ends it (the page under it takes no taps meanwhile); the interactive
+              // show has its own 跳过 instead.
               child: GestureDetector(
                 key: LaunchOverlay.skipKey,
                 behavior: HitTestBehavior.opaque,
-                onTap: _c.skip,
+                onTap: interactive == null ? _c.skip : null,
                 // Over the navigator: no Material above to give text its style.
                 child: Material(
                   type: MaterialType.transparency,
@@ -263,13 +271,13 @@ class _LaunchOverlayState extends State<LaunchOverlay> with TickerProviderStateM
                             snapshot: snapshot,
                             frame: frame,
                             layout: layout,
-                            showWordmark: !_c.showsCustom,
+                            showWordmark: !_c.showsCustom && interactive == null,
                             // The system's picture had the icon: it is there from the start. Else
                             // nothing at first (the page alone, like the system's), then it comes
                             // in with the motion; a custom picture takes its place instead.
                             iconOpacity: _c.systemIcon
                                 ? 1
-                                : cover || _c.showsCustom
+                                : cover || _c.showsCustom || interactive != null
                                 ? 0
                                 : _reduced
                                 ? 1
@@ -281,6 +289,15 @@ class _LaunchOverlayState extends State<LaunchOverlay> with TickerProviderStateM
                         FadeTransition(
                           opacity: _customShown,
                           child: CustomLaunchView(custom: custom, media: _c.media!, dark: snapshot.dark),
+                        ),
+                      if (interactive != null && !cover)
+                        InteractiveLaunchView(
+                          config: interactive,
+                          dark: interactiveDark,
+                          icon: snapshot.icon,
+                          reduced: _reduced,
+                          onDone: _c.motionDone,
+                          onSkip: _c.skip,
                         ),
                     ],
                   ),

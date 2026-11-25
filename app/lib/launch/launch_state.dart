@@ -22,13 +22,16 @@
 // 没有原生侧（测试、其他平台）或这次不是冷启动：没有启动画面，RootGate 照旧。
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'custom_launch.dart';
+import 'interactive_launch.dart';
 import 'launch_media.dart';
 import 'startup_trace.dart';
 
@@ -207,6 +210,7 @@ class LaunchController extends ChangeNotifier {
   LaunchController({
     required this.snapshot,
     this.custom,
+    this.interactive,
     this.channel = const LaunchChannel(),
     this.handOverWait = const Duration(milliseconds: 700),
     this.native = true,
@@ -219,6 +223,13 @@ class LaunchController extends ChangeNotifier {
 
   /// The user's own launch screen, if any (its media opens while the system picture shows).
   final CustomLaunch? custom;
+
+  /// The interactive launch screen, when this cold start plays it (in the custom picture's place;
+  /// lib/launch/interactive_show.dart has its steps).
+  final InteractiveLaunch? interactive;
+
+  /// The interactive show plays (set, and not skipped).
+  bool get showsInteractive => interactive != null && !_skipped;
 
   final LaunchChannel channel;
 
@@ -289,13 +300,19 @@ class LaunchController extends ChangeNotifier {
     try {
       final snapshot = await LaunchSnapshot.fromMap(await channel.begin());
       if (snapshot == null) return null;
-      final stored = await CustomLaunch.load();
+      final interactive = await _interactiveTurn();
+      final stored = interactive == null ? await CustomLaunch.load() : null;
       final custom = stored != null && stored.on ? stored : null;
       if (_gaveUp) {
         snapshot.icon?.dispose();
         return null;
       }
-      final controller = LaunchController(snapshot: snapshot, custom: custom, channel: channel);
+      final controller = LaunchController(
+        snapshot: snapshot,
+        custom: custom,
+        interactive: interactive,
+        channel: channel,
+      );
       channel.listen(controller.handOver);
       if (custom != null) unawaited(controller.openMedia(screen ?? _screen()));
       active.value = controller;
@@ -304,6 +321,16 @@ class LaunchController extends ChangeNotifier {
       unawaited(channel.done());
       return null;
     }
+  }
+
+  /// The interactive launch screen, when it is on and this cold start is its turn (Android only:
+  /// its clips need the Android player's loop, speed and pause).
+  static Future<InteractiveLaunch?> _interactiveTurn() async {
+    if (!Platform.isAndroid) return null;
+    final prefs = await SharedPreferences.getInstance();
+    final config = await InteractiveLaunch.load(prefs);
+    if (config == null || !await config.takeTurn(prefs, DateTime.now())) return null;
+    return config;
   }
 
   static Size _screen() {
@@ -377,10 +404,12 @@ class LaunchController extends ChangeNotifier {
   /// The app is usable (RootGate shows its first page). A custom picture plays its round first;
   /// the default motion finishes first only on a cold start of the engine, unless the engine is up
   /// sooner; otherwise the launch screen leaves now. [waitsForEngine]: the first page talks to this
-  /// phone's engine (not a remote host's).
-  void ready({bool waitsForEngine = true}) {
+  /// phone's engine (not a remote host's). The interactive show plays to its end (or its skip),
+  /// whatever the engine does; [guided] (the first page is the onboarding) ends it now.
+  void ready({bool waitsForEngine = true, bool guided = false}) {
     if (_ready) return;
     _ready = true;
+    if (guided && interactive != null) _skipped = true;
     _waitsForEngine = waitsForEngine;
     if (native) unawaited(channel.mark('ready'));
     if (_phase == LaunchPhase.playing) {
@@ -405,7 +434,10 @@ class LaunchController extends ChangeNotifier {
   /// user's own picture on every cold start of the app, whatever the engine is doing (opening, then
   /// its whole round); the default motion only while this phone's engine starts cold.
   bool get _coldHold =>
-      !_skipped && !_reduced && (showsCustom || (snapshot.coldEngine && _waitsForEngine && !_engineReady));
+      !_skipped &&
+      // The interactive show waits for its taps, with 减少动画 too (quieter, not shorter).
+      (interactive != null ||
+          (!_reduced && (showsCustom || (snapshot.coldEngine && _waitsForEngine && !_engineReady))));
 
   /// Whether the launch screen stays although the app is ready: a custom picture for its whole
   /// round however long (the engine running, starting or off); the default motion on a cold start

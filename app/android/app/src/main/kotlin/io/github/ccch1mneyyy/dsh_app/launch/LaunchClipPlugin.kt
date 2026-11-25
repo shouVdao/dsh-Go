@@ -19,9 +19,13 @@ import kotlin.concurrent.thread
  *
  * - `probe {path, poster}` → `{durationMs, width, height}` (rotation applied) and the first frame
  *   written as a PNG at `poster`; null when it isn't a playable video.
- * - `open {path}` → `{texture, rotation}` once prepared and the texture rotation is known.
+ * - `open {path, loop?, speed?}` → `{texture, rotation}` once prepared and the texture rotation is
+ *   known. `loop` (the interactive launch screen's waiting scenes) starts it again at its end
+ *   instead of reporting `done`; `speed` (0.5–2) applies once it plays.
  * - `play {texture}`; native → Dart `showing {texture}` at the first frame drawn, `done {texture}`
  *   at the end.
+ * - `pause {texture}`, `resume {texture}`: the app went to the background and came back; a clip
+ *   that has ended stays on its last frame.
  * - `close {texture}`.
  */
 class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
@@ -30,9 +34,10 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private val main = Handler(Looper.getMainLooper())
     private val clips = HashMap<Long, Clip>()
 
-    private class Clip(val producer: TextureRegistry.SurfaceProducer, val player: MediaPlayer) {
+    private class Clip(val producer: TextureRegistry.SurfaceProducer, val player: MediaPlayer, val speed: Float) {
         var prepared = false
         var wantPlay = false
+        var ended = false
     }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -59,7 +64,12 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     main.post { result.success(answer) }
                 }
             }
-            "open" -> open(call.argument<String>("path"), result)
+            "open" -> open(
+                call.argument<String>("path"),
+                call.argument<Boolean>("loop") == true,
+                (call.argument<Number>("speed")?.toFloat() ?: 1f).coerceIn(0.5f, 2f),
+                result,
+            )
             "play" -> {
                 val clip = clips[call.argument<Number>("texture")?.toLong() ?: -1L]
                 if (clip != null) {
@@ -67,6 +77,18 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     if (clip.prepared) startOrDone(clip)
                 }
                 result.success(clip != null)
+            }
+            "pause" -> {
+                clips[call.argument<Number>("texture")?.toLong() ?: -1L]?.let { clip ->
+                    runCatching { if (clip.player.isPlaying) clip.player.pause() }
+                }
+                result.success(null)
+            }
+            "resume" -> {
+                clips[call.argument<Number>("texture")?.toLong() ?: -1L]?.let { clip ->
+                    if (clip.prepared && clip.wantPlay && !clip.ended) startOrDone(clip)
+                }
+                result.success(null)
             }
             "close" -> {
                 call.argument<Number>("texture")?.toLong()?.let { close(it) }
@@ -76,14 +98,14 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
     }
 
-    private fun open(path: String?, result: MethodChannel.Result) {
+    private fun open(path: String?, loop: Boolean, speed: Float, result: MethodChannel.Result) {
         if (path == null || !File(path).isFile) {
             result.success(null)
             return
         }
         val producer = textures.createSurfaceProducer()
         val player = MediaPlayer()
-        val clip = Clip(producer, player)
+        val clip = Clip(producer, player, speed)
         val id = producer.id()
         clips[id] = clip
         var rotation: Int? = if (producer.handlesCropAndRotation()) 0 else null
@@ -100,7 +122,7 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         try {
             player.setDataSource(path)
             player.setVolume(0f, 0f)
-            player.isLooping = false
+            player.isLooping = loop
             producer.setCallback(object : TextureRegistry.SurfaceProducer.Callback {
                 override fun onSurfaceAvailable() {
                     runCatching { player.setSurface(producer.surface) }
@@ -115,7 +137,10 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) methods.invokeMethod("showing", mapOf("texture" to id))
                 false
             }
-            player.setOnCompletionListener { methods.invokeMethod("done", mapOf("texture" to id)) }
+            player.setOnCompletionListener {
+                clip.ended = true
+                methods.invokeMethod("done", mapOf("texture" to id))
+            }
             player.setOnErrorListener { _, _, _ ->
                 if (!answered) close(id)
                 methods.invokeMethod("done", mapOf("texture" to id))
@@ -157,6 +182,8 @@ class LaunchClipPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private fun startOrDone(clip: Clip) {
         try {
             clip.player.start()
+            // After start(): a non-zero speed set on a paused player starts it.
+            if (clip.speed != 1f) clip.player.playbackParams = clip.player.playbackParams.setSpeed(clip.speed)
         } catch (_: Exception) {
             methods.invokeMethod("done", mapOf("texture" to clip.producer.id()))
         }

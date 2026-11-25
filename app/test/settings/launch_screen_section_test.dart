@@ -4,11 +4,14 @@
 //
 //   flutter test --update-goldens test/settings/launch_screen_section_test.dart
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:dsh_app/launch/custom_launch.dart';
+import 'package:dsh_app/launch/interactive_launch.dart';
 import 'package:dsh_app/launch/launch_import.dart';
+import 'package:dsh_app/state/android_features.dart';
 import 'package:dsh_app/state/app_icon_state.dart';
 import 'package:dsh_app/state/launch_screen_state.dart';
 import 'package:dsh_app/launch/launch_media.dart';
@@ -93,8 +96,15 @@ void main() {
   });
   tearDown(() => dir.deleteSync(recursive: true));
 
-  Future<void> pump(WidgetTester tester, {CustomLaunch? stored, Brightness brightness = Brightness.light}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    CustomLaunch? stored,
+    Brightness brightness = Brightness.light,
+    String? os,
+    InteractiveLaunch? interactive,
+  }) async {
     SharedPreferences.setMockInitialValues({
+      if (interactive != null) InteractiveLaunch.prefsKey: jsonEncode(interactive.toJson()),
       if (stored != null)
         CustomLaunch.prefsKey:
             '{"kind":"${stored.kind.name}","path":"${stored.path}",'
@@ -109,6 +119,7 @@ void main() {
         overrides: [
           launchImportProvider.overrideWithValue(import),
           launcherIconChannelProvider.overrideWithValue(const _Launcher()),
+          if (os != null) operatingSystemProvider.overrideWithValue(os),
         ],
       ),
     );
@@ -313,6 +324,53 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('launch-custom')));
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
+    });
+  });
+
+  group('interactive (Android)', () {
+    Future<InteractiveLaunch?> stored() => InteractiveLaunch.load();
+
+    testWidgets('a third phone; choosing it turns it on, 默认 turns it off again', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, os: 'android');
+      expect(find.byKey(const ValueKey('launch-interactive')), findsOneWidget);
+      expect(selected(tester, '默认'), isTrue);
+      expect(find.text('编辑互动启动画面'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('launch-interactive')));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pumpAndSettle();
+      expect(selected(tester, '互动'), isTrue);
+      expect(selected(tester, '默认'), isFalse);
+      expect(find.text('编辑互动启动画面'), findsOneWidget);
+      expect((await tester.runAsync(stored))!.on, isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('launch-default')));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pumpAndSettle();
+      expect(selected(tester, '默认'), isTrue);
+      expect((await tester.runAsync(stored))!.on, isFalse);
+      handle.dispose();
+    });
+
+    testWidgets('picking a custom picture sets the interactive one aside', (tester) async {
+      final handle = tester.ensureSemantics();
+      final path = (await tester.runAsync(() => _photo(dir)))!;
+      import.next = (CustomLaunch(kind: LaunchMediaKind.image, path: path, width: 540, height: 960), null);
+      await pump(tester, os: 'android', interactive: const InteractiveLaunch(on: true));
+      expect(selected(tester, '互动'), isTrue);
+      await tester.tap(find.byKey(const ValueKey('launch-custom')));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pumpAndSettle();
+      expect(import.picks, 1);
+      expect(selected(tester, '自定义'), isTrue);
+      expect((await tester.runAsync(stored))!.on, isFalse);
+      handle.dispose();
+    });
+
+    testWidgets('not offered off Android', (tester) async {
+      await pump(tester, os: 'ios');
+      expect(find.byKey(const ValueKey('launch-interactive')), findsNothing);
     });
   });
 

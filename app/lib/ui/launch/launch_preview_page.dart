@@ -1,18 +1,27 @@
 // 设置 › 主题 › 启动画面 › 预览: the launch screen as a cold start shows it, over the whole
 // screen: the system's picture, the motion (or the custom picture played once, however long),
-// a short rest, then it fades away as it would onto the app. A tap ends it early.
+// a short rest, then it fades away as it would onto the app. A tap ends it early. The interactive
+// launch screen plays from its start with the same steps (跳过 or back end it); it doesn't count
+// as the day's turn and starts no engine.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../launch/custom_launch.dart';
+import '../../launch/interactive_launch.dart';
 import '../../launch/launch_state.dart';
 import '../theme/theme.dart';
 import 'launch_overlay.dart';
 
-/// Shows the launch screen once; [custom] null previews the default.
-Future<void> showLaunchPreview(BuildContext context, {CustomLaunch? custom, LaunchChannel? channel}) async {
+/// Shows the launch screen once; [custom] null previews the default, [interactive] the
+/// interactive one.
+Future<void> showLaunchPreview(
+  BuildContext context, {
+  CustomLaunch? custom,
+  InteractiveLaunch? interactive,
+  LaunchChannel? channel,
+}) async {
   final navigator = Navigator.of(context);
   final fadeIn = AppMotion.of(context, AppMotion.quick);
   final size = MediaQuery.sizeOf(context);
@@ -39,10 +48,11 @@ Future<void> showLaunchPreview(BuildContext context, {CustomLaunch? custom, Laun
       backgroundBottom: snapshot.backgroundBottom,
       dark: snapshot.dark,
     ),
-    custom: custom,
+    custom: interactive == null ? custom : null,
+    interactive: interactive,
     native: false,
   );
-  if (custom != null) unawaited(controller.openMedia(size * dpr));
+  if (interactive == null && custom != null) unawaited(controller.openMedia(size * dpr));
   await navigator.push(
     PageRouteBuilder<void>(
       opaque: true,
@@ -79,7 +89,10 @@ class _LaunchPreviewPageState extends State<LaunchPreviewPage> {
   void initState() {
     super.initState();
     _c.addListener(_follow);
-    if (_c.custom == null) {
+    if (_c.interactive != null) {
+      // The show holds the screen until its end; the app is "ready" at once.
+      _c.ready();
+    } else if (_c.custom == null) {
       _timer = Timer(LaunchPreviewPage.rest, _c.ready);
     } else {
       unawaited(

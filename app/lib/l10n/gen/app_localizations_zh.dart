@@ -11761,6 +11761,168 @@ class L10nZh extends L10n {
   String get searchKwIconShortcut => '快捷方式,自定义图标,桌面图片,换图标';
 
   @override
+  String get launchInteractive => '互动';
+
+  @override
+  String get launchShowSkip => '跳过';
+
+  @override
+  String get launchShowSubtitle => '随身智能工作台';
+
+  @override
+  String get launchShowStatusStart => '准备开始';
+
+  @override
+  String get launchShowStatusConfirm => '确认你的资料';
+
+  @override
+  String get launchShowStatusScan => '正在展开工作区';
+
+  @override
+  String get launchShowStart => '开始';
+
+  @override
+  String get launchShowConfirm => '确认资料';
+
+  @override
+  String get launchShowWelcome => '欢迎回来';
+
+  @override
+  String get launchShowNickname => 'DSH 用户';
+
+  @override
+  String get launchShowHint => '轻点按钮继续';
+
+  @override
+  String get launchShowName => '名称';
+
+  @override
+  String get launchShowNumber => '编号';
+
+  @override
+  String get launchShowDate => '日期';
+
+  @override
+  String get launchShowLook => '外观';
+
+  @override
+  String get launchShowLookAuto => '跟随系统';
+
+  @override
+  String get launchShowLookLight => '浅色';
+
+  @override
+  String get launchShowLookDark => '深色';
+
+  @override
+  String get launchShowEdit => '编辑互动启动画面';
+
+  @override
+  String get launchShowAccent => '强调色';
+
+  @override
+  String get launchShowTexts => '文字';
+
+  @override
+  String get launchShowTextsFooter => '留空即用默认文字。编号只是装饰，不做任何校验';
+
+  @override
+  String get launchShowTextTitle => '标题';
+
+  @override
+  String get launchShowTextSubtitle => '副标题';
+
+  @override
+  String get launchShowTextNickname => '昵称';
+
+  @override
+  String get launchShowTextNumber => '编号';
+
+  @override
+  String get launchShowTextStart => '第一个按钮';
+
+  @override
+  String get launchShowTextConfirm => '第二个按钮';
+
+  @override
+  String get launchShowTextWelcome => '欢迎语';
+
+  @override
+  String get launchShowTextCaption => '留空恢复默认';
+
+  @override
+  String get launchShowBackgrounds => '背景';
+
+  @override
+  String get launchShowBackgroundsFooter => '每一幕可以单独换成图片或视频（静音播放，30 MB 以内）。不换就用内置的画面';
+
+  @override
+  String get launchShowSceneStart => '开始';
+
+  @override
+  String get launchShowSceneConfirm => '确认资料';
+
+  @override
+  String get launchShowSceneScan => '展开工作区';
+
+  @override
+  String get launchShowBackgroundNone => '内置';
+
+  @override
+  String get launchShowBackgroundImage => '图片';
+
+  @override
+  String get launchShowBackgroundVideo => '视频';
+
+  @override
+  String get launchShowBackgroundRemove => '移除背景';
+
+  @override
+  String get launchShowPace => '节奏';
+
+  @override
+  String get launchShowWait => '等待时';
+
+  @override
+  String get launchShowWaitLoop => '循环播放';
+
+  @override
+  String get launchShowWaitHold => '停在最后一帧';
+
+  @override
+  String get launchShowVideoSpeed => '视频速度';
+
+  @override
+  String get launchShowEffectSpeed => '特效速度';
+
+  @override
+  String get launchShowExit => '出场';
+
+  @override
+  String get launchShowTransition => '转场';
+
+  @override
+  String get launchShowTransitionFade => '淡出';
+
+  @override
+  String get launchShowTransitionBloom => '光晕';
+
+  @override
+  String get launchShowTransitionChroma => '色散';
+
+  @override
+  String get launchShowFrequency => '播放频率';
+
+  @override
+  String get launchShowFrequencyAlways => '每次冷启动';
+
+  @override
+  String get launchShowFrequencyDaily => '每天第一次';
+
+  @override
+  String get launchShowPreviewFooter => '预览从头播放，可以点按钮、跳过，不影响引擎，也不计入每天第一次';
+
+  @override
   String get linuxTitle => 'Linux 环境';
 
   @override

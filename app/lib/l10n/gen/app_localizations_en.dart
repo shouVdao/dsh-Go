@@ -12429,6 +12429,171 @@ class L10nEn extends L10n {
   String get searchKwIconShortcut => 'shortcut,custom icon,home screen picture';
 
   @override
+  String get launchInteractive => 'Interactive';
+
+  @override
+  String get launchShowSkip => 'Skip';
+
+  @override
+  String get launchShowSubtitle => 'Your pocket workspace';
+
+  @override
+  String get launchShowStatusStart => 'Ready when you are';
+
+  @override
+  String get launchShowStatusConfirm => 'Confirm your profile';
+
+  @override
+  String get launchShowStatusScan => 'Unfolding your workspace';
+
+  @override
+  String get launchShowStart => 'Start';
+
+  @override
+  String get launchShowConfirm => 'Confirm';
+
+  @override
+  String get launchShowWelcome => 'Welcome back';
+
+  @override
+  String get launchShowNickname => 'DSH user';
+
+  @override
+  String get launchShowHint => 'Tap the button to continue';
+
+  @override
+  String get launchShowName => 'Name';
+
+  @override
+  String get launchShowNumber => 'Number';
+
+  @override
+  String get launchShowDate => 'Date';
+
+  @override
+  String get launchShowLook => 'Look';
+
+  @override
+  String get launchShowLookAuto => 'System';
+
+  @override
+  String get launchShowLookLight => 'Light';
+
+  @override
+  String get launchShowLookDark => 'Dark';
+
+  @override
+  String get launchShowEdit => 'Edit interactive launch';
+
+  @override
+  String get launchShowAccent => 'Accent';
+
+  @override
+  String get launchShowTexts => 'Text';
+
+  @override
+  String get launchShowTextsFooter =>
+      'Leave a field empty for the default. The number is decoration; nothing is checked';
+
+  @override
+  String get launchShowTextTitle => 'Title';
+
+  @override
+  String get launchShowTextSubtitle => 'Subtitle';
+
+  @override
+  String get launchShowTextNickname => 'Nickname';
+
+  @override
+  String get launchShowTextNumber => 'Number';
+
+  @override
+  String get launchShowTextStart => 'First button';
+
+  @override
+  String get launchShowTextConfirm => 'Second button';
+
+  @override
+  String get launchShowTextWelcome => 'Welcome line';
+
+  @override
+  String get launchShowTextCaption => 'Leave empty for the default';
+
+  @override
+  String get launchShowBackgrounds => 'Backgrounds';
+
+  @override
+  String get launchShowBackgroundsFooter =>
+      'Each scene can use its own picture or video (muted, up to 30 MB). Otherwise the built-in scene plays';
+
+  @override
+  String get launchShowSceneStart => 'Start';
+
+  @override
+  String get launchShowSceneConfirm => 'Confirm';
+
+  @override
+  String get launchShowSceneScan => 'Unfolding';
+
+  @override
+  String get launchShowBackgroundNone => 'Built-in';
+
+  @override
+  String get launchShowBackgroundImage => 'Picture';
+
+  @override
+  String get launchShowBackgroundVideo => 'Video';
+
+  @override
+  String get launchShowBackgroundRemove => 'Remove background';
+
+  @override
+  String get launchShowPace => 'Pace';
+
+  @override
+  String get launchShowWait => 'While waiting';
+
+  @override
+  String get launchShowWaitLoop => 'Loop';
+
+  @override
+  String get launchShowWaitHold => 'Hold last frame';
+
+  @override
+  String get launchShowVideoSpeed => 'Video speed';
+
+  @override
+  String get launchShowEffectSpeed => 'Effect speed';
+
+  @override
+  String get launchShowExit => 'Exit';
+
+  @override
+  String get launchShowTransition => 'Transition';
+
+  @override
+  String get launchShowTransitionFade => 'Fade';
+
+  @override
+  String get launchShowTransitionBloom => 'Bloom';
+
+  @override
+  String get launchShowTransitionChroma => 'Chroma';
+
+  @override
+  String get launchShowFrequency => 'How often';
+
+  @override
+  String get launchShowFrequencyAlways => 'Every cold start';
+
+  @override
+  String get launchShowFrequencyDaily => 'First each day';
+
+  @override
+  String get launchShowPreviewFooter =>
+      'The preview plays from the start; buttons and skip work. It does not touch the engine or count as the first of the day';
+
+  @override
   String get linuxTitle => 'Linux environment';
 
   @override

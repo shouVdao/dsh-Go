@@ -1,5 +1,6 @@
 // 设置 › 主题 › 启动画面: the default launch screen or the user's own picture, side by side as
-// two small phones; how the picture sits, the colour around it, replace it, preview the launch.
+// two small phones (on Android a third: the interactive one); how the picture sits, the colour
+// around it, replace it, preview the launch.
 //
 //          ╭──────╮    ╭──────╮
 //          │  ◖●  │    │ ▒▒▒▒ │      two phones the screen's shape, centred as a pair 12
@@ -21,15 +22,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../../launch/custom_launch.dart';
+import '../../../launch/interactive_launch.dart';
 import '../../../launch/launch_import.dart';
 import '../../../launch/launch_media.dart';
 import '../../../launch/launch_motion.dart';
+import '../../../state/android_features.dart';
 import '../../../state/app_icon_state.dart';
 import '../../../state/app_info.dart';
 import '../../../state/launch_screen_state.dart';
 import '../../common/brief_notice.dart';
 import '../../common/expand_reveal.dart';
 import '../../common/pressable.dart';
+import '../../launch/interactive_launch_view.dart';
 import '../../launch/launch_editor_page.dart';
 import '../../launch/launch_overlay.dart';
 import '../../launch/launch_preview_page.dart';
@@ -37,6 +41,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/theme.dart';
 import '../settings_widgets.dart';
 import 'app_icon_picker.dart';
+import 'interactive_launch_page.dart';
 import 'appearance_page.dart';
 
 /// The card's rows.
@@ -61,27 +66,38 @@ class _LaunchScreenSectionState extends ConsumerState<LaunchScreenSection> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+    if (problem == null) await _interactiveOn(false);
     if (!mounted) return;
     final bytes = ref.read(customLaunchProvider).value?.bytes;
-    final text = switch (problem) {
-      // Once, as it comes in: how much it takes in the app.
-      null => bytes == null ? l10n.launchChanged : l10n.launchChangedSize(launchFileSize(bytes)),
-      LaunchImportProblem.cancelled => null,
-      LaunchImportProblem.unavailable => l10n.launchUnavailable,
-      LaunchImportProblem.tooLarge => l10n.launchTooLarge,
-      LaunchImportProblem.overLimit => l10n.launchOverLimit,
-      LaunchImportProblem.unsupported => l10n.launchUnsupported,
-      LaunchImportProblem.unreadable => l10n.launchUnreadable,
-    };
+    final text = problem == null
+        // Once, as it comes in: how much it takes in the app.
+        ? (bytes == null ? l10n.launchChanged : l10n.launchChangedSize(launchFileSize(bytes)))
+        : launchProblemNotice(l10n, problem);
     if (text != null) messenger?.showBriefNotice(text);
+  }
+
+  /// The interactive one in use or not (choosing one launch screen sets the others aside; their
+  /// files stay).
+  Future<void> _interactiveOn(bool value) async {
+    if (ref.read(operatingSystemProvider) != 'android') return;
+    await ref.read(interactiveLaunchProvider.notifier).change((c) => c.copyWith(on: value));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final custom = ref.watch(customLaunchProvider).value;
-    final on = custom != null && custom.on;
+    // The interactive show's clips need the Android player (loop, speed, pause).
+    final android = ref.watch(operatingSystemProvider) == 'android';
+    final interactive = android ? ref.watch(interactiveLaunchProvider).value : null;
+    final showsInteractive = interactive?.on ?? false;
+    final on = custom != null && custom.on && !showsInteractive;
     final notifier = ref.read(customLaunchProvider.notifier);
+    final interactiveNotifier = ref.read(interactiveLaunchProvider.notifier);
+    void useCustom() {
+      unawaited(_interactiveOn(false));
+      unawaited(notifier.use(true));
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,11 +105,23 @@ class _LaunchScreenSectionState extends ConsumerState<LaunchScreenSection> {
         LaunchScreenPicker(
           custom: custom,
           busy: _busy,
-          onDefault: () => unawaited(notifier.use(false)),
+          interactive: interactive,
+          onDefault: () {
+            unawaited(_interactiveOn(false));
+            unawaited(notifier.use(false));
+          },
+          onInteractive: interactive == null
+              ? null
+              : showsInteractive
+              ? () => unawaited(showInteractiveLaunchPage(context))
+              : () {
+                  unawaited(notifier.use(false));
+                  unawaited(_interactiveOn(true));
+                },
           onCustom: custom == null
               ? () => unawaited(_choose())
-              : !custom.on
-              ? () => unawaited(notifier.use(true))
+              : !on
+              ? useCustom
               : custom.fit == LaunchFit.fill
               ? () => unawaited(showLaunchEditor(context, custom))
               : () {},
@@ -128,9 +156,40 @@ class _LaunchScreenSectionState extends ConsumerState<LaunchScreenSection> {
             ],
           ),
         ),
+        ExpandReveal(
+          open: showsInteractive,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 2,
+            children: [
+              SettingsSegmentTile<InteractiveLook>(
+                title: l10n.launchShowLook,
+                segments: [
+                  PillSegment(InteractiveLook.auto, l10n.launchShowLookAuto),
+                  PillSegment(InteractiveLook.light, l10n.launchShowLookLight),
+                  PillSegment(InteractiveLook.dark, l10n.launchShowLookDark),
+                ],
+                selected: interactive?.look ?? InteractiveLook.auto,
+                onChanged: (look) => unawaited(interactiveNotifier.change((c) => c.copyWith(look: look))),
+              ),
+              SettingsTile(
+                key: const ValueKey('launch-interactive-edit'),
+                title: l10n.launchShowEdit,
+                onTap: () => unawaited(showInteractiveLaunchPage(context)),
+              ),
+            ],
+          ),
+        ),
         SettingsTile(
           title: l10n.launchPreview,
-          onTap: () => unawaited(showLaunchPreview(context, custom: on ? custom : null)),
+          onTap: () => unawaited(
+            showLaunchPreview(
+              context,
+              custom: on ? custom : null,
+              interactive: showsInteractive ? interactive : null,
+            ),
+          ),
         ),
       ],
     );
@@ -145,11 +204,17 @@ class LaunchScreenPicker extends StatelessWidget {
     required this.onDefault,
     required this.onCustom,
     this.busy = false,
+    this.interactive,
+    this.onInteractive,
   });
 
   final CustomLaunch? custom;
   final VoidCallback onDefault;
   final VoidCallback onCustom;
+
+  /// The interactive launch screen's settings; null: no third phone (not Android).
+  final InteractiveLaunch? interactive;
+  final VoidCallback? onInteractive;
 
   /// A pick is being read in: the custom phone shows a small ring.
   final bool busy;
@@ -169,7 +234,8 @@ class LaunchScreenPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final on = custom != null && custom!.on;
+    final showsInteractive = interactive?.on ?? false;
+    final on = custom != null && custom!.on && !showsInteractive;
     final aspect = aspectFor(MediaQuery.sizeOf(context));
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -192,7 +258,7 @@ class LaunchScreenPicker extends StatelessWidget {
                 label: l10n.launchDefault,
                 width: width,
                 aspect: aspect,
-                selected: !on,
+                selected: !on && !showsInteractive,
                 onTap: onDefault,
                 child: const _DefaultMini(),
               ),
@@ -206,6 +272,25 @@ class LaunchScreenPicker extends StatelessWidget {
                 onTap: onCustom,
                 child: custom == null ? _AddMini(busy: busy) : _CustomMini(custom: custom!, busy: busy),
               ),
+              if (interactive case final interactive?) ...[
+                const SizedBox(width: PickerGrid.gap - 2 * room),
+                _Phone(
+                  key: const ValueKey('launch-interactive'),
+                  label: l10n.launchInteractive,
+                  width: width,
+                  aspect: aspect,
+                  selected: showsInteractive,
+                  onTap: onInteractive ?? () {},
+                  child: _Screen(
+                    child: InteractiveLaunchStill(
+                      config: interactive,
+                      dark: interactive.look.darkFor(
+                        systemDark: MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           );
         },
@@ -485,6 +570,16 @@ final launchThumbProvider = FutureProvider.autoDispose.family<ui.Image?, String>
     codec.dispose();
   }
 });
+
+/// What to say when a picked picture or video can't be used (null: nothing, it was cancelled).
+String? launchProblemNotice(L10n l10n, LaunchImportProblem problem) => switch (problem) {
+  LaunchImportProblem.cancelled => null,
+  LaunchImportProblem.unavailable => l10n.launchUnavailable,
+  LaunchImportProblem.tooLarge => l10n.launchTooLarge,
+  LaunchImportProblem.overLimit => l10n.launchOverLimit,
+  LaunchImportProblem.unsupported => l10n.launchUnsupported,
+  LaunchImportProblem.unreadable => l10n.launchUnreadable,
+};
 
 /// 自动 · 取自图片 · 白 · 黑, as small discs; the chosen one ringed.
 class LaunchBackdropSwatches extends StatelessWidget {

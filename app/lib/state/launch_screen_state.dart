@@ -1,9 +1,10 @@
 // 设置 › 主题 › 启动画面: the user's own launch screen (lib/launch/custom_launch.dart), and
-// whether it is the one in use.
+// whether it is the one in use; and the interactive launch screen (lib/launch/interactive_launch.dart).
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../launch/custom_launch.dart';
+import '../launch/interactive_launch.dart';
 import '../launch/launch_import.dart';
 
 final launchImportProvider = Provider<LaunchImport>((ref) => LaunchImport());
@@ -62,5 +63,56 @@ class CustomLaunchController extends AsyncNotifier<CustomLaunch?> {
   Future<void> _store(CustomLaunch custom) async {
     state = AsyncData(custom);
     await CustomLaunch.save(custom);
+  }
+}
+
+/// The interactive launch screen's settings (its defaults until first changed).
+final interactiveLaunchProvider = AsyncNotifierProvider<InteractiveLaunchController, InteractiveLaunch>(
+  InteractiveLaunchController.new,
+);
+
+class InteractiveLaunchController extends AsyncNotifier<InteractiveLaunch> {
+  @override
+  Future<InteractiveLaunch> build() async => await InteractiveLaunch.load() ?? const InteractiveLaunch();
+
+  /// Applies [edit] and saves it (the stored one stays if saving fails).
+  Future<void> change(InteractiveLaunch Function(InteractiveLaunch current) edit) async {
+    final current = state.value;
+    if (current == null) return;
+    final next = edit(current);
+    if (next == current) return;
+    await InteractiveLaunch.save(next);
+    state = AsyncData(next);
+  }
+
+  /// The system picker for [scene]'s background: a picture or a clip (an animation is refused).
+  /// Null when it was set, else why not ([LaunchImportProblem.cancelled] included).
+  Future<LaunchImportProblem?> chooseBackground(InteractiveScene scene) async {
+    final current = state.value;
+    if (current == null) return LaunchImportProblem.unreadable;
+    final previous = current.backgrounds[scene];
+    final (picked, problem) = await ref.read(launchImportProvider).pick();
+    if (picked == null) return problem ?? LaunchImportProblem.unreadable;
+    if (picked.kind == LaunchMediaKind.animation) {
+      await LaunchImport.removeFiles(picked);
+      return LaunchImportProblem.unsupported;
+    }
+    try {
+      // A background fills the screen, whatever the picture.
+      await update((c) => c.withBackground(scene, picked.copyWith(fit: LaunchFit.fill)));
+    } catch (_) {
+      await LaunchImport.removeFiles(picked);
+      return LaunchImportProblem.unreadable;
+    }
+    await LaunchImport.removeFiles(previous, except: picked);
+    return null;
+  }
+
+  /// [scene] back to the built-in plate (its file is deleted).
+  Future<void> clearBackground(InteractiveScene scene) async {
+    final previous = state.value?.backgrounds[scene];
+    if (previous == null) return;
+    await update((c) => c.withBackground(scene, null));
+    await LaunchImport.removeFiles(previous);
   }
 }

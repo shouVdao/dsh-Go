@@ -23,16 +23,27 @@ abstract class LaunchMedia extends ChangeNotifier {
   /// come to rest.
   void play({VoidCallback? onDone});
 
+  /// The app went to the background (a clip stops where it is) and came back. Nothing for a
+  /// picture.
+  void pause() {}
+  void resume() {}
+
   /// A still's "round": as long as the default motion, so a cold start shows it as long.
   static const stillRound = LaunchMotion.total;
 
   /// Opens [custom] for a screen of [screen] physical pixels; null when it can't be read
   /// (missing, damaged, not what it says it is).
-  static Future<LaunchMedia?> open(CustomLaunch custom, {required Size screen}) async {
+  /// A clip can [loop] and play at [speed].
+  static Future<LaunchMedia?> open(
+    CustomLaunch custom, {
+    required Size screen,
+    bool loop = false,
+    double speed = 1,
+  }) async {
     try {
       return switch (custom.kind) {
         LaunchMediaKind.image || LaunchMediaKind.animation => await _FramesMedia.open(custom, screen),
-        LaunchMediaKind.video => await LaunchClip.open(custom),
+        LaunchMediaKind.video => await LaunchClip.open(custom, loop: loop, speed: speed),
       };
     } catch (_) {
       return null;

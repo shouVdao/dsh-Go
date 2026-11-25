@@ -32,8 +32,10 @@ import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillReplayApps
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillReplaySelections
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillOutcomes
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillDrafts
-import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillBridge
-import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillLifecycle
+import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillDrafter
+import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillProblem
+import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillRuns
+import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillService
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneTaskTrace
 import io.github.ccch1mneyyy.dsh_app.runtime.RuntimeController
 import io.github.ccch1mneyyy.dsh_app.runtime.DshService
@@ -59,6 +61,8 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     private val ticker = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "dsh-phone-status").apply { isDaemon = true } }
 
     private val taskIds = java.util.concurrent.atomic.AtomicLong()
+    private val companionRunLock = Any()
+    @Volatile private var companionRunEpoch = 0L
     private val cleanupIo = Executors.newSingleThreadExecutor { r -> Thread(r, "dsh-phone-cleanup").apply { isDaemon = true } }
 
     private val taskJournal = PhoneTaskJournal(
@@ -165,36 +169,32 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         read = { prefs.getString("skillReplayOutcomesV1", null) },
         commit = { prefs.edit().putString("skillReplayOutcomesV1", it).commit() },
         process = java.util.UUID.randomUUID().toString().replace("-", ""))
-    private val skillLifecycle = PhoneSkillLifecycle(skillTrace, skillDrafts)
-    internal val skillBridge = PhoneSkillBridge(skillDrafts,
-        { write, done -> RuntimeController.get(app).savePhoneSkill(write, done) }, ::emitStatus,
-        check = { binding, publication, done ->
-            val origin = binding.origin
-            if (origin == null) done(io.github.ccch1mneyyy.dsh_app.runtime.PhoneSkillInstallResult.BundleUnverified(
-                binding.identity, publication, io.github.ccch1mneyyy.dsh_app.runtime.PhoneSkillBundleInstaller.Verification.ORIGIN_UNAVAILABLE))
-            else origin.runtime.checkPhoneSkillSave(binding, publication, done)
-        })
+    private val skillRuns = PhoneSkillRuns(skillTrace)
+    private fun learnsSkills() = prefs.getBoolean(K_LEARN_SKILLS, prefs.getBoolean(K_SKILL_PROMPT, true))
+    private val learnedSkills = PhoneSkillService(skillRuns, ::learnsSkills, { on ->
+        check(prefs.edit().putBoolean(K_LEARN_SKILLS, on).commit()) { "Could not save learning preference." }
+    }, { AppStrings.isEnglish(app) }, { app.assets.open(PhoneSkillDrafter.TEMPLATE_ASSET).bufferedReader().use { it.readText() } },
+        ::publishSkillEvent)
     private val displaySelection = PhoneDisplaySelection()
     private val legacyObservations = PhoneTaskObservations(tasks)
     val core = PhoneCore(this, tasks, log, skillTrace = skillTrace,
         onExecution = { owner -> selectExecution(tasks, owner) })
     val notificationGate = NotificationGate(app) { text, ifCurrent -> setStatusLine(text, ifCurrent) }
-    val prompts: PhonePrompts = PhonePrompts(app, tasks, ::isEnabled, ::isLocked, notificationGate, ::reopen, displaySelection) { id, session ->
+    val prompts: PhonePrompts = PhonePrompts(app, tasks, ::isEnabled, ::isLocked, notificationGate, ::reopen, displaySelection, skillTrace::userIntervened) { id, session ->
         sessions.task(id)?.takeIf { it.sessionId == null || it.sessionId == session }?.tasks
     }
     private val sessions = PhoneTaskSessions(SystemClock::elapsedRealtime, taskIds::incrementAndGet, ::createSessionCore, tasks, core, ::emitStatus,
         { task -> if (task.sessionId != null) onSessionTask(task.tasks, task.tasks.snapshot()) },
-        settleResources = { taskId -> check(background.endTask(taskId)) { "Background release is unconfirmed" } },
+        settleResources = { taskId -> background.endTask(taskId) },
         dispatchCleanup = { action ->
             if (Looper.myLooper() == Looper.getMainLooper()) cleanupIo.execute(action) else action()
         },
         journal = taskJournal,
-        recoveryAdmission = { background.resourceAdmission() },
         backgroundCapacity = { background.parallelism().effectiveLimit },
         screenRecoveryReady = { isEnabled() && !isLocked() },
         prepareBackground = { task, owner -> background.prepareForTask(owner) { task.tasks.isCurrent(owner) } },
-        startSkillScope = skillLifecycle::startManaged,
-        completeSkillScope = skillLifecycle::completeDrained,
+        startSkillScope = skillRuns::start,
+        completeSkillScope = skillRuns::complete,
         cancelScope = { record, state ->
             // Registry admission stays sealed until these lock-free side effects finish.
             background.sealTask(state.id)
@@ -202,9 +202,11 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
             if (state.stopped) record.activeWorker?.interruptCurrent(record.tasks)
             prompts.stopTask(record.tasks)
         })
-    private val server = McpServer(PhoneToolCatalog.listJson(), { name, args, _ -> sessions.run(sessions.admit(null), name, args) }, SERVER_VERSION)
+    private val server = McpServer(PhoneToolCatalog.listJson(), { name, args, _ -> sessions.run(sessions.admit(null), name, args) }, SERVER_VERSION,
+        diagnostics = { args, caller -> RuntimeController.get(app).diagnosticsTool.call(args, caller) })
     private val bridge = PhoneBridge(server, { line -> logger(line) }, { call ->
-        if (call.name == PhoneCore.REPLAY) replayWork(call) else {
+        if (call.name == DiagnosticsTool.NAME) PhoneCallWork({ call.run() })
+        else if (call.name == PhoneCore.REPLAY) replayWork(call) else {
         val admission = sessions.admit(call.caller)
         val nativeReplyCommit = PhoneReplyCommit()
         PhoneCallWork(
@@ -223,7 +225,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         } catch (_: PhoneTaskSessions.CapacityExceeded) {
             PhoneBridge.EndWork(McpServer.error(end.id, -32000, PhoneTaskSessions.CAPACITY_MESSAGE)) {}
         }
-    })
+    }, ::prepareSkillRpc)
 
     /** Private prepared invocation only; status/cancel/duplicates never take a Task admission. */
     private fun replayWork(call: McpServer.Dispatch.Call): PhoneCallWork {
@@ -282,9 +284,14 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     }
 
     private fun createSessionCore(task: PhoneTasks, sessionId: String?): PhoneCore {
-        val gate = prompts.scoped(task, sessionId)
+        // The master switch is the person's choice for the engine's agent. Her runs start
+        // from the person asking her directly, which is its own go-ahead. Only her own
+        // bridge marks that admission; a session id the engine picks proves nothing.
+        val companion = companionAdmission.get() == true
+        val gate = if (companion) prompts.scoped(task, sessionId) { true } else prompts.scoped(task, sessionId)
         val observations = PhoneTaskObservations(task)
         val env = object : PhoneEnv by this@PhoneControl {
+            override fun enabled(): Boolean = companion || isEnabled()
             override fun gate(): UserGate = gate
             override fun onTaskStarted(owner: PhoneTasks.Owner) {} // Registry owns managed trace start.
             override fun driver(screen: PhoneScreen, owner: PhoneTasks.Owner): PhoneDriver? =
@@ -292,10 +299,11 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
             override fun existingReplayDriver(owner: PhoneTasks.Owner, app: PhoneAppIdentity): PhoneDriver? =
                 background.existingReplayDriver(owner, app) { task.isCurrent(owner) }
                     ?.let { observations.bind(it, owner) }
-            override fun notifyFix(kind: String) = notifyFixFor(task, kind)
+            // She is talking with the person right now: put the system page in front of them.
+            override fun notifyFix(kind: String) = notifyFixFor(task, kind, open = companion && kind == "a11y")
             override fun beforeHandoff(screen: PhoneScreen, owner: PhoneTasks.Owner): String? {
                 if (screen != PhoneScreen.BACKGROUND) return null
-                check(background.endTask(owner.taskId)) { "后台屏释放尚未确认，暂不能交还主屏。" } // l10n:keep agent handoff failure
+                background.endTask(owner.taskId)
                 return "后台屏已释放。请用户在主屏完成操作，继续前先重新读取主屏。" // l10n:keep agent handoff result
             }
         }
@@ -366,7 +374,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
 
     fun isEnabled(): Boolean = switchedOn(app)
 
-    /** Off closes the bridge and stops the task after any in-flight keeper settings write.
+    /** Off stops control tasks after any in-flight keeper settings write; diagnostics keeps its transport.
      * On needs an engine restart (the UI does it); the rebind gap never holds this switch.
      */
     fun setEnabled(enabled: Boolean): Boolean {
@@ -376,8 +384,8 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         if (!enabled) {
             // l10n:keep agent stop reason
             sessions.stopAll("手机操控已关闭")
-            skillLifecycle.retired()
-            stopBridge()
+            retireSkills()
+            stopBridge(stopTransport = false)
         } else {
             tasks.clearStop()
             ticker.execute(::keep)
@@ -416,7 +424,8 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     fun policiesMap(): Map<String, Any?> {
         val p = policies()
         val labels = LinkedHashMap<String, String>()
-        for (pkg in (p.denyPackages + p.confirmEveryWritePackages + PhonePolicies().denyPackages + PhonePolicies().confirmEveryWritePackages).distinct()) {
+        for (pkg in (p.denyPackages + p.confirmEveryWritePackages + p.alwaysAllowPackages +
+                PhonePolicies().denyPackages + PhonePolicies().confirmEveryWritePackages).distinct()) {
             label(pkg)?.let { labels[pkg] = it }
         }
         return p.toMap() + mapOf("labels" to labels, "defaults" to PhonePolicies().toMap(),
@@ -432,27 +441,25 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     // ── Engine lifecycle (RuntimeController's worker thread) ───────────────────────
 
     /**
-     * Before DSH launches: with the switch on and not in safe mode, writes the guest files, starts
-     * the bridge and returns true (the launch then adds the `--patch` overlay). Otherwise makes
-     * sure nothing is listening and returns false: DSH mounts no phone tools at all.
+     * Before a normal DSH launch, mounts the bridge even with control off: diagnostics is independent.
+     * Other tools still require the control switch. Safe mode mounts no phone tools.
      */
     fun prepareLaunch(rootfs: File, safe: Boolean, log: (String) -> Unit): Boolean {
         logger = log
         tasks.invalidateOwners()
-        skillLifecycle.retired()
+        retireSkills()
         stopBridge()
         sessions.beginCallerLaunch()
         this.rootfs = rootfs
-        if (!isEnabled() || safe) {
+        if (safe) {
             PhoneGuest.clearConfig(rootfs)
             if (isEnabled()) log("[dsh-app] phone control stays off in safe mode")
             emitStatus()
             return false
         }
         return try {
-            PhoneGuest.writeFiles(rootfs)
+            PhoneGuest.writeFiles(rootfs, app.assets.open("phone/skills.mjs").bufferedReader().use { it.readText() })
             tasks.clearStop()
-            skillLifecycle.launched()
             val ep = bridge.start(withTcp = prefs.getBoolean(K_TCP_FALLBACK, false))
             PhoneGuest.writeConfig(rootfs, ep)
             refreshScreenOff()
@@ -460,7 +467,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
             true
         } catch (e: Exception) {
             log("[dsh-app] phone control: setup failed (${e.message}); starting without phone tools")
-            skillLifecycle.retired()
+            retireSkills()
             stopBridge()
             false
         }
@@ -469,7 +476,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     /** After the launch command was built: [mounted] false means this runtime's template had no `dsh web` to add the overlay to. */
     fun launched(mounted: Boolean) {
         if (mounted) return
-        skillLifecycle.retired()
+        retireSkills()
         logger("[dsh-app] phone control: this runtime's launch command has no `dsh web` to add the phone overlay to; phone tools are off")
         stopBridge()
     }
@@ -505,28 +512,101 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
 
     fun onEngineStopped() {
         tasks.invalidateOwners()
-        skillLifecycle.retired()
+        retireSkills()
         stopBridge()
         core.worker.retire()
         tasks.endTask()
         emitStatus()
     }
 
-    private fun stopBridge() {
+    private fun retireSkills() {
+        skillRuns.retire()
+        skillDrafts.onEngineRetired() // Retire client grants held by the existing replay skeleton.
+    }
+
+    private fun stopBridge(stopTransport: Boolean = true) {
+        // The local Flutter channel survives a native launch reset, unlike the
+        // old socket. Retire its captured approvals before resetting admission.
+        synchronized(companionRunLock) { companionRunEpoch++ }
         shell.cancelAll()
         skillReplaySelections.retire()
         selfCheck.stop()
         background.sealTask()
-        bridge.stop()
+        if (stopTransport) bridge.stop()
         sessions.retire()
         displaySelection.clear()
         PhoneRegistry.overlayGate?.clearStatus { /* Stale displayed status only. */ }
         core.worker.retire()
-        rootfs?.let { PhoneGuest.clearConfig(it) }
+        if (stopTransport) rootfs?.let { PhoneGuest.clearConfig(it) }
         refreshScreenOff()
     }
 
     val bridgeListening: Boolean get() = bridge.listening
+
+    internal fun companionPhoneEpoch(): Long = companionRunEpoch
+
+    /** Set only on this thread while [companionPhoneCall] admits: the Task it creates is hers. */
+    private val companionAdmission = ThreadLocal<Boolean>()
+
+    /** Local Agent transport; the original managed admission/Core/Gate stay authoritative. */
+    internal fun companionPhoneCall(caller: PhoneCaller, name: String, args: Map<String, Any?>,
+                                    expectedEpoch: Long, isCurrent: () -> Boolean,
+                                    onStepReady: (String, () -> Unit) -> Unit): PhoneCallWork {
+        val admission = synchronized(companionRunLock) {
+            if (companionRunEpoch != expectedEpoch) return PhoneCallWork({
+                McpServer.result(caller.callId, McpServer.toolResult(ToolOutput(
+                    "手机操控已重新启动，原授权已结束；请重新发起。", isError = true))) // l10n:keep agent error
+            })
+            companionAdmission.set(true)
+            try { sessions.admit(caller) } finally { companionAdmission.remove() }
+        }
+        val commit = PhoneReplyCommit()
+        return PhoneCallWork(
+            invoke = {
+                var publish: (() -> Unit)? = null
+                val reply = server.runCall(caller.callId, name, args, caller, { tool, input, _ ->
+                    val output = sessions.run(admission, tool, input)
+                    val task = admission.task
+                    val ticket = displaySelection.ticket()?.takeIf { it.task === task?.tasks }
+                    val words = output.text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }?.take(160)
+                    if (task != null && ticket != null && words != null &&
+                        task.sessionId == caller.sessionId && task.runId == caller.runId) {
+                        val original = displaySelection.guard(ticket)
+                        // Capture this task, owner and selection now. The UI's
+                        // delayed runnable may never adopt a later selection.
+                        publish = {
+                            prompts.scoped(task.tasks, task.sessionId).status(words) { update ->
+                                synchronized(companionRunLock) {
+                                    if (companionRunEpoch != expectedEpoch || !isCurrent() || admission.expired ||
+                                        task.tasks.admissionEpoch() != admission.scopeEpoch) false
+                                    else original(update)
+                                }
+                            }
+                        }
+                    }
+                    output
+                }, commit)
+                publish?.let { onStepReady(reply, it) }
+                reply
+            },
+            remainingMs = { sessions.remainingMs(admission) },
+            expiredReply = { server.runCall(caller.callId, name, args, caller,
+                { _, _, _ -> sessions.expire(admission) }) },
+            nativeReplyCommit = commit,
+        )
+    }
+
+    /** Seal this exact run now; return its physical cleanup for the control lane. */
+    internal fun endCompanionPhoneRun(sessionId: String, runId: String, stopped: Boolean): () -> Unit {
+        val task = sessions.admitEnd(sessionId, runId, if (stopped) "other" else "unknown")
+        if (task != null && stopped) sessions.stop(task, "companion_stopped")
+        return {
+            if (task != null) {
+                background.sealTask(task.tasks.snapshot().id)
+                sessions.settleEnd(task)
+            }
+        }
+    }
 
     // ── Task ────────────────────────────────────────────────────────────────────────
 
@@ -549,11 +629,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         val record = sessions.task(owner.taskId)?.takeIf { it.tasks === task } ?: return false
         return sessions.stop(record, owner, reason)
     }
-    fun retryTaskCleanup(taskId: Long): Boolean {
-        // A lost original peer cannot answer RELEASE; only the verified recovery receipt completes that driver.
-        if (background.lostTaskId() == taskId) background.retryBackgroundRecovery()
-        return sessions.retryCleanup(taskId)
-    }
+    fun retryTaskCleanup(taskId: Long): Boolean = sessions.retryCleanup(taskId)
     fun resumeTask(taskId: Long): Boolean {
         val record = sessions.task(taskId) ?: return false
         val expected = record.tasks.snapshot()
@@ -590,7 +666,8 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     }
 
     /**
-     * Brings the app forward on [sessionId] (just the app when null) after a finished task. Started
+     * Brings the app forward on [sessionId] (just the app when null) after a finished task; Dart
+     * takes a companion task's `companion:` id to her room or leaves the app as it was, never a chat. Started
      * from the accessibility service when bound. This is a best-effort start under Android's
      * background-start restrictions, not a guarantee. False when start threw; the caller must
      * separately observe its ActivityAware host resumed (some vendors block silently).
@@ -613,7 +690,6 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     private fun onTask(s: PhoneTasks.Snapshot) {
         if (!s.active || s.paused || s.stopped) shell.cancel(s.id)
         preview.refresh() // Clear local pixels before endTask can enter blocking release IPC.
-        skillLifecycle.changed(s)
         prompts.check()
         val record = sessions.all().firstOrNull { it.tasks === tasks }
         if (!s.active && record != null) sessions.onInactive(record, s)
@@ -623,7 +699,8 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
 
     private fun selectExecution(task: PhoneTasks, owner: PhoneTasks.Owner): (((() -> Unit) -> Boolean)?) {
         val ticket = displaySelection.select(task, owner) ?: return null
-        // Even an apps-only execution must retire the preceding pill. Both platform sinks
+        // Selecting another owner retires the old pill, even for an apps-only execution.
+        // Consecutive calls by the same owner keep its displayed control. Platform sinks
         // run after the short Tasks -> selection commit, never while either lock is held.
         PhoneRegistry.overlayGate?.clearStatus { /* Check displayed status's own guard only. */ }
         DshService.updateNotification(app)
@@ -668,7 +745,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     /** Receiver ownership stays on main; a pending selfcheck outlives an engine bridge. */
     private fun refreshScreenOff() {
         if (Looper.myLooper() != main.looper) { main.post { refreshScreenOff() }; return }
-        if (bridge.listening || selfCheck.needsReceiver) registerScreenOffNow()
+        if ((bridge.listening && isEnabled()) || selfCheck.needsReceiver) registerScreenOffNow()
         else {
             screenReceiver?.let { runCatching { app.unregisterReceiver(it) } }
             screenReceiver = null
@@ -770,50 +847,66 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         }
     }
 
-    /** Reads the existing immutable gate snapshot without refreshing phone state. */
-    fun backgroundProbeDiagnostics(): Map<String, Any?> = background.inputProbeDiagnostics()
-
-    fun setSkillSavePrompt(enabled: Boolean): Boolean {
-        prefs.edit().putBoolean(K_SKILL_PROMPT, enabled).apply()
-        emitStatus()
-        return true
+    internal fun skillsCall(method: String, raw: Any?, done: (Map<String, Any?>) -> Unit) {
+        val args = raw as? Map<*, *> ?: if (raw == null) emptyMap<String, Any?>() else {
+            done(mapOf("error" to "invalid", "detail" to "arguments")); return
+        }
+        RuntimeController.get(app).phoneSkills(null) { learnedSkills.ui(method, args, it) }
+            .whenComplete { value, failure -> done(if (failure == null) value else skillError(failure)) }
     }
 
-    private fun skillsStatus(): Map<String, Any?> = mapOf(
-        "v" to 1, "askAfterSuccess" to prefs.getBoolean(K_SKILL_PROMPT, false),
-        "saveResults" to skillDrafts.saveResults(),
-        "candidates" to skillDrafts.candidates().map { mapOf(
-            "taskId" to it.owner.taskId, "generation" to it.owner.lifecycle, "steps" to it.steps) },
-    )
+    private fun prepareSkillRpc(call: McpServer.Dispatch.Skills): () -> String {
+        // Bridge admission holds its transport monitor. Runtime termination takes the opposite
+        // path (Runtime -> Bridge.stop), so capture the runtime only on the connection worker.
+        val epoch = skillRuns.epoch()
+        return {
+            val value = try {
+                val runtime = RuntimeController.get(app)
+                val origin = runtime.capturePhoneSkillOrigin()
+                val op = call.params["op"]
+                if (origin == null || skillRuns.epoch() != epoch || !runtime.phoneSkillOriginCurrent(origin) ||
+                    !isEnabled() && op != "catalog" && op != "get") throw PhoneSkillProblem("unavailable", "Phone control is unavailable.")
+                val drained = if (call.params["op"] == "finish") {
+                    val key = learnedSkills.runKey(call.params)
+                    val completion = call.params["completion"] as? String
+                    if (completion !in setOf("completed", "other", "unknown")) throw PhoneSkillProblem("invalid", "completion")
+                    val task = sessions.admitSkillEnd(key.session, key.run, completion!!) { skillRuns.epoch() == epoch }
+                    if (task != null) {
+                        background.sealTask(task.tasks.snapshot().id)
+                        sessions.settleEnd(task)
+                    }
+                    skillRuns.awaitFinish(key, epoch)
+                } else null
+                runtime.phoneSkills(origin) {
+                    val result = learnedSkills.engine(call.params, it, epoch, drained)
+                    if (op == "catalog") result + ("control" to isEnabled()) else result
+                }.get()
+            } catch (e: Exception) { skillError(e) }
+            McpServer.result(call.id, value)
+        }
+    }
+
+    private fun skillError(failure: Throwable): Map<String, Any?> {
+        val cause = if (failure is java.util.concurrent.ExecutionException || failure is java.util.concurrent.CompletionException)
+            failure.cause else failure
+        return if (cause is PhoneSkillProblem) mapOf("error" to cause.code, "detail" to cause.detail)
+        else mapOf("error" to "io", "detail" to "Phone skill storage is unavailable.")
+    }
+
+    private fun publishSkillEvent(event: Map<String, Any?>) {
+        main.post {
+            sinks.forEach { sink -> runCatching { sink(event) } }
+            val draft = event["draft"] as? Map<*, *> ?: return@post
+            val from = draft["from"] as? Map<*, *> ?: return@post
+            if (!AppVisibility.visible) notificationGate.notifyDraft(from["taskId"] as Long, from["sessionId"] as String,
+                draft["display"] as String)
+        }
+    }
 
     fun acknowledgeTaskInterruption(batchToken: String): Boolean =
         taskJournal.acknowledge(batchToken).also { emitStatus() }
 
     fun retryTaskInterruptionStorage(): Boolean = sessions.retryJournalStorage().also { emitStatus() }
-
-    /** This is a resource recovery request, never the logical interruption acknowledgement. */
-    fun retryBackgroundRecovery(): Map<String, Any?> {
-        try {
-            settleStoredTask()?.let { return it }
-            if (!background.retryStoredGateCleanup() || !selfCheck.retryStoredCleanup())
-                return mapOf("ok" to false, "reason" to "busy")
-            // A lost original peer's verified receipt completes only its driver; return that slot here too.
-            val recovered = background.retryBackgroundRecovery()
-            return settleStoredTask() ?: recovered
-        } finally { emitStatus() }
-    }
-
-    private fun settleStoredTask(): Map<String, Any?>? {
-        for (taskId in background.pendingStoredTaskIds()) {
-            // The original driver already has a physical completion proof. Persist its clear
-            // and return that exact slot; no repeated RELEASE or lookup by a journal payload.
-            if (!background.endTask(taskId)) return mapOf("ok" to false, "reason" to "storageUnavailable")
-            // Only an already eligible ended/retiring scope releases its registry leases.
-            // An active failed-handoff task intentionally keeps its task/App ownership.
-            sessions.retryCleanup(taskId)
-        }
-        return null
-    }
 
     /** Capture on the same lane as events; never occupy the plugin control queue while waiting. */
     fun status(done: (Result<Map<String, Any?>>) -> Unit) {
@@ -828,7 +921,6 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
     private fun captureStatus(): Map<String, Any?> {
         val value = linkedMapOf<String, Any?>(
             "enabled" to isEnabled(),
-            "skills" to skillsStatus(),
             "bridgeListening" to bridge.listening,
             "a11y" to linkedMapOf("enabled" to a11yEnabledInSettings(), "serviceConnected" to (PhoneRegistry.mainDriver != null)),
             "overlay" to (PhoneRegistry.overlayGate != null),
@@ -978,7 +1070,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
 
     // ── PhoneEnv ────────────────────────────────────────────────────────────────────
 
-    override fun onTaskStarted(owner: PhoneTasks.Owner) = skillLifecycle.started(owner)
+    override fun onTaskStarted(owner: PhoneTasks.Owner) = skillTrace.discard(PhoneTaskTrace.key(owner))
 
     override fun enabled(): Boolean = isEnabled()
 
@@ -1017,7 +1109,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
 
     override fun beforeHandoff(screen: PhoneScreen, owner: PhoneTasks.Owner): String? {
         if (screen != PhoneScreen.BACKGROUND) return null
-        check(background.endTask(owner.taskId)) { "后台屏释放尚未确认，暂不能交还主屏。" } // l10n:keep agent handoff failure
+        background.endTask(owner.taskId)
         // l10n:keep agent stop reason
         return "后台屏已释放。请用户在主屏完成操作，继续前先重新读取主屏（s 开头的屏幕号）。"
     }
@@ -1044,8 +1136,9 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
 
     override fun notifyFix(kind: String) = notifyFixFor(tasks, kind)
 
-    private fun notifyFixFor(task: PhoneTasks, kind: String) {
+    private fun notifyFixFor(task: PhoneTasks, kind: String, open: Boolean = false) {
         if (!task.firstNotice(kind)) return
+        if (open) runCatching { app.startActivity(accessibilitySettingsIntent()) }
         if (!nm.areNotificationsEnabled()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(NotificationChannel(CHANNEL_FIX, AppStrings.get(app, R.string.phone_fix_channel), NotificationManager.IMPORTANCE_HIGH))
@@ -1064,6 +1157,7 @@ class PhoneControl private constructor(private val app: Context) : PhoneEnv, Con
         const val SERVER_VERSION = "1"
         private const val PREFS = "dsh_phone"
         private const val K_ENABLED = "enabled"
+        private const val K_LEARN_SKILLS = "learnPhoneSkills"
         private const val K_SKILL_PROMPT = "skillSavePrompt"
 
         /** Only master preference publication and the keeper's final settings writes share this lock. */

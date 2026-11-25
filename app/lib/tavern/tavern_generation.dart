@@ -1,7 +1,7 @@
 // 酒馆设置 › 生成: how much of the story goes to the model, how long a reply
-// may be, and how freely it writes. They live in the engine's default preset
-// (readSettings / setSettings), until the preset library (T20) gives each chat
-// its own.
+// may be, and how freely it writes. The engine's global preset numbers are
+// read and written through readSettings / setSettings; a chat can select its
+// own library preset (tavern_presets_page.dart).
 
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,14 +10,28 @@ import 'tavern_provider.dart';
 
 /// The context the model sees (tokens): ST's default 4K, then what DeepSeek's
 /// window allows. More context remembers more, and costs more each turn.
+/// Another channel's model may take more: any size in the range can be typed.
 const tavernContextSizes = [4095, 16384, 32768, 65536, 131072];
+const tavernContextRange = (min: 512, max: 2097152);
+
+/// 16384 as `16K` (ST's 4095 as `4K`).
+String tavernContextLabel(num tokens) => '${(tokens + 1) ~/ 1024}K';
 
 /// The longest reply (tokens).
 const tavernReplySizes = [300, 1000, 2000, 4000];
+const tavernReplyRange = (min: 16, max: 131072);
 
 /// How freely it writes: DeepSeek suggests 1.3 for conversation, 1.5 for
-/// creative writing.
+/// creative writing. The Chat Completions range is 0–2.
 const tavernTemperatures = [0.7, 1.0, 1.3, 1.5];
+const tavernTemperatureRange = (min: 0.0, max: 2.0);
+
+/// A preset's other sampling numbers (the preset page): its common values,
+/// and the Chat Completions range for typing another.
+const tavernTopPs = [0.8, 0.9, 0.95, 1.0];
+const tavernTopPRange = (min: 0.0, max: 1.0);
+const tavernPenalties = [0.0, 0.5, 1.0];
+const tavernPenaltyRange = (min: -2.0, max: 2.0);
 
 class TavernGeneration {
   const TavernGeneration({required this.maxContext, required this.maxReply, required this.temperature});

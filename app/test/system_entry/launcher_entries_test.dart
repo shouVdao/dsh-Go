@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dsh_app/links/launcher_entries.dart';
 import 'package:dsh_app/state/connection_state.dart';
 import 'package:dsh_app/state/hosts_state.dart';
@@ -58,10 +60,47 @@ void main() {
       expect((LauncherEntry.parse({'kind': 'chat', 'sessionId': 's2'}) as OpenChatEntry).host, HostRef.local);
     });
 
+    test("a companion phone task's way back is her room or the app as it was, never a chat", () {
+      final room = LauncherEntry.parse({'kind': 'chat', 'sessionId': 'companion:room:t1:r1', 'host': HostRef.local.encode()});
+      expect(room, isA<OpenCompanionEntry>().having((e) => e.room, 'room', isTrue));
+      final floating = LauncherEntry.parse({'kind': 'chat', 'sessionId': 'companion:floating:t1:r1'});
+      expect(floating, isA<OpenCompanionEntry>().having((e) => e.room, 'room', isFalse));
+    });
+
     test('a pet screenshot carries only its private cache path', () {
       final entry = LauncherEntry.parse({'kind': 'screenshot', 'path': '/cache/pet-screenshots/slot/screen.png'});
       expect(entry, isA<ScreenshotEntry>());
       expect((entry as ScreenshotEntry).path, '/cache/pet-screenshots/slot/screen.png');
+    });
+
+    test('the system assistant opens the room even when Android shares no page', () {
+      final plain = LauncherEntry.parse({'kind': 'companion_assistant', 'page': null}) as CompanionAssistantEntry;
+      expect(plain.page, isNull);
+      expect(plain.returnToApp, isFalse);
+      final entry = LauncherEntry.parse({
+        'kind': 'companion_assistant',
+        'page': 'Train arrives at 9:30',
+        'returnToApp': true,
+      }) as CompanionAssistantEntry;
+      expect(entry.page, 'Train arrives at 9:30');
+      expect(entry.returnToApp, isTrue);
+    });
+
+    test('a reminder notification retains its task and the revision that was opened', () {
+      final entry = LauncherEntry.parse({'kind': 'companion_task', 'taskId': 'task-one', 'taskRev': 2});
+      expect(entry, isA<OpenCompanionTaskEntry>());
+      entry as OpenCompanionTaskEntry;
+      expect(entry.taskId, 'task-one');
+      expect(entry.taskRev, 2);
+      for (final invalid in [
+        {'taskId': '', 'taskRev': 1},
+        {'taskId': 'bad\u0000id', 'taskRev': 1},
+        {'taskId': 'task-one', 'taskRev': 0},
+        {'taskId': 'task-one', 'taskRev': '2'},
+        {'taskId': 'task-one'},
+      ]) {
+        expect(LauncherEntry.parse({'kind': 'companion_task', ...invalid}), isNull);
+      }
     });
 
     test('malformed screenshot entries are dropped', () {
@@ -81,16 +120,18 @@ void main() {
   group('setRecent', () {
     late List<Object?> sent;
     late bool accept;
+    Completer<bool>? held;
 
     setUp(() {
       sent = [];
       accept = true;
+      held = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(_channel, (
         call,
       ) async {
         if (call.method == 'setRecent') {
           sent.add(call.arguments);
-          return accept;
+          return held?.future ?? accept;
         }
         return true;
       });
@@ -117,6 +158,24 @@ void main() {
       await bridge.setRecent([b, a]);
       await bridge.setRecent(const []);
       expect(sent, hasLength(3));
+    });
+
+    test('back to the published list while another is on its way: it still goes out', () async {
+      final bridge = LauncherBridge();
+      addTearDown(bridge.dispose);
+      expect(await bridge.setRecent([a]), isTrue);
+      final reply = held = Completer<bool>();
+      final toB = bridge.setRecent([b]);
+      await Future<void>.delayed(Duration.zero);
+      held = null;
+      final backToA = bridge.setRecent([a]);
+      reply.complete(true);
+      expect(await toB, isTrue);
+      expect(await backToA, isTrue);
+      expect(sent, hasLength(3));
+      expect((sent.last! as Map)['items'], [
+        {'id': 'a', 'title': '周报', 'host': HostRef.local.encode()},
+      ]);
     });
 
     test('tries again after the launcher refused (rate limit)', () async {

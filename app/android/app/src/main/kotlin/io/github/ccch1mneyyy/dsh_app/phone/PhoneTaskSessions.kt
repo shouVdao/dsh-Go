@@ -20,14 +20,13 @@ class PhoneTaskSessions(
     private val settleResources: (Long) -> Unit = {},
     private val dispatchCleanup: (() -> Unit) -> Unit = { it() },
     // These leaf callbacks perform bounded trace/draft memory work only; never emit UI or perform IO.
-    private val startSkillScope: (PhoneTasks.Owner) -> Long? = { null },
+    private val startSkillScope: (PhoneTasks.Owner, String?, String?) -> Long? = { _, _, _ -> null },
     private val completeSkillScope: (PhoneTasks.Owner, Long, String) -> Boolean = { _, _, _ -> false },
     // Runs outside registry/Tasks locks while this record cannot start or resume another scope.
     private val cancelScope: (Task, PhoneTasks.Snapshot) -> Unit = { task, state ->
         if (state.stopped) task.activeWorker?.interruptCurrent(task.tasks)
     },
     private val journal: PhoneTaskJournal? = null,
-    private val recoveryAdmission: () -> String? = { null },
     private val createBackgroundWorker: () -> SerialWorker = { SerialWorker("dsh-phone-background") },
     // Pure in-memory capability/setting snapshot. Never probe a peer or read preferences here.
     private val backgroundCapacity: () -> Int = { 1 },
@@ -37,6 +36,7 @@ class PhoneTaskSessions(
 ) {
     internal class SkillScope(val owner: PhoneTasks.Owner, val draftEpoch: Long, val launchEpoch: Long) {
         var endOwner: PhoneTasks.Owner? = null
+        var userStopped = false
         var cancelled = false
         var settled = false
     }
@@ -193,12 +193,15 @@ class PhoneTaskSessions(
             if (attribution?.runLifecycle == 1) modernCallerSeen = true
             // l10n:keep agent resource admission
             if (selfCheck != null) return Admission(null, epoch, "本地自检正在占用手机，请稍后重试。", startedAt = startedAt)
-            if (resetting || retiring.any { it.cancelling }) return Admission(null, epoch, PhoneTasks.STOPPED_MESSAGE, startedAt = startedAt)
+            // Runtime reset / an old task still winding down refuses this one call only.
+            if (resetting || retiring.any { it.cancelling })
+                return Admission(null, epoch, "手机操控正在重置，这一条没有执行；稍后再试。", startedAt = startedAt) // l10n:keep agent reset result
             // B1 attribution alone does not prove the client can deliver an exact run end.
             val caller = attribution?.takeIf { it.runLifecycle == 1 }
             val key = Key(caller?.sessionId, caller?.runId)
             if (caller != null) {
-                if (key in endedRuns || entries[key]?.stopped == true) return Admission(null, epoch, PhoneTasks.STOPPED_MESSAGE, startedAt = startedAt)
+                if (key in endedRuns) return Admission(null, epoch, PhoneTasks.RUN_ENDED_MESSAGE, startedAt = startedAt)
+                if (entries[key]?.stopped == true) return Admission(null, epoch, PhoneTasks.STOPPED_MESSAGE, startedAt = startedAt)
                 if (caller.sessionId in stoppedSessions && !recoverScreenStop(key, screenReady && readinessEpoch == epoch))
                     return Admission(null, epoch, PhoneTasks.STOPPED_MESSAGE, startedAt = startedAt)
                 if (!reserve(key)) return Admission(null, epoch, CAPACITY_MESSAGE, startedAt = startedAt)
@@ -262,7 +265,6 @@ class PhoneTaskSessions(
             if (replay != null && (task.sessionId != replay.request.session || task.runId != replay.run))
                 return ToolOutput("路线调用身份与原准备不匹配，未执行。", isError = true) // l10n:keep replay result
             if (remainingMs(admission) <= 0) return deadlineOutput()
-            recoveryAdmission()?.let { return ToolOutput(it, isError = true) }
             journal?.refusal()?.let { return ToolOutput(it, isError = true) }
             if (replay == null) task.core.rejection(name)?.let { return it }
             synchronized(lock) {
@@ -303,7 +305,7 @@ class PhoneTaskSessions(
                         }
                         synchronized(lock) {
                             if (live(admission) && !blocked(task)) task.tasks.runIfCurrent(b.owner) {
-                                startSkillScope(b.owner)?.let { draftEpoch ->
+                                startSkillScope(b.owner, task.sessionId, task.runId)?.let { draftEpoch ->
                                     task.skillScope = SkillScope(b.owner, draftEpoch, admission.epoch)
                                 }
                             }
@@ -656,7 +658,12 @@ class PhoneTaskSessions(
                 completeSkillScope(skill.owner, skill.draftEpoch, "completed")
                 skill.settled = true
             }) return
-        completeSkillScope(skill.owner, skill.draftEpoch, if (task.completion == "completed") "other" else task.completion)
+        val completion = when {
+            skill.userStopped -> "user-stop"
+            task.completion == "completed" -> "other"
+            else -> task.completion
+        }
+        completeSkillScope(skill.owner, skill.draftEpoch, completion)
         skill.settled = true
     }
 
@@ -762,7 +769,10 @@ class PhoneTaskSessions(
         task.cancelling = true
         task.cancelledLifecycle = state.lifecycle
         if (state.stopped) {
-            task.skillScope?.cancelled = true
+            task.skillScope?.let {
+                it.cancelled = true
+                if (state.stopSource == PhoneTasks.StopSource.USER) it.userStopped = true
+            }
             if (task.sessionId != null) {
                 if (state.stopSource != PhoneTasks.StopSource.SCREEN_OFF) screenStoppedSessions -= task.sessionId
                 else if (task.sessionId !in stoppedSessions) screenStoppedSessions += task.sessionId
@@ -813,13 +823,24 @@ class PhoneTaskSessions(
         }
         return settle(task, explicitFinish = true, expected = expected)
     }
+    /** Learning observes all engine turns; only a real phone admission consumes a registry end slot. */
+    internal fun admitSkillEnd(sessionId: String, runId: String, completion: String, current: () -> Boolean): Task? = synchronized(lock) {
+        if (!current()) return null
+        if (!entries.containsKey(Key(sessionId, runId))) null else admitEnd(sessionId, runId, completion)
+    }
+
     /** Actual host turn/end, not an inferred idle edge. Keep intent until native calls drain. */
     fun admitEnd(sessionId: String, runId: String, completion: String = "unknown"): Task? = synchronized(lock) {
         val key = Key(sessionId, runId)
         if (!reserve(key)) throw CapacityExceeded()
         if (endedRuns.putIfAbsent(key, completion) != null) return null // First accepted classification is immutable.
-        // Unknown ends fence this launch too; a late call cannot reopen them.
+        // Only this run's end can release its stop. A late or repeated end cannot resume a successor.
         val task = entries[key] ?: return null
+        task.stopped = false
+        if (entries.values.none { it.sessionId == sessionId && it.stopped }) {
+            stoppedSessions -= sessionId
+            screenStoppedSessions -= sessionId
+        }
         if (task.endRequested) return null
         task.skillScope?.let { skill ->
             skill.endOwner = task.tasks.activeOwner()?.takeIf {

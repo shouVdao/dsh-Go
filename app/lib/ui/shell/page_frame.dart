@@ -13,9 +13,9 @@ import '../theme/theme.dart';
 
 /// Frame for every secondary page (settings, engine, remote, diagnostics…).
 ///
-/// Claude-style: no app bar slab. A floating glass back button sits top-left, the
+/// No app bar slab. A floating glass back button sits top-left, the
 /// page title is a large headline at the top of the content (or a [hero] header
-/// on detail pages). Scrolling is continuous, Apple style: the headline fades as
+/// on detail pages). Scrolling is continuous, system style: the headline fades as
 /// it slides under the bar while a compact title rises into the bar. A soft fade
 /// at the top keeps scrolled text from running naked under the status bar.
 ///
@@ -36,6 +36,7 @@ class AppPage extends StatefulWidget {
     this.showLargeTitle = true,
     this.padBottom = true,
     this.solidBar = true,
+    this.leading,
   });
 
   final String title;
@@ -45,7 +46,7 @@ class AppPage extends StatefulWidget {
 
   /// Detail-page header (usually a `PageHero`) shown instead of the large title
   /// and [subtitle]. It fades out as the page scrolls, and [title] moves into
-  /// the bar.
+  /// the bar; fully faded, its tickers are muted.
   final Widget? hero;
 
   /// Page content. Use [AppPage.list] for a plain column of boxes.
@@ -61,6 +62,10 @@ class AppPage extends StatefulWidget {
   /// behind it ([BackdropVeil.top], feathered below) so nothing reads through
   /// the bar title. False uses the shared [TopFade] instead.
   final bool solidBar;
+
+  /// Takes the back button's seat (a page that is the app's home, with
+  /// nothing to go back to: 网页模式's native handle).
+  final Widget? leading;
 
   /// The widest the page's column gets: the chat's reading width.
   static const contentWidth = AppSpace.readingWidth;
@@ -193,14 +198,18 @@ class _AppPageState extends State<AppPage> {
                         child: ValueListenableBuilder<double>(
                           valueListenable: _offset,
                           // Pulled past the top (only the fluid tier's lists go there), the
-                          // headline swells a little with the pull.
+                          // headline swells a little with the pull. Faded out, its
+                          // animations (the engine's status ring) hold still.
                           builder: (context, offset, child) => Opacity(
                             opacity: _headerOpacity(offset),
                             alwaysIncludeSemantics: true,
-                            child: Transform.scale(
-                              scale: 1 + (-offset / 900).clamp(0.0, 0.1),
-                              alignment: AlignmentDirectional.topStart,
-                              child: child,
+                            child: TickerMode(
+                              enabled: _headerOpacity(offset) > 0,
+                              child: Transform.scale(
+                                scale: 1 + (-offset / 900).clamp(0.0, 0.1),
+                                alignment: AlignmentDirectional.topStart,
+                                child: child,
+                              ),
                             ),
                           ),
                           child: KeyedSubtree(key: _headerKey, child: header),
@@ -238,11 +247,13 @@ class _AppPageState extends State<AppPage> {
                       middleSpacing: 8,
                       leading: Center(
                         widthFactor: 1,
-                        child: GlassIconButton(
-                          icon: AppIcons.back,
-                          tooltip: l10n.commonBack,
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
+                        child:
+                            widget.leading ??
+                            GlassIconButton(
+                              icon: AppIcons.back,
+                              tooltip: l10n.commonBack,
+                              onPressed: () => Navigator.of(context).maybePop(),
+                            ),
                       ),
                       middle: ValueListenableBuilder<double>(
                         valueListenable: _offset,

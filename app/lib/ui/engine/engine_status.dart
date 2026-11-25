@@ -25,6 +25,7 @@ class EngineStatusView {
 
   factory EngineStatusView.of(LocalRuntimeState state) {
     final status = state.status;
+    if (!state.available) return EngineStatusView(StatusTone.idle, appL10n.localEnvUnsupported);
     final startupFailure = isLocalStartupFailure(status);
     return switch (status.phase) {
       RuntimePhase.notInstalled => EngineStatusView(StatusTone.idle, appL10n.phoneEngineNotInstalled),
@@ -65,7 +66,8 @@ class EngineStatusView {
                 FailureKind.launchFailed => appL10n.phoneFailureLaunch,
                 FailureKind.startupFailed => appL10n.phoneEngineStartupFailed,
                 FailureKind.crashedEarly || FailureKind.crashedLate => appL10n.phoneEngineCrashed,
-                FailureKind.killed => appL10n.phoneEngineKilled,
+                FailureKind.killed =>
+                  status.failure!.causeUnknown ? appL10n.harmonyEngineUnclean : appL10n.phoneEngineKilled,
                 FailureKind.noSpace => appL10n.commonStorageFull,
                 null => appL10n.phoneEngineError,
               },
@@ -245,17 +247,12 @@ class _EngineRingState extends State<EngineRing> with SingleTickerProviderStateM
           tween: ColorTween(end: EngineRing.colorFor(context, tone)),
           duration: AppMotion.of(context, AppMotion.standard),
           curve: AppMotion.std,
-          builder: (context, color, _) => AnimatedBuilder(
-            animation: _loop,
-            builder: (context, child) => CustomPaint(
-              painter: _RingPainter(
-                color: color ?? scheme.outline,
-                track: (color ?? scheme.outline).withValues(alpha: 0.16),
-                tone: tone,
-                t: AppMotion.std.transform(_loop.value),
-                raw: _loop.value,
-              ),
-              child: child,
+          builder: (context, color, _) => CustomPaint(
+            painter: _RingPainter(
+              color: color ?? scheme.outline,
+              track: (color ?? scheme.outline).withValues(alpha: 0.16),
+              tone: tone,
+              phase: _loop,
             ),
             child: Center(
               child:
@@ -274,20 +271,18 @@ class _EngineRingState extends State<EngineRing> with SingleTickerProviderStateM
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter({required this.color, required this.track, required this.tone, required this.t, required this.raw});
+  _RingPainter({required this.color, required this.track, required this.tone, required this.phase})
+    : super(repaint: phase);
 
   final Color color;
   final Color track;
   final StatusTone tone;
-
-  /// Eased breathing phase (0..1).
-  final double t;
-
-  /// Linear loop value (rotation for the busy arc).
-  final double raw;
+  final Animation<double> phase;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final raw = phase.value;
+    final t = AppMotion.std.transform(raw);
     const stroke = EngineRing.stroke;
     final rect = (Offset.zero & size).deflate(stroke / 2);
     final paint = Paint()
@@ -310,5 +305,5 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RingPainter old) =>
-      old.color != color || old.track != track || old.tone != tone || old.t != t || old.raw != raw;
+      old.color != color || old.track != track || old.tone != tone || old.phase != phase;
 }

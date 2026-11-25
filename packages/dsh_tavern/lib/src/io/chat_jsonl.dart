@@ -4,6 +4,7 @@
 // 7e8663cd9c184a550b37238218bdd32c6efc68e9. Message variables[] are mapped
 // from this project's roleplay-compat.md §7; no JS-Slash-Runner source is used.
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 
 import '../api.dart';
@@ -23,6 +24,83 @@ final class ChatJsonlImportResult {
   final List<String> notices;
 }
 
+/// An owned, validated batch which has not yet written anything to SQLite.
+final class ChatJsonlImportPlan {
+  const ChatJsonlImportPlan._(this._groups, this._notices);
+  final List<({_ImportTree tree, List<StoredChatImportNode> nodes})> _groups;
+  final List<String> _notices;
+}
+
+// Keep isolate closures here: their only captured state is sendable data,
+// never a codec clock callback, engine, store, file queue or open connection.
+Future<List<StChatDocument>> _decodeChatFilesInWorker(List<TavernChatFile> files) =>
+    Isolate.run(() => [for (final file in files) StChatDocument.decode(file.fileName, file.bytes)]);
+
+Future<ChatJsonlImportPlan> _prepareChatImportInWorker(List<StChatDocument> documents, DateTime fallbackDate) =>
+    Isolate.run(() => _prepareChatImport(documents, fallbackDate));
+
+ChatJsonlImportPlan _prepareChatImport(Iterable<StChatDocument> documents, DateTime fallbackDate) {
+  final notices = <String>[];
+  final files = <String, _SourceFile>{};
+  for (final document in documents) {
+    final file = _SourceFile(document, fallbackDate, notices);
+    if (files.containsKey(file.key)) {
+      throw StChatFormatException(document.fileName, document.headerLineNumber, 'Duplicate normalized filename.');
+    }
+    files[file.key] = file;
+  }
+  final ordered = _orderFiles(files, notices);
+  final groups = <String, _ImportTree>{};
+  for (final file in ordered) {
+    final parent = files[file.parentKey];
+    final root = parent?.rootKey ?? file.key;
+    file.rootKey = root;
+    final tree = groups.putIfAbsent(root, () => _ImportTree(file));
+    tree.add(file, parent, notices);
+  }
+  for (final tree in groups.values) {
+    tree.finish(notices);
+  }
+  return ChatJsonlImportPlan._([
+    for (final tree in groups.values)
+      (
+        tree: tree,
+        nodes: [
+          for (final node in tree.nodes)
+            StoredChatImportNode(
+              key: node.id,
+              parentKey: node.parent,
+              role: node.variant.role,
+              speaker: node.variant.name,
+              speakerCharacterId: node.variant.speakerCharacterId,
+              text: node.variant.text,
+              reasoning: node.variant.reasoning,
+              at: node.variant.at,
+              hidden: node.variant.hidden,
+              usage: node.variant.usage,
+              state: node.state,
+              extra: _withState(node.extra, node.state),
+              original: node.variant.original,
+            ),
+        ],
+      ),
+  ], notices);
+}
+
+/// A physical metadata carrier, not a node-selection or generation identity.
+enum ChatJsonlMetadataCarrier { root, sources, files }
+
+final class ChatJsonlMetadataSource {
+  const ChatJsonlMetadataSource._(this.carrier, this.sourceFile, this.fileIndex);
+
+  final ChatJsonlMetadataCarrier carrier;
+  final String? sourceFile;
+  final int? fileIndex;
+
+  /// Includes the actual files-array slot; no delimiter can alias a raw key.
+  String get identity => jsonEncode([carrier.name, sourceFile, fileIndex]);
+}
+
 /// Imports only the supplied same-character batch. Filenames are labels, not
 /// paths to read. Every document is validated before the single DB transaction.
 final class ChatJsonlCodec {
@@ -32,99 +110,69 @@ final class ChatJsonlCodec {
   final DateTime Function() _clock;
   final String Function() _createIntegrity;
 
+  static Future<List<StChatDocument>> decodeFiles(List<TavernChatFile> files) => _decodeChatFilesInWorker(files);
+
+  Future<ChatJsonlImportPlan> prepareBatchAsync(Iterable<StChatDocument> documents) =>
+      _prepareChatImportInWorker(List<StChatDocument>.of(documents), _clock().toUtc());
+
   ChatJsonlImportResult importBatch(
     ChatStore store, {
     required String characterId,
     required Iterable<StChatDocument> documents,
-  }) {
-    final notices = <String>[];
-    final fallbackDate = _clock().toUtc();
-    final files = <String, _SourceFile>{};
-    for (final document in documents) {
-      final file = _SourceFile(document, fallbackDate, notices);
-      if (files.containsKey(file.key)) {
-        throw StChatFormatException(document.fileName, document.headerLineNumber, 'Duplicate normalized filename.');
-      }
-      files[file.key] = file;
-    }
-    final ordered = _orderFiles(files, notices);
-    final groups = <String, _ImportTree>{};
-    for (final file in ordered) {
-      final parent = files[file.parentKey];
-      final root = parent?.rootKey ?? file.key;
-      file.rootKey = root;
-      final tree = groups.putIfAbsent(root, () => _ImportTree(file));
-      tree.add(file, parent, notices);
-    }
-    for (final tree in groups.values) {
-      tree.finish(notices);
-    }
-    return store.transaction(() {
-      final chatIds = <String>[];
-      final chatsByFile = <String, String>{};
-      for (final tree in groups.values) {
-        final chatId = store.createChat(
-          characterId: characterId,
-          title: _stem(tree.root.document.fileName),
-          metadata: _quarantineMetadata(tree.root.metadata),
-        );
-        chatIds.add(chatId);
-        final ids = <String, String>{};
-        for (final node in tree.nodes) {
-          final message = store.append(
-            chatId,
-            parentId: node.parent == null ? null : ids[node.parent],
-            role: node.variant.role,
-            speaker: node.variant.name,
-            text: node.variant.text,
-            reasoning: node.variant.reasoning,
-            at: node.variant.at,
-            hidden: node.variant.hidden,
-            usage: node.variant.usage,
-            makeCurrent: false,
-            state: node.state,
-            extra: _withState(node.extra, node.state),
-            original: node.variant.original,
-          );
-          ids[node.id] = message.nodeId;
-        }
-        store.restoreSelection(
-          chatId,
-          selectedRootId: ids[tree.selectedRoot],
-          selectedChildren: {for (final node in tree.nodes) ids[node.id]!: ids[tree.choices[node.id]]},
-        );
-        final metadata = _quarantineMetadata(tree.root.metadata);
-        final own = _map(_map(metadata['dshgo'])[_namespace]);
-        own.addAll({
-          'version': 1,
-          'rootFile': tree.root.key,
-          'sources': tree.sources,
-          'files': [
-            for (final file in tree.files)
-              {
-                'key': file.key,
-                'fileName': file.document.fileName,
-                'header': _sourceHeader(file.document.header, keepSourceFileName: true),
-                'path': [for (final node in file.path) ids[node.id]],
-                // Shared variants do not own a source row's unused array tail.
-                'unusedTails': {
-                  for (var index = 0; index < file.path.length; index++)
-                    ids[file.path[index].id]!: _unusedMessageTails(file.document.messages[index]),
-                },
+  }) => commitBatch(store, characterId: characterId, plan: _prepareChatImport(documents, _clock().toUtc()));
+
+  ChatJsonlImportResult commitBatch(
+    ChatStore store, {
+    required String characterId,
+    required ChatJsonlImportPlan plan,
+  }) => store.transaction(() {
+    final chatIds = <String>[];
+    final chatsByFile = <String, String>{};
+    for (final group in plan._groups) {
+      final tree = group.tree;
+      final metadata = _quarantineMetadata(tree.root.metadata);
+      final chatId = store.createChat(
+        characterId: characterId,
+        title: _stem(tree.root.document.fileName),
+        metadata: metadata,
+      );
+      chatIds.add(chatId);
+      final ids = store.appendImportedNodes(chatId, group.nodes);
+      store.restoreSelection(
+        chatId,
+        selectedRootId: ids[tree.selectedRoot],
+        selectedChildren: {for (final node in tree.nodes) ids[node.id]!: ids[tree.choices[node.id]]},
+      );
+      final own = _map(_map(metadata['dshgo'])[_namespace]);
+      own.addAll({
+        'version': 1,
+        'rootFile': tree.root.key,
+        'sources': tree.sources,
+        'files': [
+          for (final file in tree.files)
+            {
+              'key': file.key,
+              'fileName': file.document.fileName,
+              'header': _sourceHeader(file.document.header, keepSourceFileName: true),
+              'path': [for (final node in file.path) ids[node.id]],
+              // Shared variants do not own a source row's unused array tail.
+              'unusedTails': {
+                for (var index = 0; index < file.path.length; index++)
+                  ids[file.path[index].id]!: _unusedMessageTails(file.document.messages[index]),
               },
-          ],
-        });
-        metadata['dshgo'] = {..._map(metadata['dshgo']), _namespace: own};
-        final leaf = tree.currentLeaf;
-        final variables = leaf == null ? _map(tree.root.metadata['variables']) : _map(leaf.state['variables']);
-        store.updateChat(chatId, metadata: metadata, variables: variables);
-        for (final file in tree.files) {
-          chatsByFile[file.document.fileName] = chatId;
-        }
+            },
+        ],
+      });
+      metadata['dshgo'] = {..._map(metadata['dshgo']), _namespace: own};
+      final leaf = tree.currentLeaf;
+      final variables = leaf == null ? _map(tree.root.metadata['variables']) : _map(leaf.state['variables']);
+      store.updateChat(chatId, metadata: metadata, variables: variables);
+      for (final file in tree.files) {
+        chatsByFile[file.document.fileName] = chatId;
       }
-      return ChatJsonlImportResult(chatIds: chatIds, chatsByFile: chatsByFile, notices: notices);
-    });
-  }
+    }
+    return ChatJsonlImportResult(chatIds: chatIds, chatsByFile: chatsByFile, notices: plan._notices);
+  });
 
   /// Null [nodeId] means the current leaf. Source metadata is copied; a file's
   /// final variables or world-info state are never presented as the state of
@@ -132,10 +180,17 @@ final class ChatJsonlCodec {
   Map<String, Object?> metadataForNode(ChatStore store, String chatId, {String? nodeId}) {
     final chat = store.chat(chatId);
     final id = nodeId ?? chat.currentLeafId;
-    if (id == null) {
+    return metadataForCapturedNode(store, chat, id == null ? null : store.node(chatId, id));
+  }
+
+  /// Projects a fully read [chat] and a fully read [node] from that same chat.
+  /// The caller has already resolved the store boundary; null means an empty
+  /// captured path. Does not mutate either snapshot or reread its full row.
+  Map<String, Object?> metadataForCapturedNode(ChatStore store, StoredChat chat, StoredNode? node) {
+    if (node == null) {
       return {..._clone(chat.metadata), 'variables': _clone(chat.variables)};
     }
-    final state = _effectiveState(store, chatId, store.node(chatId, id));
+    final state = _effectiveState(store, chat.id, node);
     return metadataForState(chat, state);
   }
 
@@ -143,12 +198,9 @@ final class ChatJsonlCodec {
   /// again. Single-node deletion uses this before reparenting even children
   /// hidden by a pending subtree deletion. Does not mutate [chat] or [state].
   Map<String, Object?> metadataForState(StoredChat chat, Map<String, Object?> state) {
-    var metadata = _clone(chat.metadata);
     final source = state[_sourceKey];
     final header = _sourceFor(chat.metadata, source);
-    if (header != null) {
-      metadata = _map(header['chat_metadata']);
-    }
+    final metadata = header == null ? _clone(chat.metadata) : _map(header['chat_metadata']);
     metadata.remove('variables');
     if (state['variables'] is Map<String, Object?>) {
       metadata['variables'] = _map(state['variables']);
@@ -157,8 +209,99 @@ final class ChatJsonlCodec {
     return metadata;
   }
 
-  List<StChatDocument> exportChat(ChatStore store, String chatId, {String? fileName}) =>
-      _ExportTree(store, chatId, fileName, _createIntegrity).documents();
+  /// The actual source used by [metadataForState], captured with the selected
+  /// state. A stale/unmapped label falls back to root just as that reader does.
+  String? metadataSourceForState(StoredChat chat, Map<String, Object?> state) =>
+      metadataSourceTargetForState(chat, state).sourceFile;
+
+  /// Resolves once with the same null/current and effective-state rules as
+  /// [metadataForNode]. An empty path or an unmapped label resolves to root.
+  ChatJsonlMetadataSource metadataSourceForNode(ChatStore store, String chatId, {String? nodeId}) {
+    final chat = store.chat(chatId);
+    final id = nodeId ?? chat.currentLeafId;
+    return id == null
+        ? _metadataSource(chat.metadata, null)
+        : metadataSourceTargetForState(chat, _effectiveState(store, chatId, store.node(chatId, id)));
+  }
+
+  ChatJsonlMetadataSource metadataSourceTargetForState(StoredChat chat, Map<String, Object?> state) =>
+      _metadataSource(chat.metadata, state[_sourceKey]);
+
+  /// Reads only this captured carrier, without consulting a leaf or applying
+  /// state projections. A missing/rekeyed files slot or missing source returns
+  /// null; it never silently switches to a fallback carrier. Malformed/null
+  /// chat_metadata keeps the ordinary reader's empty-map projection.
+  Map<String, Object?>? readMetadataSource(Map<String, Object?> root, ChatJsonlMetadataSource source) {
+    if (source.carrier == ChatJsonlMetadataCarrier.root) return _clone(root);
+    final header = _metadataSourceHeader(root, source);
+    return header == null ? null : _map(header['chat_metadata']);
+  }
+
+  /// Pure single-source edit for the bridge's short SQL carrier. The caller
+  /// checks current selection/source identity inside its real transaction.
+  /// Only a proven same-key/context catalogue mirror follows the delta;
+  /// unrelated headers, quarantine data and unknown keys are untouched.
+  Map<String, Object?> updateMetadataSource(
+    Map<String, Object?> root, {
+    required String? sourceFile,
+    ChatJsonlMetadataSource? target,
+    required Map<String, Object?> Function(Map<String, Object?>) update,
+  }) {
+    final result = _clone(root);
+    final source = target ?? _metadataSource(result, sourceFile);
+    if (source.sourceFile != sourceFile) {
+      throw const FormatException('The selected metadata source is absent.');
+    }
+    if (source.carrier == ChatJsonlMetadataCarrier.root) return _clone(update(result));
+    final header = _metadataSourceHeader(result, source);
+    if (header == null) throw const FormatException('The selected metadata source is absent.');
+    final metadata = header['chat_metadata'];
+    if (metadata != null && metadata is! Map<String, Object?>) {
+      throw const FormatException('The selected source metadata is not an object.');
+    }
+    final before = _map(metadata);
+    final after = _clone(update(_clone(before)));
+    header['chat_metadata'] = after;
+    if (source.carrier == ChatJsonlMetadataCarrier.sources) {
+      // The normal importer also keeps the file's terminal header. Only its
+      // same-key, same-context mirror follows this edit; a historical context
+      // with the same label remains independent. Apply the context delta once,
+      // preserving the catalogue's variables, navigation and unknown fields.
+      final own = _view(_view(result['dshgo'])[_namespace]);
+      final files = own['files'];
+      final beforeContext = _contextMetadata(before);
+      final afterContext = _contextMetadata(after);
+      if (files is List<Object?>) {
+        for (final file in files.whereType<Map<String, Object?>>()) {
+          final mirror = file['header'];
+          if (file['key'] != sourceFile || mirror is! Map<String, Object?>) continue;
+          final raw = mirror['chat_metadata'];
+          if (raw != null && raw is! Map<String, Object?>) continue;
+          final current = _map(raw);
+          if (_canonical(_contextMetadata(current)) != _canonical(beforeContext)) continue;
+          mirror['chat_metadata'] = _metadataContextDelta(current, beforeContext, afterContext);
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Single-page ST object at the actual commit watermark. It shares the
+  /// existing export projection/family logic without serializing a whole
+  /// JSONL document, inventing a header integrity, or changing stored values.
+  Map<String, Object?> projectMessage(ChatStore store, String chatId, String nodeId) {
+    final tree = _ExportTree(store, chatId, null, _createIntegrity);
+    final node = tree.byId[nodeId];
+    if (node == null) throw StateError('The committed message is absent.');
+    return _clone(tree._exportMessage(node, const {}));
+  }
+
+  List<StChatDocument> exportChat(
+    ChatStore store,
+    String chatId, {
+    String? fileName,
+    Map<String, TavernUsage?> usageOverrides = const {},
+  }) => _ExportTree(store, chatId, fileName, _createIntegrity, usageOverrides: usageOverrides).documents();
 }
 
 const _namespace = 'chatJsonl';
@@ -183,7 +326,13 @@ final class _ExportJob {
 }
 
 final class _ExportTree {
-  _ExportTree(this.store, this.chatId, this.requestedName, this.createIntegrity) {
+  _ExportTree(
+    this.store,
+    this.chatId,
+    this.requestedName,
+    this.createIntegrity, {
+    Map<String, TavernUsage?> usageOverrides = const {},
+  }) : usageOverrides = Map.unmodifiable(usageOverrides) {
     chat = store.chat(chatId);
     nodes = store.allNodes(chatId);
     for (final node in nodes) {
@@ -196,6 +345,7 @@ final class _ExportTree {
   final String chatId;
   final String? requestedName;
   final String Function() createIntegrity;
+  final Map<String, TavernUsage?> usageOverrides;
   late final StoredChat chat;
   late final List<StoredNode> nodes;
   late final List<Map<String, Object?>> sourceFiles;
@@ -377,7 +527,8 @@ final class _ExportTree {
   Map<String, Object?> _exportHeader(_ExportJob job, String mainName, bool isMain, Set<String> integrities) {
     final result = _sourceHeader(job.header);
     var metadata = _map(result['chat_metadata']);
-    if (isMain && _canonical(_contextMetadata(metadata)) == _canonical(_contextMetadata(chat.metadata))) {
+    if (isMain &&
+        (job.path.isEmpty || _canonical(_contextMetadata(metadata)) == _canonical(_contextMetadata(chat.metadata)))) {
       metadata = _map(_sourceHeader({'chat_metadata': chat.metadata})['chat_metadata']);
     }
     if (job.path.isNotEmpty) {
@@ -501,6 +652,7 @@ final class _ExportTree {
     if (own.isNotEmpty && own['version'] != 1) {
       throw StateError('Unsupported stored dshgo.chatJsonl version.');
     }
+    own.remove('speakerCharacterId');
     final state = _state(node);
     own.addAll({
       'version': 1,
@@ -509,8 +661,11 @@ final class _ExportTree {
       'message': _messageFields(node),
       'text': node.message.text,
       'role': node.message.role.name,
+      'speakerCharacterId': ?node.message.speakerCharacterId,
       'hidden': node.message.hidden,
-      'usage': _usageJson(node.message.usage),
+      'usage': _usageJson(
+        usageOverrides.containsKey(node.message.nodeId) ? usageOverrides[node.message.nodeId] : node.message.usage,
+      ),
       'at': node.message.at.toUtc().toIso8601String(),
       'hasMessageVariables': state.containsKey('messageVariables'),
       'sourceHeader': _runtimeSourceHeader(_headerFor(node)),
@@ -797,14 +952,16 @@ final class _Variant {
     name = _text(original['name']);
     final user = original['is_user'] == true;
     final roleName = own['version'] == 1 ? own['role'] : null;
+    // A portable character/system role takes precedence over the ST type hint.
     role = user
         ? TavernRole.user
-        : extra['type'] == 'narrator' || roleName == 'narrator'
+        : roleName == 'narrator' || (extra['type'] == 'narrator' && roleName != 'character' && roleName != 'system')
         ? TavernRole.narrator
         : roleName == 'system'
         ? TavernRole.system
         : TavernRole.character;
     hidden = original['is_system'] == true;
+    speakerCharacterId = role == TavernRole.character ? own['speakerCharacterId'] as String? : null;
     if (role == TavernRole.system && own['hidden'] is bool) {
       hidden = own['hidden'] as bool;
     }
@@ -880,6 +1037,7 @@ final class _Variant {
           if (!_swipeFields.contains(entry.key)) entry.key: entry.value,
       },
       'role': role.name,
+      'speakerCharacterId': speakerCharacterId,
       'hidden': hidden,
       'rawSwipe': rawSwipe,
       'usage': _usageJson(usage),
@@ -892,6 +1050,7 @@ final class _Variant {
   late Map<String, Object?> state;
   late String text;
   late String name;
+  late String? speakerCharacterId;
   late TavernRole role;
   late bool hidden;
   late String? reasoning;
@@ -1152,7 +1311,15 @@ Map<String, Object?> _checkedEnvelope(Object? value, StChatDocument document, in
   if (result.isNotEmpty && result['version'] != 1) {
     _error(document, line, 'Unsupported dshgo.chatJsonl version; no part of this batch was imported.');
   }
-  for (final key in ['nodeId', 'selectedChildId', 'text', 'at', 'sourceFileName', 'runtimeContext']) {
+  for (final key in [
+    'nodeId',
+    'selectedChildId',
+    'speakerCharacterId',
+    'text',
+    'at',
+    'sourceFileName',
+    'runtimeContext',
+  ]) {
     if (result[key] != null && result[key] is! String) {
       _error(document, line, 'chatJsonl.$key must be text.');
     }
@@ -1399,27 +1566,82 @@ List<Map<String, Object?>> _sourceFiles(Map<String, Object?> metadata) {
 }
 
 Map<String, Object?>? _sourceFor(Map<String, Object?> metadata, Object? key) {
-  if (key is! String) {
-    return null;
-  }
+  final source = _metadataSource(metadata, key);
+  final header = _metadataSourceHeader(metadata, source);
+  return header == null ? null : _clone(header);
+}
+
+ChatJsonlMetadataSource _metadataSource(Map<String, Object?> metadata, Object? key) {
+  if (key is! String) return const ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.root, null, null);
   final own = _view(_view(metadata['dshgo'])[_namespace]);
   final source = _view(own['sources'])[key];
   if (source is Map<String, Object?>) {
-    return _clone(source);
+    return ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.sources, key, null);
   }
   final files = own['files'];
   if (files is List<Object?>) {
-    for (final entry in files.whereType<Map<String, Object?>>()) {
-      if (entry['key'] == key && entry['header'] is Map<String, Object?>) {
-        return _map(entry['header']);
+    for (var index = 0; index < files.length; index++) {
+      final entry = files[index];
+      if (entry is Map<String, Object?> && entry['key'] == key && entry['header'] is Map<String, Object?>) {
+        return ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.files, key, index);
       }
     }
+  }
+  return const ChatJsonlMetadataSource._(ChatJsonlMetadataCarrier.root, null, null);
+}
+
+Map<String, Object?>? _metadataSourceHeader(Map<String, Object?> metadata, ChatJsonlMetadataSource source) {
+  final own = _view(_view(metadata['dshgo'])[_namespace]);
+  if (source.carrier == ChatJsonlMetadataCarrier.sources) {
+    final header = _view(own['sources'])[source.sourceFile];
+    return header is Map<String, Object?> ? header : null;
+  }
+  if (source.carrier == ChatJsonlMetadataCarrier.files) {
+    final files = own['files'];
+    final index = source.fileIndex;
+    if (files is! List<Object?> || index == null || index < 0 || index >= files.length) return null;
+    final entry = files[index];
+    if (entry is! Map<String, Object?> || entry['key'] != source.sourceFile) return null;
+    final header = entry['header'];
+    return header is Map<String, Object?> ? header : null;
   }
   return null;
 }
 
+Map<String, Object?> _metadataContextDelta(
+  Map<String, Object?> current,
+  Map<String, Object?> before,
+  Map<String, Object?> after,
+) {
+  final result = _clone(current);
+  for (final key in {...before.keys, ...after.keys}) {
+    if (!after.containsKey(key)) {
+      final oldValue = before[key];
+      final actual = result[key];
+      if (oldValue is Map<String, Object?> && actual is Map<String, Object?>) {
+        final remaining = _metadataContextDelta(actual, oldValue, const {});
+        if (remaining.isEmpty) {
+          result.remove(key);
+        } else {
+          result[key] = remaining;
+        }
+      } else {
+        result.remove(key);
+      }
+    } else if (!before.containsKey(key) || _canonical(before[key]) != _canonical(after[key])) {
+      final oldValue = before[key];
+      final newValue = after[key];
+      final actual = result[key];
+      result[key] = newValue is Map<String, Object?> && actual is Map<String, Object?>
+          ? _metadataContextDelta(actual, oldValue is Map<String, Object?> ? oldValue : const {}, newValue)
+          : _clone({'value': newValue})['value'];
+    }
+  }
+  return result;
+}
+
 Map<String, Object?> _effectiveState(ChatStore store, String chatId, StoredNode node) {
-  final override = _map(node.extra['dshgo'])['tavernState'];
+  final override = _view(node.extra['dshgo'])['tavernState'];
   return override is Map<String, Object?> ? _clone(override) : store.nodeState(chatId, node.message.nodeId);
 }
 

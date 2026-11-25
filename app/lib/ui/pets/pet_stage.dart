@@ -31,6 +31,7 @@ import '../../state/chat_state.dart';
 import '../../state/hosts_state.dart';
 import '../../state/sessions_state.dart';
 import '../../state/ui_mode_state.dart';
+import '../chat/run_info.dart';
 import '../chat/widgets/approval_card.dart';
 import '../chat/widgets/question_card.dart';
 import '../common/discard_guard.dart';
@@ -39,6 +40,7 @@ import 'pet_bubble.dart';
 import 'pet_menu.dart';
 import 'pet_perch.dart';
 import 'pet_sprite.dart';
+import 'pet_live2d_view.dart';
 
 /// Geometry and timing shared with the tests.
 abstract final class PetMetrics {
@@ -74,6 +76,10 @@ abstract final class PetMetrics {
   /// A tickle: this many taps within [tickleWithin].
   static const tickleTaps = 3;
   static const tickleWithin = Duration(milliseconds: 1100);
+
+  /// Tapping on through a tickle into this many taps annoys it, when the pack
+  /// has an `annoyed` reaction.
+  static const annoyedTaps = 6;
 }
 
 /// The pet over the chat page. Wrap the page body; capsules inside report
@@ -206,7 +212,8 @@ final _pageFocusProvider = Provider.autoDispose.family<PetFocus?, String?>((ref,
   if (id == null) return null;
   final host = ref.watch(activeHostProvider);
   final compacting = ref.watch(petCompactingProvider(id));
-  return ref.watch(chatProvider(id).select((s) => petFocusOf(host, id, s, compacting: compacting)));
+  final activity = ref.watch(runActivityProvider(id));
+  return ref.watch(chatProvider(id).select((s) => petFocusOf(host, id, s, activity, compacting: compacting)));
 });
 
 /// Tells the pet what the conversation on screen is doing (its activity,
@@ -326,7 +333,13 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   // ── One-offs ──
   PetAnimation? _reaction;
   Timer? _reactionTimer;
+
+  /// A Live2D pet's reaction key, cleared soon after it so the same tap can
+  /// play the same motion again.
+  String? _live2dReaction;
+  Timer? _live2dReactionTimer;
   PetAnimation? _variant;
+  Timer? _variantTimer;
   Timer? _idleTimer;
   Timer? _roamTimer;
   Timer? _unhideTimer;
@@ -393,6 +406,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     widget.registry.removeListener(_schedulePoll);
     widget.registry.occupied.value = null;
     _reactionTimer?.cancel();
+    _variantTimer?.cancel();
     _idleTimer?.cancel();
     _roamTimer?.cancel();
     _unhideTimer?.cancel();
@@ -502,7 +516,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   double get _scale {
     final pack = _pack;
     if (pack == null) return 1;
-    return petScale(pack, ref.read(petPrefsProvider).size, _dpr);
+    final prefs = ref.read(petPrefsProvider);
+    return petScale(pack, prefs.size, _dpr, customHeight: prefs.customHeight);
   }
 
   /// Body extents left and right of the foot point, logical px.
@@ -575,6 +590,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (!mounted || !_active) return;
     final pack = _pack;
     if (pack == null) return;
+    _variantTimer?.cancel();
+    _variant = null;
     if (next != PetStateName.idle) {
       _idleTimer?.cancel();
       _roamTimer?.cancel();
@@ -583,14 +600,12 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
         _walk.stop();
         _walking = false;
       }
-      _variant = null;
     }
-    // A celebration now and then plays one of its extras.
-    if (next == PetStateName.attention) {
-      final bonus = pack.bonusOf(PetStateName.attention);
-      if (bonus != null && PetLayer.random.nextDouble() < bonus.chance) {
-        _variant = pack.animations[bonus.anims[PetLayer.random.nextInt(bonus.anims.length)]];
-      }
+    // Now and then a state plays one of its extras: a celebration's confetti,
+    // ultrathink while thinking, one of the working-day scenes.
+    final bonus = next == PetStateName.idle ? null : pack.bonusOf(next);
+    if (bonus != null && PetLayer.random.nextDouble() < bonus.chance) {
+      _startVariant(pack.animations[bonus.anims[PetLayer.random.nextInt(bonus.anims.length)]]);
     }
     // Touching a sleeper only wakes it.
     if (next == PetStateName.sleeping || next == PetStateName.waking) _clearReaction();
@@ -598,14 +613,26 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     setState(() {});
   }
 
+  /// Plays [anim] over the state's own animation for one pass, then back.
+  void _startVariant(PetAnimation? anim) {
+    if (anim == null) return;
+    final pack = _pack;
+    _variant = anim;
+    _variantTimer?.cancel();
+    _variantTimer = Timer(Duration(milliseconds: pack?.playOf(anim) ?? anim.durationMs), () {
+      if (mounted) setState(() => _variant = null);
+    });
+  }
+
   bool get _reduced => AppMotion.reduced(context);
 
-  /// Idle: now and then an idle extra, now and then a walk.
+  /// Idle: now and then an idle extra, now and then a walk. A Live2D pet has
+  /// no walk and no extra sprite frames: its idle motion is the state itself.
   void _armIdle() {
     _idleTimer?.cancel();
     _roamTimer?.cancel();
     final pack = _pack;
-    if (_reduced || pack == null) return;
+    if (_reduced || pack == null || pack.live2d != null) return;
     _idleTimer = Timer(pack.idleEvery.draw(PetLayer.random.nextDouble()), _idleTick);
     _armRoam();
   }
@@ -619,7 +646,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   void _idleTick() {
     if (!mounted || !_active) return;
     final pack = _pack;
-    if (pack == null || _lastState != PetStateName.idle) return;
+    if (pack == null || pack.live2d != null || _lastState != PetStateName.idle) return;
     final pool = pack.idles;
     if (pool.isEmpty) return;
     if (_walking || _reaction != null || _dragging || !_visible) {
@@ -658,7 +685,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (!mounted || !_active) return;
     final spot = _spot;
     final pack = _pack;
-    if (spot == null || pack == null || _lastState != PetStateName.idle) return;
+    if (spot == null || pack == null || pack.live2d != null || _lastState != PetStateName.idle) return;
     final bubbleUp = ref.read(petScopedStateProvider(_scope)).bubble != null;
     if (_dragging || _reaction != null || _typing || (widget.scrolling?.value ?? false) || bubbleUp || !_visible) {
       _armRoam();
@@ -719,6 +746,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   void _clearReaction() {
     _reactionTimer?.cancel();
     _reaction = null;
+    _live2dReactionTimer?.cancel();
+    _live2dReaction = null;
   }
 
   // ── Touch ──────────────────────────────────────────────────────────────────
@@ -741,19 +770,50 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     _taps
       ..removeWhere((t) => now.difference(t) > PetMetrics.tickleWithin)
       ..add(now);
+    final live2d = pack.live2d;
+    final canAnnoy = live2d != null ? live2d.reactions.containsKey('annoyed') : pack.reactions.containsKey('annoyed');
+    if (_taps.length >= PetMetrics.annoyedTaps && canAnnoy) {
+      // Tapped through a whole tickle and on: that is enough.
+      _taps.clear();
+      HapticFeedback.heavyImpact();
+      _playReaction('annoyed');
+      return;
+    }
     if (_taps.length >= PetMetrics.tickleTaps) {
       // Tapping on keeps the tickle going.
       HapticFeedback.lightImpact();
-      _play(pack.reaction('tickle'));
+      _playReaction('tickle');
       return;
     }
-    if (_reaction != null && _reaction == pack.reaction('tickle')) {
-      _play(_reaction);
+    final tickling = live2d != null
+        ? _live2dReaction == 'tickle'
+        : (pack.reactions['tickle']?.contains(_reaction?.name) ?? false);
+    if (tickling) {
+      _playReaction('tickle');
       return;
     }
     HapticFeedback.selectionClick();
     final left = details.localPosition.dx < pack.anchorX * _scale;
-    _play(pack.reaction(left ? 'tapLeft' : 'tapRight'));
+    _playReaction(left ? 'tapLeft' : 'tapRight');
+  }
+
+  /// A reaction: a sprite animation, or a Live2D motion the view plays once.
+  void _playReaction(String key) {
+    final pack = _pack;
+    if (pack == null) return;
+    final live2d = pack.live2d;
+    if (live2d != null) {
+      if (!live2d.reactions.containsKey(key)) return;
+      _live2dReactionTimer?.cancel();
+      setState(() => _live2dReaction = key);
+      // Cleared soon, so the same tap plays the same motion again; the view
+      // goes back to the state's own motion by itself.
+      _live2dReactionTimer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) setState(() => _live2dReaction = null);
+      });
+      return;
+    }
+    _play(pack.reactionOutOf(key, PetLayer.random));
   }
 
   void _onDragStart(DragStartDetails details) {
@@ -817,6 +877,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
+  /// The body's first frame is on screen: fade it in (sprite or poster).
+  void _onBodyShown() {
+    if (_ready) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_ready) setState(() => _ready = true);
+    });
+  }
+
   /// [origin] moved so the canvas's top-left lands on a device pixel.
   Offset _snap(PerchSpot spot, Offset origin) {
     final dpr = _dpr;
@@ -838,10 +906,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       final next = pet.state;
       WidgetsBinding.instance.addPostFrameCallback((_) => _onState(next));
     }
-    if (pack != null && !identical(pack, _pinned)) {
+    if (!identical(pack, _pinned)) {
       _pinned = pack;
-      PetSheets.instance.pin(pack, pack.animFor(PetStateName.idle));
-      _ready = false;
+      if (pack == null) {
+        PetSheets.instance.unpin();
+      } else {
+        PetSheets.instance.pin(pack, pack.animFor(PetStateName.idle));
+        _ready = false;
+      }
     }
     _armUnhide(prefs);
     _schedulePoll();
@@ -866,10 +938,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
     final anim = _dragging
         ? (pack.reaction('drag') ?? pack.animFor(pet.state, tier: pet.tier))
-        : _reaction ??
-              (_walking ? pack.roam : null) ??
-              (pet.state == PetStateName.idle || pet.state == PetStateName.attention ? _variant : null) ??
-              pack.animFor(pet.state, tier: pet.tier);
+        : _reaction ?? (_walking ? pack.roam : null) ?? _variant ?? pack.animFor(pet.state, tier: pet.tier);
     _anim = anim;
     final flip = _walking && pack.mirrorWalking(right: _walkRight);
 
@@ -929,20 +998,29 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
                   child: SizedBox.fromSize(
                     key: const ValueKey('pet-body'),
                     size: canvas,
-                    child: PetSprite(
-                      pack: pack,
-                      anim: anim,
-                      scale: s,
-                      flip: flip,
-                      paused: pauseSprite,
-                      onShown: () {
-                        if (_ready) return;
-                        // Shown during a frame: ready right after it.
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted && !_ready) setState(() => _ready = true);
-                        });
-                      },
-                    ),
+                    child: pack.live2d == null
+                        ? PetSprite(
+                            pack: pack,
+                            anim: anim,
+                            scale: s,
+                            flip: flip,
+                            paused: pauseSprite,
+                            onShown: _onBodyShown,
+                          )
+                        : PetLive2dView(
+                            pack: pack,
+                            state: pet.state,
+                            reaction: _live2dReaction,
+                            paused: pauseSprite || !shown,
+                            child: PetSprite(
+                              pack: pack,
+                              anim: anim,
+                              scale: s,
+                              flip: flip,
+                              paused: pauseSprite,
+                              onShown: _onBodyShown,
+                            ),
+                          ),
                   ),
                 ),
               ),

@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "id": "aurora",
+  "name": "极光天幕",
+  "author": "dsh-Go",
+  "duration": 20,
+  "loop": true,
+  "render": { "fpsCap": 30 },
+  "background": {
+    "colors": ["#A8D8FF", "#D6ECFF", "#FFF4E0"],
+    "stops": [0, 0.55, 1],
+    "angle": 90
+  },
+  "layers": [
+    {
+      "id": "sun",
+      "kind": "glow",
+      "depth": 0.1,
+      "color": "#FFE7A3",
+      "falloff": 0.55,
+      "opacity": 0.7,
+      "area": [0.55, -0.12, 1.2, 0.5]
+    },
+    {
+      "id": "pollen",
+      "kind": "particles",
+      "depth": 0.8,
+      "count": 60,
+      "colors": ["#FFFFFF", "#FFD9A0"],
+      "area": [0, 0.1, 1, 1],
+      "size": [1.2, 2.6],
+      "speed": [4, 14],
+      "lifetime": [8, 16],
+      "angle": [200, 340],
+      "gravity": -3,
+      "fade": [0.2, 0.4],
+      "opacity": 0.65
+    }
+  ],
+  "timeline": [
+    { "target": "sun.opacity", "mode": "loop", "keys": [[0, 0.55], [6, 0.85], [12, 0.55]] },
+    { "target": "sun.scale", "mode": "pingpong", "keys": [[0, 1.0], [10, 1.08], [20, 1.0]] },
+    { "target": "pollen.speed", "mode": "pingpong", "keys": [[0, 0.7], [8, 1.2], [16, 0.7]] }
+  ],
+  "periods": {
+    "dusk": {
+      "tint": "#1A2A4D55",
+      "background": {
+        "colors": ["#FF9A62", "#D4685F", "#3B2A5C"],
+        "stops": [0, 0.45, 1],
+        "angle": 90
+      },
+      "layers": [
+        {
+          "id": "ember-sun",
+          "kind": "glow",
+          "depth": 0.2,
+          "color": "#FF6B3D",
+          "falloff": 0.6,
+          "opacity": 0.85,
+          "area": [0.05, 0.45, 0.75, 1.15]
+        },
+        {
+          "id": "ember-glow",
+          "kind": "glow",
+          "depth": 0.3,
+          "color": "#FFC27A",
+          "falloff": 0.35,
+          "opacity": 0.25,
+          "area": [0, 0.5, 1, 1]
+        },
+        {
+          "id": "embers",
+          "kind": "particles",
+          "depth": 0.9,
+          "count": 90,
+          "colors": ["#FFD08A", "#FF7A45"],
+          "area": [0, 0.35, 1, 1.05],
+          "size": [1.4, 3],
+          "speed": [3, 9],
+          "lifetime": [5, 11],
+          "angle": [250, 290],
+          "gravity": -6,
+          "drag": 0.4,
+          "fade": [0.15, 0.4],
+          "opacity": 0.8
+        }
+      ],
+      "timeline": [
+        { "target": "ember-sun.opacity", "mode": "loop", "keys": [[0, 0.65], [5, 0.95], [11, 0.65]] },
+        { "target": "embers.speed", "mode": "pingpong", "keys": [[0, 0.6], [7, 1.3], [14, 0.6]] }
+      ]
+    },
+    "night": {
+      "background": {
+        "colors": ["#05070F", "#0F1D33", "#17324F"],
+        "stops": [0, 0.55, 1],
+        "angle": 100
+      },
+      "layers": [
+        {
+          "id": "moon",
+          "kind": "glow",
+          "depth": 0.15,
+          "color": "#CFE0FF",
+          "falloff": 0.5,
+          "opacity": 0.55,
+          "area": [0.55, -0.05, 1.0, 0.45]
+        },
+        {
+          "id": "stars",
+          "kind": "particles",
+          "depth": 0.5,
+          "count": 300,
+          "colors": ["#FFFFFF", "#BCD4FF"],
+          "area": [0, 0, 1, 0.8],
+          "size": [0.8, 2.2],
+          "speed": [1, 5],
+          "lifetime": [10, 22],
+          "angle": [0, 360],
+          "fade": [0.1, 0.35],
+          "opacity": 0.9
+        },
+        {
+          "id": "meteors",
+          "kind": "particles",
+          "depth": 1.0,
+          "count": 6,
+          "colors": ["#FFFFFF", "#7FB2FF"],
+          "area": [-0.1, -0.1, 0.6, 0.4],
+          "size": [1.6, 2.6],
+          "speed": [60, 110],
+          "lifetime": [1.2, 2.4],
+          "angle": [30, 40],
+          "drag": 1.2,
+          "fade": [0.1, 0.6],
+          "opacity": 0.85
+        }
+      ],
+      "timeline": [
+        { "target": "moon.opacity", "mode": "loop", "keys": [[0, 0.45], [9, 0.7], [18, 0.45]] },
+        { "target": "moon.scale", "mode": "pingpong", "keys": [[0, 1.0], [12, 1.06], [24, 1.0]] },
+        { "target": "stars.speed", "mode": "pingpong", "keys": [[0, 0.5], [10, 1.2], [20, 0.5]] }
+      ]
+    }
+  }
+}

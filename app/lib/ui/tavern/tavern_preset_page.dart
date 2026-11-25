@@ -23,6 +23,7 @@ import '../shell/page_frame.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_message_edit_page.dart';
+import 'tavern_number_tile.dart';
 import 'tavern_presets_page.dart';
 import 'tavern_stepper.dart';
 
@@ -100,6 +101,17 @@ List<TavernPresetPrompt> tavernPresetPrompts(Map<String, Object?> raw) {
   ];
 }
 
+/// A sampling number as a preset has it; ST writes some as strings ("0.9").
+/// An imported preset can say "Infinity": that is no setting either.
+num _number(Object? value, num fallback) => switch (value) {
+  final num n when n.isFinite => n,
+  final String s => switch (num.tryParse(s)) {
+    final n? when n.isFinite => n,
+    _ => fallback,
+  },
+  _ => fallback,
+};
+
 /// A prompt's text: its own, else the legacy top-level field ST keeps for the
 /// three classic prompts.
 String _contentOf(Map<String, Object?> raw, Map<String, Object?>? prompt, String id) => switch (prompt?['content']) {
@@ -156,41 +168,50 @@ class TavernPresetPage extends ConsumerWidget {
     return AppPage.list(
       title: preset.name,
       children: [
-        SheetGroup(
+        SettingsSection(
           key: const ValueKey('tavern-preset-numbers'),
           title: l10n.tavernPresetParams,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           children: [
-            SettingsSegmentTile<int>(
+            TavernNumberTile(
               key: const ValueKey('tavern-preset-context'),
               icon: AppIcons.tavernContext,
               title: l10n.tavernMaxContext,
-              segments: [for (final t in tavernContextSizes) PillSegment(t, '${(t + 1) ~/ 1024}K')],
-              selected: numbers.maxContext,
-              onChanged: (t) => set(TavernGenerationController.contextKey, t),
+              presets: tavernContextSizes,
+              presetLabel: tavernContextLabel,
+              value: numbers.maxContext,
+              min: tavernContextRange.min,
+              max: tavernContextRange.max,
+              integer: true,
+              onChanged: (t) => set(TavernGenerationController.contextKey, t.toInt()),
             ),
-            SettingsSegmentTile<int>(
+            TavernNumberTile(
               key: const ValueKey('tavern-preset-reply'),
               icon: AppIcons.tavernReplyLength,
               title: l10n.tavernMaxReply,
-              segments: [for (final t in tavernReplySizes) PillSegment(t, '$t')],
-              selected: numbers.maxReply,
-              onChanged: (t) => set(TavernGenerationController.replyKey, t),
+              presets: tavernReplySizes,
+              value: numbers.maxReply,
+              min: tavernReplyRange.min,
+              max: tavernReplyRange.max,
+              integer: true,
+              onChanged: (t) => set(TavernGenerationController.replyKey, t.toInt()),
             ),
-            SettingsSegmentTile<double>(
+            TavernNumberTile(
               key: const ValueKey('tavern-preset-temperature'),
               icon: AppIcons.tavernTemperature,
               title: l10n.tavernTemperature,
-              segments: [for (final t in tavernTemperatures) PillSegment(t, t.toStringAsFixed(1))],
-              selected: numbers.temperature,
-              onChanged: (t) => set(TavernGenerationController.temperatureKey, t),
+              presets: tavernTemperatures,
+              presetLabel: (t) => t.toStringAsFixed(1),
+              value: numbers.temperature,
+              min: tavernTemperatureRange.min,
+              max: tavernTemperatureRange.max,
+              onChanged: (t) => set(TavernGenerationController.temperatureKey, t.toDouble()),
             ),
           ],
         ),
-        SheetGroup(
+        SettingsSection(
           key: const ValueKey('tavern-preset-prefill-group'),
           title: l10n.tavernPrefill,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          footer: Text(l10n.tavernPrefillNote),
           children: [
             SettingsSwitchTile(
               key: const ValueKey('tavern-preset-prefill'),
@@ -201,8 +222,6 @@ class TavernPresetPage extends ConsumerWidget {
             ),
             SettingsTile(
               key: const ValueKey('tavern-preset-prefill-text'),
-              icon: AppIcons.edit,
-              tinted: false,
               title: l10n.tavernPrefillText,
               subtitle: prefillText.trim().isEmpty ? l10n.tavernPrefillTextEmpty : _line(prefillText),
               onTap: () => unawaited(editPrefill()),
@@ -216,14 +235,9 @@ class TavernPresetPage extends ConsumerWidget {
             ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
-          child: Text(l10n.tavernPrefillNote, style: quiet),
-        ),
-        SheetGroup(
+        SettingsSection(
           key: const ValueKey('tavern-preset-prompts'),
           title: l10n.tavernPresetPrompts,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
             if (prompts.isEmpty)
               Padding(
@@ -260,11 +274,44 @@ class TavernPresetPage extends ConsumerWidget {
             if (prompts.length > 1)
               SettingsTile(
                 key: const ValueKey('tavern-preset-order'),
-                icon: AppIcons.dragHandle,
-                tinted: false,
                 title: l10n.tavernPresetOrder,
                 onTap: () => unawaited(showTavernPresetOrder(context, presetId, prompts)),
               ),
+          ],
+        ),
+        // The rest of what the preset sends, less often touched: last, in a
+        // group of their own, without icons.
+        SettingsSection(
+          key: const ValueKey('tavern-preset-sampling'),
+          title: l10n.tavernPresetSampling,
+          children: [
+            TavernNumberTile(
+              key: const ValueKey('tavern-preset-top-p'),
+              title: l10n.tavernTopP,
+              presets: tavernTopPs,
+              value: _number(raw['top_p'], 1),
+              min: tavernTopPRange.min,
+              max: tavernTopPRange.max,
+              onChanged: (v) => set('top_p', v.toDouble()),
+            ),
+            TavernNumberTile(
+              key: const ValueKey('tavern-preset-presence'),
+              title: l10n.tavernPresencePenalty,
+              presets: tavernPenalties,
+              value: _number(raw['presence_penalty'], 0),
+              min: tavernPenaltyRange.min,
+              max: tavernPenaltyRange.max,
+              onChanged: (v) => set('presence_penalty', v.toDouble()),
+            ),
+            TavernNumberTile(
+              key: const ValueKey('tavern-preset-frequency'),
+              title: l10n.tavernFrequencyPenalty,
+              presets: tavernPenalties,
+              value: _number(raw['frequency_penalty'], 0),
+              min: tavernPenaltyRange.min,
+              max: tavernPenaltyRange.max,
+              onChanged: (v) => set('frequency_penalty', v.toDouble()),
+            ),
           ],
         ),
       ],
@@ -274,7 +321,11 @@ class TavernPresetPage extends ConsumerWidget {
 
 /// [text] as one short line: its first line, cut at about 40 characters.
 String _line(String text) {
-  final first = text.trim().split('\n').first.trim();
+  // The first line found, not every line split out: a preset's prompts can
+  // run to many kilobytes each, and the page lists them all.
+  final start = text.trimLeft();
+  final end = start.indexOf('\n');
+  final first = (end < 0 ? start : start.substring(0, end)).trim();
   return first.length > 40 ? '${first.substring(0, 40)}…' : first;
 }
 
@@ -369,12 +420,11 @@ class _PromptSheetState extends ConsumerState<_PromptSheet> {
           children: [
             SheetTitleBar(widget.prompt.name),
             SheetGroup(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              // The sheet's gutter, as its title has.
+              margin: const EdgeInsets.fromLTRB(kSheetGutter, 0, kSheetGutter, 8),
               children: [
                 SettingsTile(
                   key: const ValueKey('tavern-prompt-content'),
-                  icon: AppIcons.edit,
-                  tinted: false,
                   title: l10n.tavernPromptContent,
                   subtitle: _content.trim().isEmpty ? l10n.tavernPresetPromptEmpty : _line(_content),
                   onTap: () => unawaited(_editContent()),
@@ -445,7 +495,7 @@ class _PromptSheetState extends ConsumerState<_PromptSheet> {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
+              padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 16),
               child: Text(
                 _inChat
                     ? '${l10n.tavernPromptDepthNote(_depth)}${l10n.tavernPromptOrderNote}'

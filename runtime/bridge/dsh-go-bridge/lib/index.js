@@ -1,3 +1,4 @@
+import { mountCompanionTasks } from "./companion/task-service.js";
 // dsh-go-bridge, host half (docs/design/plugin-seams.md §5.2, §9.2).
 //
 //   GET  /dsh-go/v1/inventory   wire format v1: release, packages with browser halves, the last
@@ -23,7 +24,10 @@ import { join } from "node:path";
 import { STATUS_CODES, get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import { createPluginConfig, pluginConfigUnavailable } from "./plugin-config.js";
+import { injectPromiseWithResolvers } from "./web-promise.js";
 import { createSessionDeletion, sessionDeletionUnavailable } from "./session-deletion.js";
+import { createSpeechRoutes } from "./speech.js";
+import { createUsage } from "./usage.js";
 import { createCompanionRoutes } from "./companion/routes.js";
 import { createCompanionPromptContext, FULL_PRESET } from './companion/prompt-context.js';
 import { createCompanionStore } from "./companion/store.js";
@@ -44,6 +48,7 @@ const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
 const CAPABILITIES = [
   "inventory", "occupancy", "native-ui", "native-stream", "native-media", "native-files",
   "plugin-config", "session-deletion", "companion", "companion-prompt-context", "companion-recall", "companion-signals",
+  "speech",
 ];
 const ORIGINAL = Symbol.for("cordis.original");
 const GUARDED = Symbol.for("dsh-go.guarded");
@@ -291,7 +296,9 @@ export function apply(ctx, config) {
     if (isCompanion(agent)) companionPrompt.claim(agent, message, turn);
   });
   ctx.on('agent/inbox/discarded', ({ agent, message }) => companionPrompt.discard(agent, message));
+  const usage = createUsage();
   ctx.on('session/event', (session, event) => {
+    usage.observe(event);
     if (event.type === 'user/message') companionPrompt.commit(session, event.data, event.time);
     if (event.type === 'turn/end') companionPrompt.end(session);
   });
@@ -321,7 +328,11 @@ export function apply(ctx, config) {
   let pluginConfig;
   ctx.on("internal/status", (fiber) => { native.markDirty(); pluginConfig?.statusChanged(fiber); });
 
+  mountCompanionTasks(ctx);
+
   ctx.inject(["webServer"], (webCtx) => {
+    webCtx.effect(() => webCtx.webServer.tapIndex(injectPromiseWithResolvers),
+      "dsh-go-bridge: browser Promise.withResolvers");
     const routeGuardMode = options.guardRoutes === false ? "off" : installFallbackGuard(webCtx, open);
 
     // Guard self-test: a credential-less request to an unauthenticated route registered like any
@@ -389,10 +400,13 @@ export function apply(ctx, config) {
       };
     };
 
-    const nativeRoutes = createNativeRoutes(native);
+    const nativeRoutes = createNativeRoutes(native, { beginUsage: usage.beginPlugin });
     pluginConfig = createPluginConfig(webCtx, { readBody, send });
     const sessionDeletion = createSessionDeletion(webCtx, { readBody, send });
+    const speechRoutes = createSpeechRoutes(webCtx, { send, fetch: options.speech?.fetch, apiKeyEnv: options.speech?.apiKeyEnv });
+    webCtx.effect(() => () => speechRoutes.dispose(), "dsh-go-bridge: speech routes");
     const companionRoutes = createCompanionRoutes({ send, store: companionStore, recall: companionRecall, signals: companionSignals, ctx: webCtx, promptContext: companionPrompt });
+    webCtx.effect(() => () => companionRoutes.dispose(), 'dsh-go-bridge: companion auxiliary requests');
     webCtx.effect(() => () => nativeRoutes.dispose(), "dsh-go-bridge: native routes");
     webCtx.effect(() => webCtx.webServer.registerUpgrade({
       path: STREAM_PATH,
@@ -411,8 +425,16 @@ export function apply(ctx, config) {
       if (rejection !== undefined) return send(res, rejection, rejection === 503 && (sessionDeletionUnavailable(req) || pluginConfigUnavailable(req)) || STATUS_CODES[rejection]);
       const url = new URL(req.url ?? "/", "http://dsh-go.invalid");
       const path = url.pathname;
+      if (path === `${PREFIX}/v1/usage/collect`) {
+        if (req.method !== "POST") return send(res, 405);
+        if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) return send(res, 403);
+        const body = await readBody(req, 16).catch(() => null);
+        if (body?.toString() !== "on" && body?.toString() !== "off") return send(res, 400);
+        return send(res, 200, usage.pull(body.toString() === "on"));
+      }
       if (await sessionDeletion.handle(req, res, path)) return;
       if (await pluginConfig.handle(req, res, path)) return;
+      if (await speechRoutes.handle(req, res, path)) return;
       if (await companionRoutes.handle(req, res, path)) return;
       if (path.startsWith(`${PREFIX}/v1/`) && await nativeRoutes.handle(req, res, path, url)) return;
       if (path === `${PREFIX}/v1/capabilities`) {

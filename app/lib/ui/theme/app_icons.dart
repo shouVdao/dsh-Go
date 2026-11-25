@@ -355,6 +355,9 @@ abstract final class AppIcons {
   static const agentLoop = DshGlyphs.arrowsClockwise;
   static const webSearch = DshGlyphs.globeHemisphereWest;
   static const webApp = DshGlyphs.globe;
+
+  /// 酒馆设置 › 省电渲染.
+  static const lowPower = DshGlyphs.batteryPlus;
   static const mention = DshGlyphs.at;
   static const translate = DshGlyphs.translate;
   static const history = DshGlyphs.clockCounterClockwise;
@@ -374,6 +377,24 @@ abstract final class AppIcons {
 
   /// 伙伴小屋: her words read aloud (companion_voice.dart). Not the microphone: that is the person's voice.
   static const companionVoice = DshGlyphs.musicNote;
+
+  /// 朗读: a reply read aloud (speech/read_aloud.dart); also the loudspeaker during a call.
+  static const readAloud = DshGlyphs.speakerHigh;
+
+  /// 语音通话: start a call with the conversation (speech/call/).
+  static const call = DshGlyphs.phone;
+
+  /// 语音通话: hang up.
+  static const hangUp = DshGlyphs.phoneDisconnect;
+
+  /// 语音通话: the call's captions in full (as 回放's 全文).
+  static const callTranscript = DshGlyphs.article;
+
+  /// 语音通话: the microphone is muted.
+  static const micMuted = DshGlyphs.microphoneSlash;
+
+  /// 语音通话: the voice plays at the ear (earpiece), not on the loudspeaker.
+  static const earpiece = DshGlyphs.ear;
 
   /// 「问 AI」: a question about the app for the agent (ui/common/ask_ai.dart).
   static const askAi = DshGlyphs.sparkle;
@@ -423,6 +444,10 @@ abstract final class AppIcons {
   static const backgroundPrompt = DshGlyphs.bell;
   static const overlayOpacity = DshGlyphs.slidersHorizontal;
   static const overlayBall = DshGlyphs.radioButton;
+  static const edgeGlow = DshGlyphs.sparkle;
+
+  /// 用系统灵动岛显示: the island at the top of the screen.
+  static const systemIsland = DshGlyphs.deviceMobile;
 
   /// 解除限制, its 「已解除限制」 tag, and its three rules.
   static const unlocks = DshGlyphs.lockSimpleOpen;

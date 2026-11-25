@@ -55,6 +55,7 @@ class _Video extends MediaVideoChannel {
   int position = 0;
   bool playing = false;
   bool failOpen = false;
+  String failCode = 'failed';
   Completer<MediaVideoHandle>? delayedOpen;
   @override
   Future<Uint8List?> poster(String path) async {
@@ -65,7 +66,7 @@ class _Video extends MediaVideoChannel {
   @override
   Future<MediaVideoHandle> open(String path) async {
     opens++;
-    if (failOpen) throw PlatformException(code: 'unsupported');
+    if (failOpen) throw PlatformException(code: failCode);
     return delayedOpen == null ? _handle : delayedOpen!.future;
   }
 
@@ -97,7 +98,7 @@ class _Video extends MediaVideoChannel {
       MediaVideoState(positionMs: position, durationMs: 5000, playing: playing);
 }
 
-Future<void> _pumpViewer(WidgetTester tester, _Files files, _Video video) async {
+Future<void> _pumpViewer(WidgetTester tester, _Files files, MediaVideoChannel video) async {
   await tester.pumpWidget(
     MaterialApp(
       home: MediaVideoViewerPage(
@@ -115,6 +116,15 @@ Future<void> _pumpViewer(WidgetTester tester, _Files files, _Video video) async 
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('missing native video decoder is reported as unsupported', () async {
+    const video = MediaVideoChannel(MethodChannel('dsh/test-unregistered-video'));
+    await expectLater(
+      video.open('/phone/movie.mp4'),
+      throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'unsupported')),
+    );
+    expect(await video.poster('/phone/movie.mp4'), isNull);
+  });
 
   test('channel rejects URL and relative paths without platform invocation', () async {
     const video = MediaVideoChannel();
@@ -146,6 +156,7 @@ void main() {
     const video = MediaVideoChannel(channel);
     final handle = await video.open('/phone/movie.mp4');
     expect(handle.aspectRatio, 1920 / 1080);
+    expect(handle.rotation, 0);
     await video.play(handle.texture);
     await video.seek(handle.texture, 1200);
     expect((await video.state(handle.texture)).positionMs, 1200);
@@ -248,6 +259,33 @@ void main() {
     expect(mediaVideoTime(65_999), '1:05');
   });
 
+  testWidgets('90 degree video rotation keeps display ratio and swaps the texture constraints', (tester) async {
+    const channel = MethodChannel('test/video-rotation');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+      return switch (call.method) {
+        'open' => {'texture': 17, 'width': 1080, 'height': 1920, 'durationMs': 5000, 'rotation': 90},
+        'state' => {'positionMs': 0, 'durationMs': 5000, 'playing': false},
+        _ => null,
+      };
+    });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null),
+    );
+    await _pumpViewer(tester, _Files(), const MediaVideoChannel(channel));
+    final texture = find.byType(Texture);
+    final rotated = find.ancestor(of: texture, matching: find.byType(RotatedBox));
+    final display = find.ancestor(of: texture, matching: find.byType(AspectRatio));
+    expect(tester.widget<RotatedBox>(rotated).quarterTurns, 1);
+    expect(tester.widget<AspectRatio>(display).aspectRatio, 1080 / 1920);
+    final displaySize = tester.getSize(rotated);
+    final textureSize = tester.getSize(texture);
+    expect(textureSize.width, closeTo(displaySize.height, 0.001));
+    expect(textureSize.height, closeTo(displaySize.width, 0.001));
+    expect(textureSize.width / textureSize.height, closeTo(1920 / 1080, 0.000001));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('late prepared player is released after viewer disposal', (tester) async {
     final files = _Files();
     final video = _Video()..delayedOpen = Completer<MediaVideoHandle>();
@@ -261,14 +299,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('unsupported playback can retry or open original Host externally', (tester) async {
+  testWidgets('unsupported native playback offers saving or opening elsewhere without a futile retry', (tester) async {
+    final files = _Files();
+    final video = _Video()
+      ..failOpen = true
+      ..failCode = 'unsupported';
+    await _pumpViewer(tester, files, video);
+    expect(find.text(appL10n.mediaVideoUnsupported), findsOneWidget);
+    expect(find.text(appL10n.commonRetry), findsNothing);
+    await tester.tap(find.text(appL10n.mediaOpenElsewhere));
+    await tester.pump();
+    expect(files.external, 1);
+  });
+
+  testWidgets('temporary playback failure can retry', (tester) async {
     final files = _Files();
     final video = _Video()..failOpen = true;
     await _pumpViewer(tester, files, video);
     expect(find.text(appL10n.mediaVideoCannotPlay), findsOneWidget);
-    await tester.tap(find.text(appL10n.mediaOpenElsewhere));
-    await tester.pump();
-    expect(files.external, 1);
     video.failOpen = false;
     await tester.tap(find.text(appL10n.commonRetry));
     await tester.pump();

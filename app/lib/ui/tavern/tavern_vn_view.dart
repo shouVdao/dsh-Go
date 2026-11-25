@@ -53,8 +53,20 @@ List<TavernPage> tavernPages(
 ];
 
 /// [m]'s pages from [text]: each paragraph's, markers taken out, each page
-/// carrying the marker in force.
+/// carrying the marker in force. Kept with the message: the view is built
+/// again with each piece of a reply, and only that one has changed.
 List<TavernPage> _messagePages(TavernMessage m, String text, {required bool streaming}) {
+  if (streaming) return _paginate(m, text, streaming: true);
+  final kept = _pagesOf[m];
+  if (kept != null && kept.$1 == text) return kept.$2;
+  final pages = _paginate(m, text, streaming: false);
+  _pagesOf[m] = (text, pages);
+  return pages;
+}
+
+final _pagesOf = Expando<(String, List<TavernPage>)>('tavern pages');
+
+List<TavernPage> _paginate(TavernMessage m, String text, {required bool streaming}) {
   final first = tavernMarkerIn(text);
   String? current;
   return [
@@ -145,6 +157,9 @@ List<String> tavernParagraphPages(String paragraph) {
   return pages.where((p) => p.isNotEmpty).toList();
 }
 
+/// One of a group's cast, as the stage shows them: name, picture, sprites.
+typedef TavernVnCast = ({String name, String? avatarPath, Map<String, String> sprites});
+
 class TavernVisualNovelView extends StatefulWidget {
   const TavernVisualNovelView({
     super.key,
@@ -159,9 +174,14 @@ class TavernVisualNovelView extends StatefulWidget {
     this.onPage,
     this.onReadingBack,
     this.revealRate,
+    this.castFor,
   });
 
   final List<TavernPage> pages;
+
+  /// A group (engine P2): who a member is, by their card's ID; the stage
+  /// shows whoever spoke last, in their own picture and sprites.
+  final TavernVnCast? Function(String characterId)? castFor;
 
   /// The character on stage.
   final String name;
@@ -194,23 +214,47 @@ class TavernVisualNovelView extends StatefulWidget {
 }
 
 class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with SingleTickerProviderStateMixin {
+  /// A name and the one it replaces, both at the line's start.
+  static Widget _startAligned(Widget? current, List<Widget> previous) =>
+      Stack(alignment: AlignmentDirectional.centerStart, children: [...previous, ?current]);
+
   /// The sprite for page [at]: by her words on it, or on her page before
   /// yours; her neutral one before she has said anything.
   String? _spriteAt(int at) {
-    if (widget.sprites.isEmpty) return null;
+    final sprites = _castAt(at).sprites;
+    if (sprites.isEmpty) return null;
     for (var i = at; i >= 0 && i < widget.pages.length; i--) {
       final page = widget.pages[i];
       if (page.message.role == TavernRole.character) {
-        return tavernSpriteFor(widget.sprites, page.text, marker: page.marker);
+        return tavernSpriteFor(sprites, page.text, marker: page.marker);
       }
     }
-    return tavernSpriteFor(widget.sprites, '');
+    return tavernSpriteFor(sprites, '');
   }
 
-  Widget _face() => AspectRatio(
-    key: const ValueKey('tavern-vn-face'),
-    aspectRatio: 2 / 3,
-    child: TavernPortrait(name: widget.name, path: widget.avatarPath, radius: AppShape.xl, initialSize: 96),
+  /// Who stands on the stage at page [at]: the speaker of the nearest
+  /// character page at or before it, in a group; else the chat's character.
+  TavernVnCast _castAt(int at) {
+    final own = (name: widget.name, avatarPath: widget.avatarPath, sprites: widget.sprites);
+    final castFor = widget.castFor;
+    if (castFor == null) return own;
+    for (var i = at; i >= 0 && i < widget.pages.length; i--) {
+      final message = widget.pages[i].message;
+      if (message.role != TavernRole.character) continue;
+      final id = message.speakerCharacterId;
+      return (id == null ? null : castFor(id)) ?? own;
+    }
+    return own;
+  }
+
+  /// [cast]'s picture; keyed by who it is, so a new speaker cross-fades in.
+  Widget _face(TavernVnCast cast) => KeyedSubtree(
+    key: ValueKey(('tavern-vn-cast', cast.name)),
+    child: AspectRatio(
+      key: const ValueKey('tavern-vn-face'),
+      aspectRatio: 2 / 3,
+      child: TavernPortrait(name: cast.name, path: cast.avatarPath, radius: AppShape.xl, initialSize: 96),
+    ),
   );
 
   /// The page shown; null follows the newest.
@@ -322,8 +366,9 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
     if (typing == null || rate == null) return _ticker.stop();
     final shown = (elapsed.inMicroseconds * rate / Duration.microsecondsPerSecond).floor() + 1;
     if (shown >= typing.cuts.length) return setState(_stopTyping);
-    if (shown == typing.shown) return;
-    setState(() => typing.shown = shown);
+    if (shown == typing.shown.value) return;
+    // Only the typed text builds again, not the stage around it.
+    typing.shown.value = shown;
     // A page taller than the box: keep the newest typed line in sight.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final typed = _typedKey.currentContext?.findRenderObject();
@@ -400,6 +445,8 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
     _schedule(page, at);
     final stage = widget.stage;
     final sprite = stage == null ? _spriteAt(at) : null;
+    final cast = _castAt(at);
+    final footer = page == null ? null : widget.footer(page.message, at == _last);
     return Stack(
       children: [
         Positioned.fill(
@@ -445,10 +492,10 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
                             File(sprite),
                             fit: BoxFit.contain,
                             alignment: Alignment.bottomCenter,
-                            errorBuilder: (_, _, _) => Center(child: _face()),
+                            errorBuilder: (_, _, _) => Center(child: _face(cast)),
                           ),
                         )
-                      : _face(),
+                      : _face(cast),
                 ),
               ),
             ),
@@ -474,50 +521,76 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
             child: GlassSurface(
               tier: GlassTier.sheet,
               borderRadius: AppShape.radiusXl,
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+              // The keys' rows (the name's, the alternatives') bring their own
+              // air: the box's own is even all round.
+              padding: EdgeInsets.fromLTRB(16, 8, 16, footer == null ? 16 : 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(
-                        speaker,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: user ? dsh.textTertiary : tavernNameColor(context, speaker, lead: widget.name),
-                          fontWeight: FontWeight.w600,
-                          fontFamily: user ? null : tavernNameFont(context),
+                      // Who speaks changes with the page, in the same cross-fade.
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.of(context, AppMotion.quick),
+                          layoutBuilder: _startAligned,
+                          child: Text(
+                            speaker,
+                            key: ValueKey(speaker),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: user ? dsh.textTertiary : tavernNameColor(context, speaker, lead: widget.name),
+                              fontWeight: FontWeight.w600,
+                              fontFamily: user ? null : tavernNameFont(context),
+                            ),
+                          ),
                         ),
                       ),
-                      const Spacer(),
-                      if (pages.length > 1)
-                        Text(
-                          '${at + 1}/${pages.length}',
-                          style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
-                        ),
-                      _BoxKey(
-                        key: const ValueKey('tavern-vn-auto'),
-                        label: context.l10n.tavernVnAuto,
-                        on: _auto,
-                        onTap: () => _setAuto(!_auto),
-                      ),
-                      if (at < _last)
-                        _BoxKey(key: const ValueKey('tavern-vn-skip'), label: context.l10n.tavernVnSkip, onTap: _skip),
-                      SizedBox.square(
-                        dimension: 32,
-                        child: IconButton(
-                          key: const ValueKey('tavern-vn-log'),
-                          tooltip: context.l10n.tavernLog,
-                          padding: EdgeInsets.zero,
-                          iconSize: 18,
-                          color: dsh.textTertiary,
-                          onPressed: _openLog,
-                          icon: Icon(AppIcons.history),
+                      // The last key's glyph on the box's edge, as the name is on the other.
+                      Transform.translate(
+                        offset: const Offset((_BoxKey.height - _BoxKey.glyph) / 2, 0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (pages.length > 1) ...[
+                              Text(
+                                '${at + 1}/${pages.length}',
+                                style: AppType.tabular(theme.textTheme.labelSmall!.copyWith(color: dsh.textTertiary)),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            _BoxKey(
+                              key: const ValueKey('tavern-vn-auto'),
+                              label: context.l10n.tavernVnAuto,
+                              on: _auto,
+                              onTap: () => _setAuto(!_auto),
+                            ),
+                            if (at < _last)
+                              _BoxKey(
+                                key: const ValueKey('tavern-vn-skip'),
+                                label: context.l10n.tavernVnSkip,
+                                onTap: _skip,
+                              ),
+                            SizedBox.square(
+                              dimension: _BoxKey.height,
+                              child: IconButton(
+                                key: const ValueKey('tavern-vn-log'),
+                                tooltip: context.l10n.tavernLog,
+                                padding: EdgeInsets.zero,
+                                iconSize: _BoxKey.glyph,
+                                color: dsh.textTertiary,
+                                onPressed: _openLog,
+                                icon: Icon(AppIcons.history),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 72, maxHeight: 220),
                     child: SingleChildScrollView(
@@ -547,11 +620,14 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
                                   top: 0,
                                   left: 0,
                                   right: 0,
-                                  child: MarkdownBody(
-                                    key: _typedKey,
-                                    text: typing.typed,
-                                    streaming: true,
-                                    selectable: false,
+                                  child: ValueListenableBuilder(
+                                    valueListenable: typing.shown,
+                                    builder: (context, _, _) => MarkdownBody(
+                                      key: _typedKey,
+                                      text: typing.typed,
+                                      streaming: true,
+                                      selectable: false,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -561,7 +637,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
                       ),
                     ),
                   ),
-                  if (page != null) ?widget.footer(page.message, at == _last),
+                  ?footer,
                 ],
               ),
             ),
@@ -590,7 +666,7 @@ class _TavernVisualNovelViewState extends State<TavernVisualNovelView> with Sing
                           if (page.message.role == TavernRole.user)
                             CompanionLogEntry.you(_plain(page.text))
                           else
-                            CompanionLogEntry.her(_plain(page.text)),
+                            _logLine(context, page.message, _plain(page.text), lead: widget.name),
                       ],
                       name: widget.name,
                       onClose: () => setState(() => _log = false),
@@ -616,9 +692,9 @@ class _Typing {
   final List<int> cuts;
 
   /// How many of [cuts] show.
-  int shown = 1;
+  final shown = ValueNotifier(1);
 
-  String get typed => text.substring(0, cuts[shown - 1]);
+  String get typed => text.substring(0, cuts[shown.value - 1]);
 }
 
 /// What comes at once, whole: an HTML tag, an image, a link.
@@ -650,6 +726,10 @@ List<int> _cuts(String text) {
 class _BoxKey extends StatelessWidget {
   const _BoxKey({super.key, required this.label, required this.onTap, this.on = false});
 
+  /// The row's keys: this tall, the log's glyph this size in a square of it.
+  static const height = 32.0;
+  static const glyph = 18.0;
+
   final String label;
   final VoidCallback onTap;
   final bool on;
@@ -663,8 +743,10 @@ class _BoxKey extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
+        // The same air each side as the log key's glyph has in its square.
+        child: Container(
+          constraints: const BoxConstraints(minHeight: height),
+          padding: const EdgeInsets.symmetric(horizontal: (height - glyph) / 2),
           child: Center(
             child: Text(
               label,
@@ -682,3 +764,16 @@ class _BoxKey extends StatelessWidget {
 
 /// A page as the backlog shows it: plain text, Markdown emphasis dropped.
 String _plain(String text) => text.replaceAll(RegExp(r'(\*\*|\*|__)'), '');
+
+/// A line not yours in the backlog, under whoever says it: in a group each
+/// member (the name over the story is the group's), the narrator as 旁白;
+/// named and coloured as in the chat.
+CompanionLogEntry _logLine(BuildContext context, TavernMessage message, String text, {required String lead}) {
+  final who = tavernSpeaker(context, message);
+  if (who.isEmpty || who == lead) return CompanionLogEntry.her(text);
+  return CompanionLogEntry.her(
+    text,
+    who: who,
+    tone: tavernNameColor(context, who, lead: lead),
+  );
+}

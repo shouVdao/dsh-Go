@@ -1,6 +1,6 @@
 // 设置 › 主题: light / dark, the palette (six presets,
 // a custom hue, the wallpaper), the feature tile style, the launcher icon (and a
-// picture shortcut) and the launch screen.
+// picture shortcut) and the launch screen (those two on Android only).
 //
 // Every picker on the page shares one grid: previews start 16 from the card's
 // edges and sit 12 apart, labels 8 under them (TileStylePicker, AppIconPicker).
@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../../state/android_features.dart';
 import '../../../state/appearance_state.dart';
 import '../../../state/settings_state.dart';
 import '../../../ui_config/ui_config.dart';
@@ -22,10 +23,15 @@ import '../../theme/app_icons.dart';
 import '../../theme/theme.dart';
 import '../settings_widgets.dart';
 import 'app_icon_picker.dart';
+import 'hue_slider.dart';
 import 'icon_shortcut_sheet.dart';
 import 'launch_screen_section.dart';
+import 'pendant_section.dart';
+import 'theme_packs_section.dart';
 import 'tile_style_picker.dart';
 import 'wallpaper_section.dart';
+
+export 'hue_slider.dart' show HueSlider;
 
 /// 设置首页「外观」组的第一行:当前配色的色点 + 名字 · 明暗,点开 [AppearancePage]。
 class AppearanceEntryTile extends ConsumerWidget {
@@ -67,13 +73,20 @@ class AppearanceEntryTile extends ConsumerWidget {
 /// 选什么都即时生效:整个 App 的主题随之交叉淡变(`AppMotion.standard`),
 /// 这一页本身就是预览。
 class AppearancePage extends ConsumerWidget {
-  const AppearancePage({super.key});
+  const AppearancePage({super.key, this.showThemePacks});
+
+  /// Whether to show the declarative Theme Packs & Workshop section.
+  /// Defaults to true inside the real app shell ([ThemeRevealHost]).
+  final bool? showThemePacks;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final appearance = ref.watch(appearanceProvider);
     final wallpaper = ref.watch(wallpaperAccentProvider).value;
+    // A picture as a launcher shortcut: Android and HarmonyOS, not iOS.
+    final pictureShortcut = ref.watch(operatingSystemProvider) != 'ios';
+    final includeThemePacks = showThemePacks ?? ThemeRevealHost.presentIn(context);
     return AppPage.list(
       title: l10n.pluginsTheme,
       children: [
@@ -90,6 +103,11 @@ class AppearancePage extends ConsumerWidget {
           ],
         ),
         SettingsSection(
+          title: l10n.pluginsLook,
+          footer: Text(l10n.pluginsLookHint),
+          children: [SpotAnchor(spot: Spots.look, child: const _LookTuning())],
+        ),
+        SettingsSection(
           title: l10n.pluginsFeatureIcons,
           children: [SpotAnchor(spot: Spots.tileStyle, child: const TileStylePicker())],
         ),
@@ -97,7 +115,7 @@ class AppearancePage extends ConsumerWidget {
           title: l10n.pluginsAppIcon,
           children: [
             SpotAnchor(spot: Spots.appIcon, child: const AppIconPicker()),
-            const IconShortcutTile(),
+            if (pictureShortcut) const IconShortcutTile(),
           ],
         ),
         SettingsSection(
@@ -110,6 +128,12 @@ class AppearancePage extends ConsumerWidget {
           footer: Text(l10n.wallpaperFooter),
           children: [SpotAnchor(spot: Spots.wallpaper, child: const WallpaperSection())],
         ),
+        const PendantSection(),
+        if (includeThemePacks)
+          SettingsSection(
+            title: AppLocale.isEnglish ? 'Theme Packs & Workshop' : '主题包与创意工坊',
+            children: const [ThemePacksSection()],
+          ),
       ],
     );
   }
@@ -149,7 +173,7 @@ class ThemeModePicker extends ConsumerWidget {
       (ThemeMode.system, l10n.commonFollowSystem),
     ];
     final mode = ref.watch(uiThemeModeProvider);
-    final (light, dark) = _themesFor(ref.watch(accentProvider));
+    final (light, dark) = _themesFor(ref.watch(accentProvider), ref.watch(activeThemePackProvider));
     // The ring sits outside each preview, in [_ModeTile.room]: the padding
     // and gap leave room for it, so previews land 16 from the card and 12
     // apart, column for column with the tile styles below.
@@ -195,15 +219,19 @@ class ThemeModePicker extends ConsumerWidget {
   }
 }
 
-/// Light and dark themes of [accent], built once per palette.
-(ThemeData, ThemeData) _themesFor(AppAccent accent) {
-  final hit = _themeCache[accent];
+/// Light and dark themes of [accent] and optional [pack], built once per pair.
+(ThemeData, ThemeData) _themesFor(AppAccent accent, [ThemePack? pack]) {
+  final key = (accent, pack);
+  final hit = _themeCache[key];
   if (hit != null) return hit;
-  if (_themeCache.length > 4) _themeCache.clear();
-  return _themeCache[accent] = (buildLightTheme(accent: accent), buildDarkTheme(accent: accent));
+  if (_themeCache.length > 6) _themeCache.clear();
+  return _themeCache[key] = (
+    buildLightTheme(accent: accent, themePack: pack),
+    buildDarkTheme(accent: accent, themePack: pack),
+  );
 }
 
-final _themeCache = <AppAccent, (ThemeData, ThemeData)>{};
+final _themeCache = <(AppAccent, ThemePack?), (ThemeData, ThemeData)>{};
 
 class _ModeTile extends StatelessWidget {
   const _ModeTile({
@@ -300,6 +328,7 @@ class _ModeTile extends StatelessWidget {
       selected: selected,
       label: label,
       excludeSemantics: true,
+      onTap: enabled ? onTap : null,
       child: Pressable(
         onTap: onTap,
         enabled: enabled,
@@ -533,6 +562,7 @@ class _Swatch extends StatelessWidget {
       selected: selected,
       label: l10n.pluginsColorLabel(label),
       excludeSemantics: true,
+      onTap: onTap,
       child: Pressable(
         onTap: onTap,
         child: Column(
@@ -548,7 +578,7 @@ class _Swatch extends StatelessWidget {
                   painter: _SwatchPainter(
                     color: color,
                     ring: t,
-                    wheel: wheel ? _wheelColors(theme.brightness) : null,
+                    wheel: wheel ? hueWheelColors(theme.brightness) : null,
                     hole: _cardColor(context),
                     edge: scheme.onSurface.withValues(alpha: 0.08),
                   ),
@@ -576,13 +606,6 @@ Color _cardColor(BuildContext context) {
   final s = DshSurfaces.of(context);
   return Color.alphaBlend(s.card.fill, Color.lerp(s.backdropTop, s.backdropBottom, 0.5)!);
 }
-
-/// The hue wheel and the hue track: guarded colours every 15°, per brightness.
-List<Color> _wheelColors(Brightness brightness) => _wheels[brightness] ??= [
-  for (var h = 0; h <= 360; h += 15) AppAccent.guardedSeed(AppAccent.hueColor(h % 360.0), brightness),
-];
-
-final _wheels = <Brightness, List<Color>>{};
 
 class _SwatchPainter extends CustomPainter {
   _SwatchPainter({required this.color, required this.ring, required this.hole, required this.edge, this.wheel});
@@ -770,138 +793,6 @@ class _ChipPainter extends CustomPainter {
   bool shouldRepaint(_ChipPainter old) => old.color != color || old.ring != ring || old.edge != edge;
 }
 
-/// 色相条:一条守卫后的色相渐变,一颗圆钮(里面是当前色)。拖动时圆钮
-/// 跟手,主题每 ~100ms 跟一次,松手落定。
-class HueSlider extends StatefulWidget {
-  const HueSlider({super.key, required this.hue, required this.brightness, required this.onChanged});
-
-  final double hue;
-  final Brightness brightness;
-  final ValueChanged<double> onChanged;
-
-  static const height = 36.0;
-  static const track = 12.0;
-  static const knob = 26.0;
-
-  @override
-  State<HueSlider> createState() => _HueSliderState();
-}
-
-class _HueSliderState extends State<HueSlider> {
-  double? _dragging;
-  double _lastDx = 0;
-  DateTime _sent = DateTime(0);
-
-  double get _hue => _dragging ?? widget.hue;
-
-  double _hueAt(double dx, double width) {
-    const pad = HueSlider.knob / 2;
-    return ((dx - pad) / (width - 2 * pad)).clamp(0.0, 1.0) * 360;
-  }
-
-  void _drag(double dx, double width, {bool end = false}) {
-    final hue = _hueAt(dx, width);
-    setState(() => _dragging = end ? null : hue);
-    final now = DateTime.now();
-    if (end || now.difference(_sent) > const Duration(milliseconds: 100)) {
-      _sent = now;
-      widget.onChanged(hue);
-    }
-  }
-
-  void _step(double by) => widget.onChanged((widget.hue + by) % 360);
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final hue = _hue;
-    final colors = _wheelColors(widget.brightness);
-    final current = AppAccent.guardedSeed(AppAccent.hueColor(hue % 360), widget.brightness);
-    return Semantics(
-      slider: true,
-      label: l10n.pluginsHue,
-      value: '${hue.round()}°',
-      increasedValue: '${((hue + 15) % 360).round()}°',
-      decreasedValue: '${((hue - 15) % 360).round()}°',
-      onIncrease: () => _step(15),
-      onDecrease: () => _step(-15),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (d) => _drag(d.localPosition.dx, width, end: true),
-            onHorizontalDragStart: (d) => _drag(_lastDx = d.localPosition.dx, width),
-            onHorizontalDragUpdate: (d) => _drag(_lastDx = d.localPosition.dx, width),
-            onHorizontalDragEnd: (_) => _drag(_lastDx, width, end: true),
-            child: SizedBox(
-              height: HueSlider.height,
-              width: width,
-              child: CustomPaint(
-                painter: _HuePainter(
-                  colors: colors,
-                  hue: hue,
-                  current: current,
-                  knob: Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(context).colorScheme.onSurface
-                      : Colors.white,
-                  shadow: Theme.of(context).colorScheme.shadow,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _HuePainter extends CustomPainter {
-  _HuePainter({
-    required this.colors,
-    required this.hue,
-    required this.current,
-    required this.knob,
-    required this.shadow,
-  });
-
-  final List<Color> colors;
-  final double hue;
-  final Color current;
-  final Color knob;
-  final Color shadow;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const pad = HueSlider.knob / 2;
-    final track = Rect.fromLTWH(
-      pad - HueSlider.track / 2,
-      (size.height - HueSlider.track) / 2,
-      size.width - 2 * pad + HueSlider.track,
-      HueSlider.track,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(track, const Radius.circular(99)),
-      Paint()..shader = LinearGradient(colors: colors).createShader(track),
-    );
-    final x = pad + (hue / 360).clamp(0.0, 1.0) * (size.width - 2 * pad);
-    final c = Offset(x, size.height / 2);
-    canvas.drawCircle(
-      c.translate(0, 1),
-      HueSlider.knob / 2,
-      Paint()
-        ..color = shadow.withValues(alpha: 0.22)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-    );
-    canvas.drawCircle(c, HueSlider.knob / 2, Paint()..color = knob);
-    canvas.drawCircle(c, HueSlider.knob / 2 - 4, Paint()..color = current);
-  }
-
-  @override
-  bool shouldRepaint(_HuePainter old) =>
-      old.hue != hue || old.current != current || old.knob != knob || old.colors != colors || old.shadow != shadow;
-}
-
 // ── 跟随壁纸 ─────────────────────────────────────────────────────────────
 
 class _WallpaperRow extends ConsumerWidget {
@@ -925,7 +816,248 @@ class _WallpaperRow extends ConsumerWidget {
         title: l10n.pluginsFollowWallpaper,
         value: AccentDot(color: seed),
         onTap: () => set(!on),
-        trailing: Switch(value: on, onChanged: set),
+        trailing: Switch.adaptive(value: on, onChanged: set),
+      ),
+    );
+  }
+}
+
+/// 材质与文字:玻璃的不透明度、模糊量,和正文字色。
+///
+/// 滑杆自己带草稿:拖动时只动手指下的数字,松手才写进偏好并重建主题 ——
+/// 否则拖动中每一帧都会让整棵 MaterialApp 重新交叉淡变。
+class _LookTuning extends ConsumerStatefulWidget {
+  const _LookTuning();
+
+  @override
+  ConsumerState<_LookTuning> createState() => _LookTuningState();
+}
+
+class _LookTuningState extends ConsumerState<_LookTuning> {
+  double? _opacity;
+  double? _blur;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final look = ref.watch(appearanceProvider);
+    final notifier = ref.read(appearanceProvider.notifier);
+    return Column(
+      children: [
+        _PercentRow(
+          title: l10n.pluginsOpacity,
+          value: _opacity ?? look.glassOpacity,
+          min: AppearanceSettings.minOpacity,
+          onChanged: (v) => setState(() => _opacity = v),
+          onChangeEnd: (v) {
+            setState(() => _opacity = null);
+            unawaited(notifier.setGlassOpacity(v));
+          },
+        ),
+        _PercentRow(
+          title: l10n.pluginsBlur,
+          value: _blur ?? look.glassBlur,
+          min: 0,
+          onChanged: (v) => setState(() => _blur = v),
+          onChangeEnd: (v) {
+            setState(() => _blur = null);
+            unawaited(notifier.setGlassBlur(v));
+          },
+        ),
+        _FontTintRow(color: look.fontColor),
+      ],
+    );
+  }
+}
+
+/// 一行材质滑杆:标题 + 百分比,5% 一档,松手才提交。
+class _PercentRow extends StatelessWidget {
+  const _PercentRow({
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  final String title;
+  final double value;
+  final double min;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  static const steps = 20;
+
+  static double snap(double v, double min) => ((v * steps).round() / steps).clamp(min, 1.0);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final v = value.clamp(min, 1.0);
+    final label = '${(v * 100).round()}%';
+    return MergeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 14, SettingsMetrics.inset, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ExcludeSemantics(
+              child: Row(
+                children: [
+                  Expanded(child: Text(title, style: settingsTitleStyle(context))),
+                  const SizedBox(width: 12),
+                  Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Semantics(
+              label: title,
+              child: Slider(
+                value: v,
+                min: min,
+                padding: EdgeInsets.zero,
+                activeColor: scheme.onSurfaceVariant,
+                inactiveColor: scheme.onSurface.withValues(alpha: 0.1),
+                semanticFormatterCallback: (_) => label,
+                onChanged: (raw) => onChanged(snap(raw, min)),
+                onChangeEnd: (raw) => onChangeEnd(snap(raw, min)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 字体颜色:跟随主题,或从一串墨色里挑一颗,再用色相条微调。
+class _FontTintRow extends ConsumerWidget {
+  const _FontTintRow({required this.color});
+
+  /// 当前墨色(ARGB);null = 跟随主题。
+  final int? color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final notifier = ref.read(appearanceProvider.notifier);
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
+    final current = color == null ? null : Color(color!);
+    final o = current == null ? null : Oklch.fromColor(current);
+    final picks = [
+      for (final (hue, chroma, name) in CustomAccentPanel.suggestions)
+        (name, textInkFor(hue: hue, chroma: chroma, brightness: brightness)),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 10, SettingsMetrics.inset, PickerGrid.inset),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ExcludeSemantics(child: Text(l10n.pluginsFontColor, style: settingsTitleStyle(context))),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _FollowChip(on: current == null, onTap: () => unawaited(notifier.setFontColor(null))),
+              for (final (name, ink) in picks)
+                _InkSwatch(
+                  color: ink,
+                  label: name,
+                  selected: current?.toARGB32() == ink.toARGB32(),
+                  onTap: () => unawaited(notifier.setFontColor(ink.toARGB32())),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          HueSlider(
+            hue: o?.h ?? 215,
+            brightness: brightness,
+            onChanged: (h) => unawaited(
+              notifier.setFontColor(textInkFor(hue: h, chroma: o?.c ?? 0.08, brightness: brightness).toARGB32()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「跟随主题」:选中时不写任何偏好。
+class _FollowChip extends StatelessWidget {
+  const _FollowChip({required this.on, required this.onTap});
+
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final label = context.l10n.pluginsFollowTheme;
+    return Semantics(
+      button: true,
+      selected: on,
+      label: label,
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: ShapeDecoration(
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: on ? scheme.primary : scheme.onSurface.withValues(alpha: 0.12),
+                width: on ? 1.5 : 1,
+              ),
+            ),
+            color: on ? scheme.primary.withValues(alpha: 0.10) : null,
+          ),
+          child: Text(label, style: theme.textTheme.labelLarge),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一颗墨色圆点:选中时套主色环。
+class _InkSwatch extends StatelessWidget {
+  const _InkSwatch({required this.color, required this.label, required this.selected, required this.onTap});
+
+  final Color color;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: 36,
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: color,
+              shape: CircleBorder(
+                side: BorderSide(
+                  color: selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.10),
+                  width: selected ? 2 : 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

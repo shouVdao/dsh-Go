@@ -13,7 +13,7 @@ import 'pet_library.dart';
 import 'pet_state.dart';
 
 /// The pets that ship with the app, in picker order.
-const builtInPets = ['deepy-whale', 'whale-girl'];
+const builtInPets = ['deepy-whale', 'whale-girl', 'pink-fish'];
 
 /// The default pet.
 const defaultPetId = 'deepy-whale';
@@ -43,8 +43,7 @@ enum PetOverlayFraming {
   final double y;
 
   /// The preset [prefs] holds; anything else (set some other way) reads as [full].
-  static PetOverlayFraming of(PetPrefs prefs) =>
-      prefs.floatZoom == half.zoom && prefs.floatY == half.y ? half : full;
+  static PetOverlayFraming of(PetPrefs prefs) => prefs.floatZoom == half.zoom && prefs.floatY == half.y ? half : full;
 }
 
 @immutable
@@ -53,10 +52,13 @@ class PetPrefs {
     this.packId = defaultPetId,
     this.packExplicit = true,
     this.size = PetSize.medium,
+    this.customHeight = 30,
     this.quiet = false,
     this.position = defaultPosition,
     this.hiddenUntil,
     this.overlayRenderer = PetOverlayRenderer.pixel,
+    this.overlaySize,
+    this.overlayCustomHeight,
     this.floatZoom = 0.9,
     this.floatY = 0,
     this.loaded = false,
@@ -71,6 +73,13 @@ class PetPrefs {
   final bool packExplicit;
   final PetSize size;
 
+  /// 自定义's body height, dp, within [PetSize.customMin]–[PetSize.customMax].
+  /// Kept while a preset is chosen, so going back to 自定义 finds it again.
+  final double customHeight;
+
+  /// The body height to draw at, dp.
+  double get bodyHeight => size == PetSize.custom ? customHeight : size.bodyHeight;
+
   /// 「安静模式」: moves only, no bubbles.
   final bool quiet;
 
@@ -80,6 +89,21 @@ class PetPrefs {
   /// 「藏起来 1 小时」 until then.
   final DateTime? hiddenUntil;
   final PetOverlayRenderer overlayRenderer;
+
+  /// 「App 外显示」's own body height preset, or null to follow [size]: making
+  /// the pet on the page bigger does not resize the floating window too.
+  final PetSize? overlaySize;
+
+  /// 自定义 for the overlay, dp, or null to follow [customHeight].
+  final double? overlayCustomHeight;
+
+  /// The body height the overlay draws at, dp.
+  double get overlayBodyHeight => overlaySize == null
+      ? bodyHeight
+      : overlaySize == PetSize.custom
+      ? (overlayCustomHeight ?? customHeight)
+      : overlaySize!.bodyHeight;
+
   final double floatZoom;
   final double floatY;
   final bool loaded;
@@ -92,11 +116,15 @@ class PetPrefs {
     String? packId,
     bool? packExplicit,
     PetSize? size,
+    double? customHeight,
     bool? quiet,
     double? position,
     DateTime? hiddenUntil,
     bool clearHidden = false,
     PetOverlayRenderer? overlayRenderer,
+    PetSize? overlaySize,
+    double? overlayCustomHeight,
+    bool clearOverlaySize = false,
     double? floatZoom,
     double? floatY,
     bool? loaded,
@@ -104,10 +132,13 @@ class PetPrefs {
     packId: packId ?? this.packId,
     packExplicit: packExplicit ?? this.packExplicit,
     size: size ?? this.size,
+    customHeight: customHeight ?? this.customHeight,
     quiet: quiet ?? this.quiet,
     position: position ?? this.position,
     hiddenUntil: clearHidden ? null : (hiddenUntil ?? this.hiddenUntil),
     overlayRenderer: overlayRenderer ?? this.overlayRenderer,
+    overlaySize: clearOverlaySize ? null : (overlaySize ?? this.overlaySize),
+    overlayCustomHeight: overlayCustomHeight ?? this.overlayCustomHeight,
     floatZoom: floatZoom ?? this.floatZoom,
     floatY: floatY ?? this.floatY,
     loaded: loaded ?? this.loaded,
@@ -119,27 +150,46 @@ class PetPrefs {
       other.packId == packId &&
       other.packExplicit == packExplicit &&
       other.size == size &&
+      other.customHeight == customHeight &&
       other.quiet == quiet &&
       other.position == position &&
       other.hiddenUntil == hiddenUntil &&
       other.overlayRenderer == overlayRenderer &&
+      other.overlaySize == overlaySize &&
+      other.overlayCustomHeight == overlayCustomHeight &&
       other.floatZoom == floatZoom &&
       other.floatY == floatY &&
       other.loaded == loaded;
 
   @override
-  int get hashCode => Object.hash(packId, packExplicit, size, quiet, position, hiddenUntil,
-      overlayRenderer, floatZoom, floatY, loaded);
+  int get hashCode => Object.hash(
+    packId,
+    packExplicit,
+    size,
+    customHeight,
+    quiet,
+    position,
+    hiddenUntil,
+    overlayRenderer,
+    overlaySize,
+    overlayCustomHeight,
+    floatZoom,
+    floatY,
+    loaded,
+  );
 }
 
 class PetPrefsController extends Notifier<PetPrefs> {
   static const keys = (
     pack: 'pet.pack',
     size: 'pet.size',
+    customHeight: 'pet.custom_height',
     quiet: 'pet.quiet',
     position: 'pet.position',
     hidden: 'pet.hidden_until',
     renderer: 'pet.overlay_renderer',
+    overlaySize: 'pet.overlay_size',
+    overlayCustomHeight: 'pet.overlay_custom_height',
     framing: 'pet.overlay_framing',
   );
 
@@ -184,10 +234,15 @@ class PetPrefsController extends Notifier<PetPrefs> {
             : noPetId,
         packExplicit: explicit,
         size: PetSize.fromName(prefs.getString(keys.size)),
+        customHeight: _customHeight(prefs.getDouble(keys.customHeight)),
         quiet: prefs.getBool(keys.quiet) ?? false,
         position: (prefs.getDouble(keys.position) ?? PetPrefs.defaultPosition).clamp(0.0, 1.0),
         hiddenUntil: hidden == null ? null : DateTime.fromMillisecondsSinceEpoch(hidden),
         overlayRenderer: PetOverlayRenderer.fromName(prefs.getString(keys.renderer)),
+        overlaySize: _overlaySize(prefs.getString(keys.overlaySize)),
+        overlayCustomHeight: prefs.containsKey(keys.overlayCustomHeight)
+            ? _customHeight(prefs.getDouble(keys.overlayCustomHeight))
+            : null,
         floatZoom: zoom,
         floatY: y,
         loaded: true,
@@ -232,6 +287,32 @@ class PetPrefsController extends Notifier<PetPrefs> {
   }
 
   Future<void> setSize(PetSize v) => _save((s) => s.copyWith(size: v), (p) => p.setString(keys.size, v.name));
+
+  /// 自定义's height, dp; clamped to its range.
+  Future<void> setCustomHeight(double dp) {
+    final h = _customHeight(dp);
+    return _save((s) => s.copyWith(customHeight: h), (p) => p.setDouble(keys.customHeight, h));
+  }
+
+  static double _customHeight(double? dp) =>
+      dp == null || !dp.isFinite ? 30 : dp.clamp(PetSize.customMin, PetSize.customMax).toDouble();
+
+  /// No stored value (or one from a newer build) means 「follow the page」.
+  static PetSize? _overlaySize(String? name) => name == null ? null : PetSize.values.asNameMap()[name];
+
+  /// 「App 外显示 › 大小」: its own preset, independent of the page's.
+  Future<void> setOverlaySize(PetSize v) =>
+      _save((s) => s.copyWith(overlaySize: v), (p) => p.setString(keys.overlaySize, v.name));
+
+  /// The overlay's own 自定义 height, dp; also picks 自定义 for it.
+  Future<void> setOverlayCustomHeight(double dp) {
+    final h = _customHeight(dp);
+    return _save((s) => s.copyWith(overlaySize: PetSize.custom, overlayCustomHeight: h), (p) async {
+      await p.setString(keys.overlaySize, PetSize.custom.name);
+      await p.setDouble(keys.overlayCustomHeight, h);
+    });
+  }
+
   Future<void> setQuiet(bool v) => _save((s) => s.copyWith(quiet: v), (p) => p.setBool(keys.quiet, v));
   Future<void> setOverlayRenderer(PetOverlayRenderer value) =>
       _save((s) => s.copyWith(overlayRenderer: value), (p) => p.setString(keys.renderer, value.name));
@@ -242,9 +323,12 @@ class PetPrefsController extends Notifier<PetPrefs> {
     if (!zoom.isFinite || zoom <= 0 || zoom > 4 || !y.isFinite || y < -1 || y > 1) {
       throw ArgumentError('Invalid companion framing');
     }
-    return _save((s) => s.copyWith(floatZoom: zoom, floatY: y),
-        (p) => p.setString(keys.framing, jsonEncode({'zoom': zoom, 'y': y})));
+    return _save(
+      (s) => s.copyWith(floatZoom: zoom, floatY: y),
+      (p) => p.setString(keys.framing, jsonEncode({'zoom': zoom, 'y': y})),
+    );
   }
+
   Future<void> setPosition(double v) {
     final x = v.clamp(0.0, 1.0);
     return _save((s) => s.copyWith(position: x), (p) => p.setDouble(keys.position, x));

@@ -28,7 +28,16 @@ Map<String, Object?> _petExportJson(Map<String, Object?> raw) {
   // These maps contain only parser-checked scalar names/numbers or lists.
   final pack = PetPack.parse(raw);
   out['states'] = pack.states;
-  if (pack.reactions.isNotEmpty) out['reactions'] = pack.reactions;
+  if (pack.reactions.isNotEmpty) {
+    // Numbered names (tickle, tickle2, …) rather than a list: older apps read
+    // only the plain first name and ignore the numbered ones, so the exported
+    // pack stays usable on them.
+    out['reactions'] = {
+      for (final entry in pack.reactions.entries)
+        for (final (index, name) in entry.value.indexed)
+          (index == 0 ? entry.key : '${entry.key}${index + 1}'): name,
+    };
+  }
   if (pack.tiers.isNotEmpty) {
     out['tiers'] = {
       for (final tier in pack.tiers.entries) tier.key: [for (final item in tier.value) {'min': item.min, 'anim': item.anim}],
@@ -92,6 +101,9 @@ Future<void> _exportPet((String, String, Map<String, String>) args) async {
     final decoded = decodePetJson(await _petExportRead(File('$folder/pack.json'), petJsonCap));
     if (decoded is! Map<String, Object?>) throw const PetImportException(PetImportProblem.badPack);
     final pack = PetPack.parse(decoded), sheets = <String, Uint8List>{};
+    // The model folder cannot ride along with a sprite card; say so instead of
+    // exporting a poster-only pack that looks like the pet but no longer is.
+    if (pack.live2d != null) throw const PetImportException(PetImportProblem.live2dExport);
     final names = pack.animations.values.map((a) => a.sheet).toSet();
     if (names.length > petSheetCountCap) throw const PetImportException(PetImportProblem.tooLarge);
     var total = 0;

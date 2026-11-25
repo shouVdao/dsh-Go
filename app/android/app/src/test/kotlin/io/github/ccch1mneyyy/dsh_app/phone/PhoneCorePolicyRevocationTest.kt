@@ -3,7 +3,6 @@ package io.github.ccch1mneyyy.dsh_app.phone
 import android.os.Bundle
 import io.github.ccch1mneyyy.dsh_app.phone.background.BackgroundDisplay
 import io.github.ccch1mneyyy.dsh_app.phone.background.BackgroundDisplayIo
-import io.github.ccch1mneyyy.dsh_app.phone.background.BackgroundResourceJournal
 import io.github.ccch1mneyyy.dsh_app.phone.background.PrivilegedCalls
 import io.github.ccch1mneyyy.dsh_app.phone.background.PrivilegedChannel
 import java.time.ZoneId
@@ -139,7 +138,7 @@ class PhoneCorePolicyRevocationTest {
         assertEquals(3, asked)
     }
 
-    @Test fun aVisualGrantCannotCoverANewOrdinaryConfirmationRequirement() {
+    @Test fun globalWaiverSkipsVisualConfirmationAndItsPolicyCallback() {
         policies = PhonePolicies(confirmMode = ConfirmMode.ALWAYS)
         main.scope = VisualScope.Main(Any(), Any(), 1, "example.app")
         observe()
@@ -150,8 +149,8 @@ class PhoneCorePolicyRevocationTest {
             Decision.ALLOW_VISUAL_FOR_TASK
         }
         val result = coordinate()
-        assertTrue(result.isError)
-        assertEquals(0, main.writes); assertEquals(1, asked)
+        assertFalse(result.isError)
+        assertEquals(1, main.writes); assertEquals(0, asked)
     }
 
     @Test fun aRealOrdinaryOnceStillCoversThisActionWhenEveryWriteBecomesRequired() {
@@ -209,7 +208,6 @@ class PhoneCorePolicyRevocationTest {
 
     @Test fun policyTighteningWhileTheActualBackgroundChannelWaitsSendsNothing() {
         val display = BackgroundDisplay(
-            journal = BackgroundResourceJournal({ null }, { true }).apply { load() },
             mayUse = { true }, admitUse = { action -> action(); true },
             channelProvider = { error("test owns the channel admission") },
         )
@@ -266,7 +264,6 @@ class PhoneCorePolicyRevocationTest {
 
     private fun queuedBackgroundOpenPolicyChange(denyTarget: Boolean) {
         val display = BackgroundDisplay(
-            journal = BackgroundResourceJournal({ null }, { true }).apply { load() },
             mayUse = { true }, admitUse = { action -> action(); true },
             channelProvider = { error("test owns the channel admission") },
         )

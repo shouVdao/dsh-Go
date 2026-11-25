@@ -18,6 +18,7 @@ import '../../l10n/l10n.dart';
 import '../../media/gallery.dart' show imageProviderBytes;
 import '../../state/artifact_files.dart';
 import '../../state/artifacts.dart';
+import '../../state/image_snapshots.dart';
 import '../../state/sheet_files.dart';
 import '../../state/workspace_state.dart';
 import '../common/capsule_chip.dart';
@@ -176,19 +177,23 @@ Future<void> runArtifactAction(
       case ArtifactAction.save:
         final where = await files.saveToDownloads(sessionId, target);
         messenger?.showBriefNotice(
-          l10n.viewArtifactSaved(where.replaceFirst(RegExp(r'^Download/'), l10n.viewDownloadFolder)),
+          savedInChosenPlace(where)
+              ? l10n.harmonySaved
+              : l10n.viewArtifactSaved(where.replaceFirst(RegExp(r'^Download/'), l10n.viewDownloadFolder)),
         );
       case ArtifactAction.preview || ArtifactAction.copyPath:
         break;
     }
   } catch (e) {
+    if (action == ArtifactAction.save && saveWindowDismissed(e)) return;
     messenger?.showSnackBar(SnackBar(content: Text(artifactErrorText(e))));
   }
 }
 
 /// [artifact] with an absolute path (the Host resolves a relative one).
 Future<Artifact> _absolute(WidgetRef ref, String sessionId, Artifact artifact) async {
-  if (artifact.path.startsWith('/')) return artifact;
+  // A historical image must remain readable even after its source was deleted.
+  if (artifact.snapshotImage || artifact.path.startsWith('/')) return artifact;
   final source = ref.read(workspaceSourceProvider(sessionId));
   if (source == null) throw const ArtifactError('offline');
   final stat = await source.stat(artifact.path);
@@ -206,12 +211,15 @@ Future<Artifact> _absolute(WidgetRef ref, String sessionId, Artifact artifact) a
 /// A preview failure in words, and whether it is about the file itself.
 ({String title, String? message, _Fix fix}) _problemOf(Object error) {
   final code = switch (error) {
+    ImageSnapshotMissing() => 'missing',
+    ImageSnapshotTooLarge() => 'snapshot-too-large',
     DshRemoteException(:final code) => code,
     ArtifactError(:final code) => code,
     SheetFormatException() => 'sheet',
     _ => '',
   };
   return switch (code) {
+    'snapshot-too-large' => (title: appL10n.viewArtifactLarge, message: null, fix: _Fix.none),
     'sheet' => (title: appL10n.viewArtifactNoPreview, message: null, fix: _Fix.open),
     'workspace-file/not-text' => (
       title: appL10n.viewArtifactNoPreview,
@@ -328,6 +336,7 @@ class _ArtifactPreviewPageState extends ConsumerState<ArtifactPreviewPage> {
 
   /// Watches the file: a new version reloads, deletion says so.
   void _follow() {
+    if (_artifact.snapshotImage) return;
     final epoch = _watchEpoch;
     final source = ref.read(workspaceSourceProvider(widget.sessionId));
     if (source == null) return;
@@ -1411,7 +1420,7 @@ class _ImagePreviewState extends ConsumerState<_ImagePreview> {
     final token = ++_token;
     final files = ref.read(artifactFilesProvider);
     try {
-      if (!files.isLocal) {
+      if (!files.isLocal && !widget.artifact.snapshotImage) {
         final stat = await ref.read(workspaceSourceProvider(widget.sessionId))?.stat(widget.artifact.path);
         _bytes = stat?.bytes;
         if ((stat?.bytes ?? 0) > _remoteImageBytes) {
@@ -1797,6 +1806,14 @@ class _PdfPage extends StatefulWidget {
 
 class _PdfPageState extends State<_PdfPage> {
   late final Future<Uint8List> _png = widget.channel.pdfPage(widget.path, widget.index, widget.pixels);
+  MemoryImage? _image;
+
+  @override
+  void dispose() {
+    // Rendering this page again produces new PNG bytes and a different cache key.
+    if (_image case final image?) PaintingBinding.instance.imageCache.evict(image, includeLive: false);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1813,8 +1830,8 @@ class _PdfPageState extends State<_PdfPage> {
           if (bytes == null || bytes.isEmpty) {
             return snapshot.hasError ? const Center(child: Icon(AppIcons.imageBroken)) : const SizedBox.expand();
           }
-          return Image.memory(
-            bytes,
+          return Image(
+            image: _image ??= MemoryImage(bytes),
             fit: BoxFit.contain,
             gaplessPlayback: true,
             semanticLabel: l10n.viewArtifactPage(widget.index + 1),

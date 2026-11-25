@@ -117,6 +117,8 @@ data class ActionResult(
     val backgroundOpenConfirmed: Boolean = false,
     /** Same-call native navigation facts; never supplied by a tool argument or serialized. */
     internal val navigationWitness: io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillNavigationWitness? = null,
+    /** Comparable local observations only. A screen change does not prove business success. */
+    internal val screenChanged: Boolean? = null,
 )
 
 /** A definite refusal before collection starts; normal empty and partial results have none. */
@@ -227,21 +229,24 @@ data class ConfirmRequest(
     val sentence: String,
     val appLabel: String?,
     val packageName: String?,
-    /** First action in this app during this task: approval covers the rest of the task. */
+    /** First action in this app during this turn: shown in the card's header. */
     val firstInApp: Boolean,
     val timeoutMs: Long = 30_000,
     /**
-     * 本任务免确认: offer [Decision.ALLOW_ALL_FOR_TASK] as the main choice (see ConfirmMode); a
-     * gate that ignores it still answers correctly, just asks more.
+     * Offer 本轮允许 ([Decision.ALLOW_APP_FOR_TASK]): the same app and kind of action is not asked
+     * again for the rest of the turn. A gate that hides it still answers correctly, just asks more.
      */
-    val offerTaskWaiver: Boolean = false,
+    val allowRound: Boolean = true,
     /** Exact native task lifetime; never inferred from the visible conversation. */
     val owner: PhoneTasks.Owner? = null,
     val visualScope: VisualScope? = null,
 )
 
-/** Ordinary task waivers do not authorize independent visual scopes or bypass hard rules. */
-enum class Decision { ALLOW_ONCE, ALLOW_APP_FOR_TASK, ALLOW_ALL_FOR_TASK, ALLOW_VISUAL_FOR_TASK, DENY, STOP, UNAVAILABLE }
+/**
+ * The person's answer. 本轮允许 ([ALLOW_APP_FOR_TASK]) never authorizes an independent visual
+ * scope and never bypasses the hard rules.
+ */
+enum class Decision { ALLOW_ONCE, ALLOW_APP_FOR_TASK, ALLOW_VISUAL_FOR_TASK, DENY, STOP, UNAVAILABLE }
 
 enum class HandoffResult { CONTINUE, STOP, TIMEOUT }
 
@@ -310,6 +315,10 @@ interface UserGate {
 interface TaskControls {
     val taskId: Long
     val lifecycle: Long
+
+    /** Keeps an already displayed status through consecutive executions of this owner.
+     * Never admits a new status; callers without native selection retain their execution guard. */
+    fun isCurrentDisplay(): Boolean = false
 
     fun isPaused(): Boolean
 

@@ -63,7 +63,6 @@ class StepDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final trace = ref.watch(chatProvider(sessionId).select((s) => s.turns.where((t) => t.turn == turn).lastOrNull));
-    final items = ref.watch(chatProvider(sessionId).select((s) => s.items));
     final skew = ref.watch(chatProvider(sessionId).select((s) => s.clockSkew));
     if (trace == null) {
       return AppPage(title: l10n.activityStepTitle, slivers: const [_Missing()]);
@@ -73,6 +72,7 @@ class StepDetailPage extends ConsumerWidget {
       if (span == null) {
         return AppPage(title: l10n.activityStepTitle, slivers: const [_Missing()]);
       }
+      final items = ref.watch(chatProvider(sessionId).select((s) => s.items));
       final reply = items.whereType<AssistantChatItem>().where((a) => a.seq == span.seq).firstOrNull;
       return _ModelStep(
         sessionId: sessionId,
@@ -90,7 +90,10 @@ class StepDetailPage extends ConsumerWidget {
     if (anchor == null) {
       return AppPage(title: l10n.activityStepTitle, slivers: const [_Missing()]);
     }
-    final item = items.whereType<ToolChatItem>().where((t) => t.callId == callId).lastOrNull;
+    final item = ref.watch(
+      chatProvider(sessionId)
+          .select((s) => s.items.reversed.whereType<ToolChatItem>().where((t) => t.callId == callId).firstOrNull),
+    );
     return _ToolStep(trace: trace, work: work, wait: wait, item: item, span: anchor, skew: skew);
   }
 }
@@ -132,6 +135,10 @@ class _ToolStep extends StatelessWidget {
     final tool = view.item;
     final title = span.kind == TraceKind.question ? l10n.activityStepQuestion : view.verb;
     final status = switch (tool.status) {
+      _ when view.phoneResult != null => (
+        view.phoneResult!.word,
+        view.phoneResult!.isFault ? dsh.danger : dsh.textTertiary,
+      ),
       ToolStatus.succeeded => (l10n.activityStepSuccess, dsh.success),
       ToolStatus.failed when view.sandboxBlocked => (l10n.activityStepNeedsPermission, dsh.textTertiary),
       ToolStatus.failed => (l10n.commonFailed, dsh.danger),
@@ -251,12 +258,16 @@ class _ToolStep extends StatelessWidget {
     }
     final result = tool.resultText.trimRight();
     if (result.isNotEmpty) {
-      final title = tool.status == ToolStatus.failed
+      // A phone tool's reported outcome that isn't a fault (HarmonyOS) isn't an error.
+      final fault = view.phoneResult?.isFault ?? true;
+      final title = tool.status == ToolStatus.failed && fault
           ? l10n.activityStepError
           : view.isTerminal
           ? l10n.activityOutput
           : l10n.activityStepResult;
-      final color = tool.status == ToolStatus.failed && !view.sandboxBlocked ? DshColors.of(context).danger : null;
+      final color = tool.status == ToolStatus.failed && !view.sandboxBlocked && fault
+          ? DshColors.of(context).danger
+          : null;
       out.add(
         CodeSection(
           title: title,

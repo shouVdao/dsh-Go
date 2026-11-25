@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:dsh_tavern/dsh_tavern.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
@@ -60,7 +61,12 @@ _Json _directOutput() => {
   'events': <Object?>[],
 };
 
-Future<_Bound> _bound(T24Harness h, {bool revealed = true, String template = _template}) async {
+Future<_Bound> _bound(
+  T24Harness h, {
+  bool revealed = true,
+  String template = _template,
+  bool packSecret = false,
+}) async {
   final raw = _map(jsonDecode(utf8.decode(t24Card())));
   _map(raw['data'])['extensions'] = {
     'dshgo': {
@@ -105,7 +111,29 @@ Future<_Bound> _bound(T24Harness h, {bool revealed = true, String template = _te
       },
     },
   };
+  final Uint8List? secretPack;
+  if (packSecret) {
+    final own = _map(_map(_map(raw['data'])['extensions'])['dshgo']);
+    final registry = _map(own['director']).remove('secretSlots');
+    secretPack = _secretPack('bound-secret-policy', {
+      'v': 1,
+      'director': {'secretSlots': registry},
+    });
+  } else {
+    secretPack = null;
+  }
   final card = await h.engine.importCard(Uint8List.fromList(utf8.encode(jsonEncode(raw))));
+  if (secretPack != null) {
+    final installed = await h.engine.importGameplayPack(secretPack);
+    final scope = TavernPackScopeTarget(kind: TavernGameplayScope.character, targetId: card.id);
+    final before = await h.engine.readGameplayBindings(scope);
+    await h.engine.updateGameplayBindings(
+      scope,
+      expected: before.token,
+      operationId: 'install-secret-policy',
+      edits: [TavernPackBindingEdit.create(clientKey: 'secret-policy', packRef: installed.ref)],
+    );
+  }
   final chat = await h.engine.createChat(card.id);
   await h.engine.setSettings({
     'director': {'enabled': true, 'secretsEnabled': true, 'every': 1},
@@ -180,6 +208,23 @@ Future<_Bound> _bound(T24Harness h, {bool revealed = true, String template = _te
   return (characterId: card.id, chatId: chat, bindId: bind.id, fact: _fact);
 }
 
+Uint8List _secretPack(String id, _Json declaration) {
+  final archive = Archive()
+    ..addFile(
+      ArchiveFile.string(
+        'pack.json',
+        jsonEncode({
+          'formatVersion': 1,
+          'packId': id,
+          'packVersion': 'one',
+          'dshgo': declaration,
+          'resources': <Object?>[],
+        }),
+      ),
+    );
+  return Uint8List.fromList(ZipEncoder().encode(archive, modified: T24Harness.at));
+}
+
 Future<_Json> _saved(TavernEngine engine, String chat) async {
   final files = await engine.exportChat(chat);
   final document = StChatDocument.decode(files.first.fileName, files.first.bytes);
@@ -212,6 +257,224 @@ Future<_Json> _trace(TavernEngine engine, String chat) async =>
     _map((await engine.inspectTurn(chat))!.state['secrets']);
 
 void main() {
+  test('authoring preview uses real bind proof and does not treat a copied sample ledger as proof', () async {
+    final h = await _open();
+    await h.engine.setGlobalVariables({'secretVault': 'GLOBAL-MUST-NOT-EXPAND'});
+    final bound = await _bound(h);
+    final draft = await h.engine.createAuthoringDraft([
+      TavernAuthoringTarget(kind: TavernAuthoringTargetKind.character, id: bound.characterId),
+    ]);
+    final saved = await _saved(h.engine, bound.chatId);
+    final before = _db(
+      h,
+      (db) => {
+        for (final table in [
+          'chats',
+          'nodes',
+          'node_states',
+          'agent_runs',
+          'authoring_drafts',
+          'authoring_resources',
+          'authoring_operations',
+        ])
+          table: [for (final row in db.select('SELECT * FROM $table ORDER BY rowid')) Map<String, Object?>.from(row)],
+      },
+    );
+    final generated = h.model.generated;
+    final preview = await h.engine
+        .previewAuthoringPrompt(
+          TavernAuthoringPromptRequest(
+            requestId: 'existing-bind-proof',
+            draftId: draft.id,
+            draftRevision: draft.draftRevision,
+            changeIds: const [],
+            at: T24Harness.at,
+            seed: 7,
+            context: TavernAuthoringChatContext(chatId: bound.chatId),
+          ),
+        )
+        .result;
+    expect(preview.status, TavernAuthoringPreviewStatus.complete);
+    expect(preview.secretTrace['scope'], 'preview');
+    expect(preview.secretTrace['adoptedLocally'], isFalse);
+    expect(preview.secretTrace['attempted'], isFalse);
+    expect(preview.secretTrace['included'], isNotEmpty);
+    final text = _maps(preview.assembly!.body['messages']).map((row) => row['content']).whereType<String>().join('\n');
+    expect(text, contains(_template.replaceAll('{{fact}}', _fact)));
+    expect(text, isNot(contains('GLOBAL-MUST-NOT-EXPAND')));
+    expect(h.engine.variables(bound.chatId).containsKey('secretLeak'), isFalse);
+    final sample = await h.engine
+        .previewAuthoringPrompt(
+          TavernAuthoringPromptRequest(
+            requestId: 'copied-ledger-without-origin-audit',
+            draftId: draft.id,
+            draftRevision: draft.draftRevision,
+            changeIds: const [],
+            at: T24Harness.at,
+            seed: 7,
+            context: TavernAuthoringSampleContext(
+              characterResourceId: 'character:${bound.characterId}',
+              state: saved,
+              history: const [TavernAuthoringSampleMessage(role: TavernRole.user, text: 'sample')],
+            ),
+          ),
+        )
+        .result;
+    expect(sample.status, TavernAuthoringPreviewStatus.complete);
+    expect(sample.secretTrace['adoptedLocally'], isFalse);
+    expect(sample.secretTrace['offered'], isEmpty);
+    expect(sample.secretTrace['attempted'], isFalse);
+    expect(jsonEncode(sample.assembly!.body), isNot(contains(_fact)));
+    expect(
+      _db(
+        h,
+        (db) => {
+          for (final table in before.keys)
+            table: [for (final row in db.select('SELECT * FROM $table ORDER BY rowid')) Map<String, Object?>.from(row)],
+        },
+      ),
+      before,
+    );
+    expect(h.model.generated, generated);
+  });
+
+  test(
+    'pack secret release keeps its adopted policy across neutral composition changes and still requires proof',
+    () async {
+      final h = await _open();
+      final bound = await _bound(h, revealed: false, packSecret: true);
+      final saved = await _saved(h.engine, bound.chatId);
+      final oldConfig = saved['dshgoPackDefinitionConfigId'];
+      expect(oldConfig, isA<String>());
+      final ledger = saved['dshgoSecretRuntime'];
+      final binding = _maps(_map(ledger)['bindings']).single;
+      expect(_map(binding['executionSource'])['kind'], 'pack');
+      expect(binding['bindReceiptId'], bound.bindId);
+      expect((await _trace(h.engine, bound.chatId))['offered'], isEmpty);
+      final proof = (await h.engine.readAgentRuns(
+        bound.chatId,
+        limit: 1000,
+      )).singleWhere((run) => run.id == bound.bindId).result;
+
+      final neutral = await h.engine.importGameplayPack(_secretPack('neutral-secret-policy-change', {'v': 1}));
+      final scope = TavernPackScopeTarget(kind: TavernGameplayScope.character, targetId: bound.characterId);
+      final beforeScope = await h.engine.readGameplayBindings(scope);
+      await h.engine.updateGameplayBindings(
+        scope,
+        expected: beforeScope.token,
+        operationId: 'add-neutral-secret-policy-pack',
+        edits: [TavernPackBindingEdit.create(clientKey: 'neutral', packRef: neutral.ref)],
+      );
+      expect((await h.engine.setStateValue(bound.chatId, '/revealed', true)).applied, isTrue);
+      final changed = await _saved(h.engine, bound.chatId);
+      final newConfig = changed['dshgoPackDefinitionConfigId'];
+      expect(newConfig, isA<String>());
+      expect(newConfig, isNot(oldConfig));
+      expect(changed['dshgoSecretRuntime'], ledger);
+      expect(
+        (await h.engine.readAgentRuns(bound.chatId, limit: 1000)).singleWhere((run) => run.id == bound.bindId).result,
+        proof,
+      );
+      expect(
+        _db(
+          h,
+          (db) => db
+              .select('SELECT config_id FROM gameplay_effective_configs WHERE config_id IN (?, ?)', [
+                oldConfig,
+                newConfig,
+              ])
+              .map((row) => row['config_id'])
+              .toList(),
+        ),
+        unorderedEquals([oldConfig, newConfig]),
+      );
+
+      final draft = await h.engine.createAuthoringDraft([
+        TavernAuthoringTarget(kind: TavernAuthoringTargetKind.character, id: bound.characterId),
+      ]);
+      _Json rows() => _db(
+        h,
+        (db) => {
+          for (final table in const [
+            'chats',
+            'nodes',
+            'node_states',
+            'agent_runs',
+            'authoring_drafts',
+            'authoring_resources',
+            'authoring_operations',
+            'gameplay_packs',
+            'gameplay_pack_versions',
+            'gameplay_pack_files',
+            'gameplay_operations',
+            'gameplay_scopes',
+            'gameplay_bindings',
+            'gameplay_source_ids',
+            'gameplay_effective_configs',
+          ])
+            table: [for (final row in db.select('SELECT * FROM $table ORDER BY rowid')) Map<String, Object?>.from(row)],
+        },
+      );
+      final beforePreview = rows();
+      final generated = h.model.generated;
+      final preview = await h.engine
+          .previewAuthoringPrompt(
+            TavernAuthoringPromptRequest(
+              requestId: 'historical-pack-secret-policy',
+              draftId: draft.id,
+              draftRevision: draft.draftRevision,
+              changeIds: const [],
+              at: T24Harness.at,
+              seed: 7,
+              context: TavernAuthoringChatContext(chatId: bound.chatId),
+            ),
+          )
+          .result;
+      expect(preview.status, TavernAuthoringPreviewStatus.complete);
+      expect(preview.secretTrace['included'], hasLength(1));
+      expect(preview.secretTrace['attempted'], isFalse);
+      expect(jsonEncode(preview.assembly!.body), contains(_fact));
+      expect(rows(), beforePreview);
+      expect(h.model.generated, generated);
+      final released = await _reply(h, bound.chatId);
+      expect(_text(released.call), contains(_template.replaceAll('{{fact}}', _fact)));
+      expect((await _trace(h.engine, bound.chatId))['attempted'], hasLength(1));
+      expect((await _saved(h.engine, bound.chatId))['dshgoSecretRuntime'], ledger);
+
+      _db(h, (db) => db.execute('DELETE FROM agent_runs WHERE id = ?', [bound.bindId]));
+      expect(
+        _db(h, (db) => db.select('SELECT config_id FROM gameplay_effective_configs WHERE config_id = ?', [oldConfig])),
+        hasLength(1),
+      );
+      expect((await h.engine.readAgentRuns(bound.chatId, limit: 1000)).where((run) => run.id == bound.bindId), isEmpty);
+      final beforeUnprovenPreview = rows();
+      final beforeUnprovenCalls = h.model.generated;
+      final unproven = await h.engine
+          .previewAuthoringPrompt(
+            TavernAuthoringPromptRequest(
+              requestId: 'historical-pack-policy-without-bind-proof',
+              draftId: draft.id,
+              draftRevision: draft.draftRevision,
+              changeIds: const [],
+              at: T24Harness.at,
+              seed: 7,
+              context: TavernAuthoringChatContext(chatId: bound.chatId),
+            ),
+          )
+          .result;
+      expect(unproven.status, TavernAuthoringPreviewStatus.complete);
+      expect(unproven.secretTrace['offered'], isEmpty);
+      expect(unproven.secretTrace['included'], isEmpty);
+      expect(jsonEncode(unproven.assembly!.body), isNot(contains(_fact)));
+      expect(rows(), beforeUnprovenPreview);
+      expect(h.model.generated, beforeUnprovenCalls);
+      final blocked = await _reply(h, bound.chatId);
+      expect(_text(blocked.call), isNot(contains(_fact)));
+      expect((await _trace(h.engine, bound.chatId))['offered'], isEmpty);
+      expect((await _saved(h.engine, bound.chatId))['dshgoSecretRuntime'], ledger);
+    },
+  );
+
   test('literal release preserves BOM and macros and records offered included attempted without knownBy', () async {
     final h = await _open();
     await h.engine.setGlobalVariables({'secretVault': 'GLOBAL-MUST-NOT-EXPAND'});
@@ -291,7 +554,7 @@ void main() {
       expect(_text(active.call), isNot(contains(_fact)));
       expect((await _trace(h.engine, bound.chatId))['offered'], isEmpty);
       expect((await _saved(h.engine, bound.chatId))[carrier], broken);
-      expect(active.call.body!['tools'], isNull);
+      expect(_maps(active.call.body!['tools']).map((tool) => _map(tool['function'])['name']), ['roll']);
     });
   }
 
@@ -310,7 +573,7 @@ void main() {
       await h.reopen();
       final active = await _reply(h, bound.chatId);
       expect(_text(active.call), isNot(contains(_fact)));
-      expect(active.call.body!['tools'], isNull);
+      expect(_maps(active.call.body!['tools']).map((tool) => _map(tool['function'])['name']), ['roll']);
       final snapshot = await h.engine.readState(bound.chatId);
       expect(snapshot.hiddenPaths, contains('/secret'));
       expect(_map(snapshot.values)['secret'], _fact);

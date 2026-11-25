@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_bookmarks.dart';
+import '../../tavern/tavern_card_scripts.dart' show tavernChatScriptsProvider;
 import '../../tavern/tavern_card_theme.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_session_usage.dart';
@@ -29,6 +30,8 @@ import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'tavern_arrive.dart';
+import 'tavern_audio_section.dart';
+import 'tavern_chat_tool_section.dart';
 import 'tavern_bookmarks_page.dart';
 import 'tavern_branches_page.dart';
 import 'tavern_character_page.dart';
@@ -36,6 +39,8 @@ import 'tavern_chat_files.dart';
 import 'tavern_inspector_page.dart';
 import 'tavern_lorebooks_page.dart';
 import 'tavern_message_edit_page.dart';
+import 'tavern_pack_bindings_page.dart';
+import 'tavern_model_rows.dart';
 import 'tavern_personas.dart';
 import 'tavern_presets_page.dart';
 import 'tavern_runs_page.dart';
@@ -52,6 +57,7 @@ class TavernStagePanel extends ConsumerStatefulWidget {
     this.turn,
     this.topInset = 0,
     this.characterId,
+    this.scriptsCharacterId,
     this.name = '',
     this.busy = false,
     this.onSuggest,
@@ -68,6 +74,9 @@ class TavernStagePanel extends ConsumerStatefulWidget {
 
   /// The chat's character, and the name the export and storybook go by.
   final String? characterId;
+
+  /// Whose card's scripts run on the canvas: none in a group.
+  final String? scriptsCharacterId;
   final String name;
 
   /// A reply is being written: the persona waits until it is done.
@@ -84,10 +93,22 @@ class TavernStagePanel extends ConsumerStatefulWidget {
   ConsumerState<TavernStagePanel> createState() => _TavernStagePanelState();
 }
 
-class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
+class _TavernStagePanelState extends ConsumerState<TavernStagePanel> with SingleTickerProviderStateMixin {
   /// 本局 first: what is used most.
   TavernStageTab _tab = TavernStageTab.session;
-  late Future<TavernTurnInspection?> _record = _read();
+
+  /// The tab switched to fades in.
+  late final _swap = TavernSwapFade(this);
+
+  @override
+  void dispose() {
+    _swap.dispose();
+    super.dispose();
+  }
+
+  /// Read when 本回合 is first shown: a whole turn's prompt is large, and
+  /// opening the panel should not wait on it.
+  Future<TavernTurnInspection?>? _record;
 
   Future<TavernTurnInspection?> _read() => ref.read(tavernProvider).inspectTurn(widget.chatId);
 
@@ -98,7 +119,7 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
   void didUpdateWidget(TavernStagePanel old) {
     super.didUpdateWidget(old);
     if (old.turn != widget.turn || old.chatId != widget.chatId) {
-      _record = _read();
+      _record = null;
       _usage = tavernSessionUsage(ref.read(tavernProvider), widget.chatId);
     }
   }
@@ -123,52 +144,58 @@ class _TavernStagePanelState extends ConsumerState<TavernStagePanel> {
             PillSegment(TavernStageTab.turn, l10n.tavernStageTurn),
           ],
           selected: _tab,
-          onChanged: (tab) => setState(() => _tab = tab),
+          onChanged: (tab) {
+            setState(() => _tab = tab);
+            _swap.play(context);
+          },
         ),
         const SizedBox(height: 16),
-        switch (_tab) {
-          TavernStageTab.session => _Session(
-            key: const ValueKey('tavern-stage-session'),
-            usage: _usage,
-            chatId: widget.chatId,
-            characterId: widget.characterId,
-            name: widget.name,
-            busy: widget.busy,
-          ),
-          // The card's state (engine T17), or what an older card's macros saved.
-          TavernStageTab.state => _StateView(
-            key: const ValueKey('tavern-stage-state-view'),
-            chatId: widget.chatId,
-            turn: widget.turn,
-            onChanged: widget.onStateChanged,
-          ),
-          TavernStageTab.director => _DirectorView(
-            key: const ValueKey('tavern-stage-director-view'),
-            chatId: widget.chatId,
-            onSuggest: widget.onSuggest,
-          ),
-          TavernStageTab.turn => FutureBuilder<TavernTurnInspection?>(
-            future: _record,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: QuietSpinner()),
-                );
-              }
-              final record = snapshot.data;
-              if (snapshot.hasError || record == null) {
-                return _Waiting(
-                  key: const ValueKey('tavern-stage-turn-none'),
-                  icon: AppIcons.code,
-                  title: l10n.tavernStageTurnNone,
-                  message: l10n.tavernInspectNoneMessage,
-                );
-              }
-              return _ThisTurn(chatId: widget.chatId, record: record);
-            },
-          ),
-        },
+        FadeTransition(
+          opacity: _swap.opacity,
+          child: switch (_tab) {
+            TavernStageTab.session => _Session(
+              key: const ValueKey('tavern-stage-session'),
+              usage: _usage,
+              chatId: widget.chatId,
+              characterId: widget.characterId,
+              scriptsCharacterId: widget.scriptsCharacterId,
+              name: widget.name,
+              busy: widget.busy,
+            ),
+            // The card's state (engine T17), or what an older card's macros saved.
+            TavernStageTab.state => _StateView(
+              key: const ValueKey('tavern-stage-state-view'),
+              chatId: widget.chatId,
+              turn: widget.turn,
+              onChanged: widget.onStateChanged,
+            ),
+            TavernStageTab.director => _DirectorView(
+              key: const ValueKey('tavern-stage-director-view'),
+              chatId: widget.chatId,
+              onSuggest: widget.onSuggest,
+            ),
+            TavernStageTab.turn => FutureBuilder<TavernTurnInspection?>(
+              future: _record ??= _read(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: QuietSpinner()),
+                  );
+                }
+                final record = snapshot.data;
+                if (snapshot.hasError || record == null) {
+                  return _Waiting(
+                    key: const ValueKey('tavern-stage-turn-none'),
+                    title: l10n.tavernStageTurnNone,
+                    message: l10n.tavernInspectNoneMessage,
+                  );
+                }
+                return _ThisTurn(chatId: widget.chatId, record: record);
+              },
+            ),
+          },
+        ),
       ],
     );
   }
@@ -181,6 +208,7 @@ class _Session extends ConsumerWidget {
     required this.usage,
     required this.chatId,
     required this.characterId,
+    required this.scriptsCharacterId,
     required this.name,
     required this.busy,
   });
@@ -188,6 +216,7 @@ class _Session extends ConsumerWidget {
   final Future<TavernSessionUsage> usage;
   final String chatId;
   final String? characterId;
+  final String? scriptsCharacterId;
   final String name;
   final bool busy;
 
@@ -195,7 +224,6 @@ class _Session extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final settings = ref.watch(tavernSettingsProvider);
-    final model = ref.read(tavernSettingsProvider.notifier);
     final own = ref.watch(tavernChatLayoutProvider(chatId));
     final layout = ref.read(tavernChatLayoutProvider(chatId).notifier);
     final scene = ref.watch(tavernChatBackgroundProvider(chatId));
@@ -224,22 +252,13 @@ class _Session extends ConsumerWidget {
           title: l10n.tavernSessionUsing,
           margin: const EdgeInsets.only(bottom: 12),
           children: [
-            SettingsSegmentTile<String>(
-              key: const ValueKey('tavern-session-model'),
-              title: l10n.tavernSettingsModel,
+            ...tavernModelRows(
+              context,
+              ref,
+              keyPrefix: 'tavern-session',
               tinted: false,
-              segments: [
-                PillSegment(tavernModels[0], l10n.tavernModelFlash),
-                PillSegment(tavernModels[1], l10n.tavernModelPro),
-              ],
-              selected: settings.model,
-              onChanged: (value) => unawaited(model.setModel(value)),
-            ),
-            SettingsSwitchTile(
-              key: const ValueKey('tavern-session-thinking'),
-              title: l10n.tavernThinking,
-              value: settings.thinking,
-              onChanged: (on) => unawaited(model.setThinking(on)),
+              thinkingSubtitle: false,
+              open: open,
             ),
             SettingsTile(
               key: const ValueKey('tavern-chat-persona'),
@@ -277,6 +296,29 @@ class _Session extends ConsumerWidget {
               note: l10n.tavernLorebookChatNote,
               enabled: !busy,
             ),
+            SettingsTile(
+              key: const ValueKey('tavern-chat-packs'),
+              icon: AppIcons.zip,
+              tinted: false,
+              title: l10n.tavernPacks,
+              onTap: () => open(
+                TavernPackBindingsPage.route(
+                  (kind: TavernGameplayScope.chat, targetId: chatId),
+                  characterId: characterId,
+                  chatId: chatId,
+                ),
+              ),
+            ),
+            if (ref.watch(tavernChatScriptsProvider((chatId, scriptsCharacterId))).value case final chosen?
+                when chosen.scripts.isNotEmpty || chosen.issues.isNotEmpty)
+              SettingsTile(
+                key: const ValueKey('tavern-chat-scripts'),
+                icon: AppIcons.code,
+                tinted: false,
+                title: l10n.tavernChatScripts,
+                value: Text(l10n.tavernScriptCount(chosen.scripts.length)),
+                onTap: () => unawaited(_showChatScripts(context, chosen)),
+              ),
           ],
         ),
         SettingsSection(
@@ -322,6 +364,8 @@ class _Session extends ConsumerWidget {
               ),
           ],
         ),
+        TavernAudioSection(chatId: chatId),
+        TavernChatToolSection(chatId: chatId),
         SettingsSection(
           title: l10n.tavernSessionMore,
           margin: EdgeInsets.zero,
@@ -375,7 +419,7 @@ class _Session extends ConsumerWidget {
             ),
             SettingsTile(
               key: const ValueKey('tavern-chat-storybook'),
-              icon: AppIcons.bookmark,
+              icon: AppIcons.tavern,
               tinted: false,
               title: l10n.tavernStorybookMenu,
               onTap: () => open(
@@ -418,6 +462,59 @@ Future<void> chooseTavernBackground(BuildContext context, WidgetRef ref, String 
 /// what changed this turn carries a mark (「+5」), what the card keeps from the
 /// model is folded like a spoiler, and a tap shows one whole and lets it be
 /// changed (docs/design/roleplay-ui.md §8).
+/// The scripts [chosen] runs, in order, each with where it comes from; and
+/// what the engine passed over, as it says it.
+Future<void> _showChatScripts(BuildContext context, TavernChatScripts chosen) => showAppSheet<void>(
+  context,
+  builder: (sheet) {
+    final l10n = sheet.l10n;
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetTitleBar(l10n.tavernChatScripts),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(SheetTitleBar.inset + 12, 0, SheetTitleBar.inset + 12, 6),
+            child: Text(
+              l10n.tavernChatScriptsNote,
+              style: Theme.of(sheet).textTheme.bodySmall?.copyWith(color: DshColors.of(sheet).textTertiary),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              child: SheetGroup(
+                margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                children: [
+                  for (final s in chosen.scripts)
+                    SettingsTile(
+                      tinted: false,
+                      title: s.name.isEmpty ? l10n.tavernScriptUnnamed : s.name,
+                      value: Text(switch (s.owner.kind) {
+                        TavernScriptOwnerKind.global => l10n.tavernScriptSourceGlobal,
+                        TavernScriptOwnerKind.preset => l10n.tavernScriptSourcePreset,
+                        TavernScriptOwnerKind.character => l10n.tavernScriptSourceCard,
+                      }),
+                    ),
+                  if (chosen.issues.isNotEmpty)
+                    SettingsTile(
+                      key: const ValueKey('tavern-chat-scripts-skipped'),
+                      icon: AppIcons.error,
+                      tinted: false,
+                      title: l10n.tavernChatScriptsSkipped(chosen.issues.length),
+                      subtitle: chosen.issues.map((i) => i.message).join('\n'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  },
+);
+
 class _StateView extends ConsumerStatefulWidget {
   const _StateView({super.key, required this.chatId, required this.turn, this.onChanged});
 
@@ -667,7 +764,6 @@ class _StateViewState extends ConsumerState<_StateView> {
         if (state == null || (top.isEmpty && issues.isEmpty)) {
           return _Waiting(
             key: const ValueKey('tavern-stage-state'),
-            icon: AppIcons.chart,
             title: l10n.tavernStageStateEmpty,
             message: l10n.tavernStageStateNote,
           );
@@ -886,7 +982,7 @@ class _StateViewState extends ConsumerState<_StateView> {
             if (issues.isNotEmpty)
               Padding(
                 key: const ValueKey('tavern-state-issues'),
-                padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 10, SettingsMetrics.inset, 0),
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
                 child: Text(
                   issues.join('\n'),
                   style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5),
@@ -1160,7 +1256,6 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
           ? const SizedBox.shrink()
           : _Waiting(
               key: const ValueKey('tavern-stage-director'),
-              icon: AppIcons.error,
               title: l10n.tavernStageDirectorEmpty,
               message: '$_error',
             );
@@ -1182,7 +1277,7 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
           children: [
             SettingsSwitchTile(
               key: const ValueKey('tavern-director-auto'),
-              icon: AppIcons.lorebook,
+              icon: AppIcons.tip,
               tinted: false,
               title: l10n.tavernDirectorAuto,
               value: _auto ?? shown.automaticEnabled,
@@ -1203,7 +1298,7 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
         if (failed != null)
           Padding(
             key: const ValueKey('tavern-director-failed'),
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
             child: Text(
               l10n.tavernDirectorFailed(failed.failure ?? ''),
               style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5),
@@ -1212,7 +1307,6 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
         if (success == null)
           _Waiting(
             key: const ValueKey('tavern-stage-director'),
-            icon: AppIcons.lorebook,
             title: l10n.tavernStageDirectorEmpty,
             message: l10n.tavernStageDirectorNote,
           )
@@ -1221,7 +1315,7 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
           if (shown.stale)
             Padding(
               key: const ValueKey('tavern-director-stale'),
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
               child: Text(l10n.tavernDirectorStale, style: quiet),
             ),
           if ((success.beat ?? '').trim().isNotEmpty) ...[
@@ -1302,7 +1396,7 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
         if (issues.isNotEmpty)
           Padding(
             key: const ValueKey('tavern-director-issues'),
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
             child: Text(issues.join('\n'), style: theme.textTheme.bodySmall?.copyWith(color: dsh.danger, height: 1.5)),
           ),
       ],
@@ -1312,9 +1406,8 @@ class _DirectorViewState extends ConsumerState<_DirectorView> {
 
 /// A page whose contents the engine doesn't give yet: what will be here.
 class _Waiting extends StatelessWidget {
-  const _Waiting({super.key, required this.icon, required this.title, required this.message});
+  const _Waiting({super.key, required this.title, required this.message});
 
-  final IconData icon;
   final String title;
   final String message;
 
@@ -1322,13 +1415,12 @@ class _Waiting extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
+    // On the sections' titles' edge, words only.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 24, color: dsh.textTertiary),
-          const SizedBox(height: 10),
           Text(title, style: theme.textTheme.titleSmall),
           const SizedBox(height: 6),
           Text(message, style: theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary, height: 1.5)),
@@ -1357,10 +1449,13 @@ class _ThisTurn extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (usage == null)
-          Text(
-            l10n.tavernInspectNoUsage,
-            key: const ValueKey('tavern-stage-no-usage'),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              l10n.tavernInspectNoUsage,
+              key: const ValueKey('tavern-stage-no-usage'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary),
+            ),
           )
         else
           Row(
@@ -1405,7 +1500,6 @@ class _ThisTurn extends StatelessWidget {
   }
 }
 
-/// One number, under what it is.
 /// 本局用量: what the current line's replies took, added up.
 class _SessionUsageView extends StatelessWidget {
   const _SessionUsageView({required this.usage});
@@ -1418,6 +1512,10 @@ class _SessionUsageView extends StatelessWidget {
     final theme = Theme.of(context);
     final quiet = theme.textTheme.bodySmall?.copyWith(color: DshColors.of(context).textTertiary);
     final zh = Localizations.localeOf(context).languageCode == 'zh';
+    // Nothing reported yet: no section to say so.
+    if (usage.replies == 0) return const SizedBox.shrink();
+    // The lines under the figures, on the sections' titles' edge.
+    Widget line(Widget text) => Padding(padding: const EdgeInsets.fromLTRB(8, 4, 8, 0), child: text);
     return Padding(
       key: const ValueKey('tavern-session-usage'),
       padding: const EdgeInsets.only(bottom: 16),
@@ -1432,35 +1530,35 @@ class _SessionUsageView extends StatelessWidget {
               child: Text(l10n.tavernSessionUsage, style: SettingsSection.titleStyle(context)),
             ),
           ),
-          if (usage.replies == 0)
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Text(l10n.tavernSessionUsageNone, style: quiet),
-            )
-          else ...[
-            Row(
-              children: [
-                TavernFigure(
-                  label: l10n.tavernStageTokensIn,
-                  value: tavernTokenCount(usage.prompt, zh: zh),
-                ),
-                const SizedBox(width: 8),
-                TavernFigure(
-                  label: l10n.tavernStageCache,
-                  value: usage.prompt == 0 ? '—' : '${(100 * usage.cacheHit / usage.prompt).round()}%',
-                ),
-                const SizedBox(width: 8),
-                TavernFigure(
-                  label: l10n.tavernStageTokensOut,
-                  value: tavernTokenCount(usage.completion, zh: zh),
-                ),
-              ],
+          Row(
+            children: [
+              TavernFigure(
+                label: l10n.tavernStageTokensIn,
+                value: tavernTokenCount(usage.prompt, zh: zh),
+              ),
+              const SizedBox(width: 8),
+              TavernFigure(
+                label: l10n.tavernStageCache,
+                value: usage.prompt == 0 ? '—' : '${(100 * usage.cacheHit / usage.prompt).round()}%',
+              ),
+              const SizedBox(width: 8),
+              TavernFigure(
+                label: l10n.tavernStageTokensOut,
+                value: tavernTokenCount(usage.completion, zh: zh),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (usage.replies > usage.unpriced)
+            line(
+              Text(
+                key: const ValueKey('tavern-session-cost'),
+                l10n.tavernStageCost('US\$${tavernUsd(usage.cost)}'),
+                style: theme.textTheme.bodySmall,
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 8, top: 6),
-              child: Text(l10n.tavernSessionUsageNote(usage.replies), style: quiet),
-            ),
-          ],
+          if (usage.unpriced > 0) line(Text(l10n.tavernSessionUsageUnpriced(usage.unpriced), style: quiet)),
+          line(Text(l10n.tavernSessionUsageNote(usage.replies), style: quiet)),
         ],
       ),
     );

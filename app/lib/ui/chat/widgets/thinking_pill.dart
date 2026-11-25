@@ -1,4 +1,6 @@
-// Portions derived from PiPilot (https://github.com/CikeSeven/pi_pilot), MIT, Copyright (c) 2026 CikeSeven. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -16,6 +18,7 @@ import '../../common/pressable.dart';
 import '../../common/smooth_size.dart';
 import '../../common/think_glyph.dart';
 import '../../engine_settings/engine_settings_page.dart' show openSettingsPage;
+import '../../fx/orbs/thinking_orb.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/theme.dart';
 import '../render/markdown_body.dart';
@@ -144,15 +147,16 @@ class _ThinkingPillState extends State<ThinkingPill> {
               shape: Squircle.border(StreamRow.lead * 0.32),
             ),
             child: Center(
-              // 自己一层:转动只重绘这个图形,不重绘整行。
-              child: RepaintBoundary(
-                child: ThinkGlyph(size: 15, color: brand, spinning: active),
-              ),
+              // 思考中是一颗慢慢变形的点阵小光球(Libraries.dev 思考光球),想完换回静止的图形
+              // (和标签一样直接换,不叠着淡入淡出)。
+              child: active
+                  ? ThinkingOrb(state: OrbState.breathing, size: OrbSize.px20, displaySize: 18, ink: OrbInk.tint(brand))
+                  : ThinkGlyph(size: 15, color: brand),
             ),
           ),
         ),
         const SizedBox(width: StreamRow.gap),
-        // 标签直接换字,不做淡入淡出:两个词叠在同一个位置上闪一下更难看。
+        // 标签直接换字,不做淡入淡出:两个词叠在同一个位置上闪一下更乱。
         ThinkingLabel(active ? l10n.chatThinkingActive : l10n.chatThinking, active: active),
         ?widget.meta,
         if (preview.isNotEmpty) ...[
@@ -488,6 +492,7 @@ class _FluidTickerState extends State<_FluidTicker> with SingleTickerProviderSta
 
   /// How far the text still has to rise. Only ever a transform.
   final _behind = ValueNotifier(0.0);
+  final _painter = TextPainter();
   late String _shown = fluidTickerText(widget.text);
 
   Duration _last = Duration.zero;
@@ -504,6 +509,7 @@ class _FluidTickerState extends State<_FluidTicker> with SingleTickerProviderSta
   void initState() {
     super.initState();
     _pacer = StreamPacer(shown: widget.text.length);
+    PaintingBinding.instance.systemFonts.addListener(_painter.markNeedsLayout);
   }
 
   @override
@@ -523,6 +529,8 @@ class _FluidTickerState extends State<_FluidTicker> with SingleTickerProviderSta
 
   @override
   void dispose() {
+    PaintingBinding.instance.systemFonts.removeListener(_painter.markNeedsLayout);
+    _painter.dispose();
     _ticker.dispose();
     _behind.dispose();
     super.dispose();
@@ -532,6 +540,7 @@ class _FluidTickerState extends State<_FluidTicker> with SingleTickerProviderSta
     final seconds = (elapsed - _last).inMicroseconds / Duration.microsecondsPerSecond;
     _last = elapsed;
     _sinceLine += seconds;
+    final wasCaughtUp = _pacer.caughtUp(widget.text.length);
     _pacer.advance(seconds, widget.text.length);
     _sincePublish += seconds;
     final behind = _behind.value;
@@ -543,21 +552,24 @@ class _FluidTickerState extends State<_FluidTicker> with SingleTickerProviderSta
     // The last of it goes out at once: the ticker is about to stop.
     if (_sincePublish >= _publishEvery || _pacer.caughtUp(widget.text.length)) {
       _sincePublish = 0;
-      final next = fluidTickerText(widget.text.substring(0, _pacer.shown));
-      if (next != _shown) setState(() => _shown = next);
+      if (!wasCaughtUp) {
+        final next = fluidTickerText(widget.text.substring(0, _pacer.shown));
+        if (next != _shown) setState(() => _shown = next);
+      }
     }
     if (_pacer.caughtUp(widget.text.length) && _behind.value == 0) _ticker.stop();
   }
 
   /// Text height at [width], with what growing by a line means for the motion.
   double _measure(TextStyle? style, TextScaler scaler, double width, double lineHeight, double window, String text) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: Directionality.of(context),
-      textScaler: scaler,
-    )..layout(maxWidth: width);
-    final height = painter.height;
-    painter.dispose();
+    // Kept across builds: an arrival rebuilds before the shown text changes, and then
+    // the painter hands back its last layout.
+    _painter
+      ..text = TextSpan(text: text, style: style)
+      ..textDirection = Directionality.of(context)
+      ..textScaler = scaler
+      ..layout(maxWidth: width);
+    final height = _painter.height;
     // Only what goes past the window has to rise: below that the text grows into the
     // space it has, and any distance saved up would jump when the window fills.
     final past = math.max(_height, window);

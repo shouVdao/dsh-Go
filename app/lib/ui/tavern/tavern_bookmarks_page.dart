@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
@@ -12,7 +13,6 @@ import '../../tavern/tavern_bookmarks.dart';
 import '../../tavern/tavern_jump.dart';
 import '../../tavern/tavern_provider.dart';
 import '../bots/bot_format.dart' show shortTime;
-import '../common/app_sheet.dart';
 import '../common/brief_notice.dart';
 import '../features/feature_kit.dart';
 import '../settings/settings_widgets.dart';
@@ -40,6 +40,7 @@ class TavernBookmarksPage extends ConsumerWidget {
       await container.read(tavernBookmarksProvider(chatId).notifier).remove(mark.nodeId);
       return;
     }
+    unawaited(HapticFeedback.selectionClick());
     container.read(tavernJumpProvider(chatId).notifier).go(mark.nodeId);
     if (page.mounted) page.pop();
   }
@@ -54,7 +55,7 @@ class TavernBookmarksPage extends ConsumerWidget {
         if (marks.isEmpty)
           Padding(
             key: const ValueKey('tavern-bookmarks-empty'),
-            padding: const EdgeInsets.only(top: 48),
+            padding: const EdgeInsets.only(top: 32),
             child: EmptyView(
               icon: AppIcons.bookmark,
               title: l10n.tavernBookmarksEmpty,
@@ -63,14 +64,11 @@ class TavernBookmarksPage extends ConsumerWidget {
             ),
           )
         else
-          SheetGroup(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          SettingsSection(
             children: [
               for (final mark in marks)
                 SettingsTile(
                   key: ValueKey('tavern-bookmark-${mark.nodeId}'),
-                  icon: AppIcons.bookmarkActive,
-                  tinted: false,
                   title: mark.preview.isEmpty ? '…' : mark.preview,
                   subtitle: '${mark.speaker} · ${shortTime(mark.at)}',
                   chevron: false,

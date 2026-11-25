@@ -11,6 +11,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui' show Brightness;
 
 import 'package:dsh_client/dsh_client.dart';
@@ -55,7 +56,11 @@ class SystemAccountBrowser implements AccountBrowser {
 
   @override
   Future<bool> open(Uri url) async {
-    for (final mode in const [LaunchMode.inAppBrowserView, LaunchMode.externalApplication]) {
+    // HarmonyOS's url_launcher answers the in-app mode with a developer's toast.
+    final modes = Platform.operatingSystem == 'ohos'
+        ? const [LaunchMode.externalApplication]
+        : const [LaunchMode.inAppBrowserView, LaunchMode.externalApplication];
+    for (final mode in modes) {
       try {
         if (await launchUrl(url, mode: mode)) return true;
       } catch (_) {
@@ -609,7 +614,7 @@ class AccountController extends Notifier<AccountState> {
   Future<void> _start(_Run run) async {
     // Nothing to wait 90 s for: say so at once. (The runtime's state lives
     // as long as the app; without it there is no report to go by.)
-    if (ref.exists(localRuntimeProvider) && ref.read(localRuntimeProvider).status.runtimeMissing) {
+    if (ref.read(localRuntimeProvider.exists) && ref.read(localRuntimeProvider).status.runtimeMissing) {
       _fail(run, const SignInFailure(SignInFailureKind.noRuntime));
       return;
     }

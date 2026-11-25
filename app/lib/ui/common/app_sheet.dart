@@ -1,4 +1,6 @@
-// Portions derived from PiPilot (https://github.com/CikeSeven/pi_pilot), MIT, Copyright (c) 2026 CikeSeven. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -12,6 +14,7 @@ import '../theme/glass.dart';
 import '../theme/motion.dart';
 import '../theme/semantic_colors.dart';
 import '../theme/shapes.dart';
+import '../theme/sheet_recede.dart';
 import '../theme/surfaces.dart';
 import 'sheet_title_bar.dart';
 import 'sheet_dismissal.dart';
@@ -59,6 +62,7 @@ Future<T?> showAppSheet<T>(
   bool isScrollControlled = false,
   bool glass = true,
   SheetDismissal? dismissal,
+  void Function(ModalRoute<Object?> route, Route<dynamic>? nextRoute)? onRouteChanged,
 }) {
   final policy = dismissal ?? (heightFactor == null ? SheetDismissal.drag : SheetDismissal.button);
   final draggable = policy == SheetDismissal.drag;
@@ -83,8 +87,14 @@ Future<T?> showAppSheet<T>(
   // to its content up to there. Width: Material's 640, centred between the
   // (mirrored) side insets.
   final short = MediaQuery.sizeOf(context).height < WindowClass.compactHeight;
-  return showModalBottomSheet<T>(
-    context: context,
+  final navigator = Navigator.of(context);
+  final localizations = MaterialLocalizations.of(context);
+  final route = _AppSheetRoute<T>(
+    onRouteChanged: onRouteChanged,
+    capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
+    barrierLabel: localizations.scrimLabel,
+    barrierOnTapHint: localizations.scrimOnTapHint(localizations.bottomSheetLabel),
+    modalBarrierColor: Theme.of(context).bottomSheetTheme.modalBarrierColor,
     useSafeArea: true,
     isScrollControlled: isScrollControlled || heightFactor != null,
     scrollControlDisabledMaxHeightRatio: short ? 1 : 9 / 16,
@@ -117,9 +127,43 @@ Future<T?> showAppSheet<T>(
               child: Material(type: MaterialType.transparency, child: content),
             )
           : content;
-      return holds == null ? surface() : _HeldSheetDrag(holds: holds, builder: surface);
+      return SheetRecedeSheet(
+        child: holds == null ? surface() : _HeldSheetDrag(holds: holds, builder: surface),
+      );
     }),
   );
+  // Capture the exact route before push makes the owning page non-current.
+  onRouteChanged?.call(route, null);
+  return navigator.push(route).whenComplete(() => onRouteChanged?.call(route, null));
+}
+
+/// Only an opted-in owner observes this sheet, including a later route above
+/// it. A bool spanning the returned Future would also cover unrelated pages.
+class _AppSheetRoute<T> extends ModalBottomSheetRoute<T> {
+  _AppSheetRoute({
+    required super.builder,
+    required super.isScrollControlled,
+    super.capturedThemes,
+    super.barrierLabel,
+    super.barrierOnTapHint,
+    super.modalBarrierColor,
+    super.useSafeArea,
+    super.scrollControlDisabledMaxHeightRatio,
+    super.showDragHandle,
+    super.enableDrag,
+    super.isDismissible,
+    super.backgroundColor,
+    super.elevation,
+    super.sheetAnimationStyle,
+    this.onRouteChanged,
+  });
+  final void Function(ModalRoute<Object?> route, Route<dynamic>? nextRoute)? onRouteChanged;
+
+  @override
+  void didChangeNext(Route<dynamic>? nextRoute) {
+    super.didChangeNext(nextRoute);
+    onRouteChanged?.call(this, nextRoute);
+  }
 }
 
 /// A sheet's glass, which blurs only at rest. A moving blur re-samples what is

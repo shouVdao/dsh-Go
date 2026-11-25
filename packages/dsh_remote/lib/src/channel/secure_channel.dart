@@ -1,4 +1,6 @@
-// Portions derived from ds-harness-remote (https://github.com/liguobao/ds-harness-remote), MIT, Copyright (c) 2026 DSH Remote contributors. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 DSH Remote contributors
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 // Client-side Noise IK channel over a [SecureHandshakeTransport].
 library;
 
@@ -103,11 +105,18 @@ class SecureChannel {
 
   SecureChannelClosed? get closedReason => _closedReason;
 
+  /// Checks Control liveness without replacing this channel or its RPCs.
+  void checkControlHealth() {
+    final transport = _transport;
+    if (!_closed && transport is LeaseAwareTransport) transport.checkControlHealth();
+  }
+
   Future<void> _handshake(Duration timeout) async {
     final done = _handshakeDone = Completer<void>();
     // listen may synchronously replay closure before the awaited send starts.
     done.future.ignore();
     _transport.listen(onData: _onData, onHandshake: _onHandshakeMessage, onClosed: _onTransportClosed);
+    if (done.isCompleted) return done.future;
     try {
       await _transport.sendHandshake(1, _noise.writeHandshake());
       await done.future.timeout(timeout);

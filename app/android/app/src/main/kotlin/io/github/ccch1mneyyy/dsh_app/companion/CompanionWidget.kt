@@ -13,6 +13,7 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.github.ccch1mneyyy.dsh_app.R
+import io.github.ccch1mneyyy.dsh_app.i18n.AppStrings
 import java.util.Calendar
 
 /**
@@ -34,9 +35,26 @@ class CompanionWidgetProvider : AppWidgetProvider() {
 
         /** What she said stays on the widget this long. */
         private const val LINE_MS = 12 * 3600_000L
+        private val storeLock = Any()
 
-        fun store(context: Context, values: Map<*, *>) {
-            val edit = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit()
+        fun store(context: Context, values: Map<*, *>): Boolean = synchronized(storeLock) {
+            val prefs = context.getSharedPreferences(STORE, Context.MODE_PRIVATE)
+            val archive = values["memoryArchiveId"] as? String
+            val revision = (values["memoryControlRevision"] as? Number)?.toLong()
+            val keptArchive = prefs.getString("memoryArchiveId", null)
+            val keptRevision = prefs.getLong("memoryControlRevision", -1)
+            if (archive != null) {
+                if (revision == null || revision < 0 ||
+                    (keptArchive != null && keptArchive != archive) || revision < keptRevision) return@synchronized false
+            } else if (keptArchive != null && (values.containsKey("line") || values.containsKey("saidAt"))) {
+                return@synchronized false
+            }
+            val edit = prefs.edit()
+            if (archive != null && (keptArchive == null || revision!! > keptRevision)) {
+                // A new control fence clears both keys, without guessing which
+                // memory an old line may have contained.
+                edit.remove("line").remove("saidAt")
+            }
             for ((key, value) in values) {
                 if (key !is String) continue
                 when (value) {
@@ -45,7 +63,8 @@ class CompanionWidgetProvider : AppWidgetProvider() {
                     null -> edit.remove(key)
                 }
             }
-            edit.apply()
+            // The app acknowledges its pending clear only after durable write.
+            edit.commit()
         }
 
         fun refresh(context: Context) {
@@ -63,8 +82,8 @@ class CompanionWidgetProvider : AppWidgetProvider() {
             val busy = activity != null && activity != "idle" && prefs.getLong("untilMs", 0) > now
             val status = when {
                 busy -> prefs.getString("status", null)
-                night -> prefs.getString("statusAsleep", null) ?: context.getString(R.string.companion_widget_asleep)
-                else -> prefs.getString("statusWaiting", null) ?: context.getString(R.string.companion_widget_waiting)
+                night -> prefs.getString("statusAsleep", null) ?: AppStrings.get(context, R.string.companion_widget_asleep)
+                else -> prefs.getString("statusWaiting", null) ?: AppStrings.get(context, R.string.companion_widget_waiting)
             } ?: ""
             val line = prefs.getString("line", null)?.takeIf { now - prefs.getLong("saidAt", 0) < LINE_MS } ?: ""
             val bond = prefs.getLong("bond", -1).coerceIn(-1, 3)
@@ -86,7 +105,7 @@ class CompanionWidgetProvider : AppWidgetProvider() {
                 val views = RemoteViews(context.packageName, R.layout.companion_widget)
                 views.setTextViewText(
                     R.id.companion_widget_name,
-                    prefs.getString("name", null) ?: context.getString(R.string.companion_widget_name),
+                    prefs.getString("name", null) ?: AppStrings.get(context, R.string.companion_widget_name),
                 )
                 views.setTextViewText(R.id.companion_widget_bond, pearls)
                 views.setTextViewText(R.id.companion_widget_status, status)
@@ -118,11 +137,21 @@ class CompanionWidgetPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         when (call.method) {
             "update" -> {
                 val values = call.arguments as? Map<*, *>
-                if (values != null) {
-                    CompanionWidgetProvider.store(context, values)
-                    CompanionWidgetProvider.refresh(context)
+                if (values == null) {
+                    result.error("invalid-widget-update", "Expected widget fields", null)
+                    return
                 }
-                result.success(null)
+                try {
+                    val stored = CompanionWidgetProvider.store(context, values)
+                    if (!stored) {
+                        result.success(false)
+                        return
+                    }
+                    CompanionWidgetProvider.refresh(context)
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("widget-update-failed", error.message, null)
+                }
             }
             else -> result.notImplemented()
         }

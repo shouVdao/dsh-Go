@@ -13,12 +13,15 @@ import '../../pets/pet_pack.dart';
 import '../../pets/pet_prefs.dart';
 import '../../pets/pet_signals.dart';
 import '../../pets/pet_state.dart';
+import '../../state/android_features.dart';
 import '../common/expand_reveal.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../shell/page_frame.dart';
 import '../workshop/workshop_screen.dart';
+import 'live2d_convert_page.dart';
 import 'overlay_settings_tile.dart';
+import 'pet_custom_size.dart';
 import 'pet_picker.dart';
 
 /// 设置 › 宠物: the chosen pet (or 不显示) on the right; opens
@@ -54,6 +57,7 @@ class PetSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final hasOutsideOverlay = ref.watch(androidSystemFeaturesProvider) || ref.watch(operatingSystemProvider) == 'ios';
     final prefs = ref.watch(petPrefsProvider);
     final now = ref.watch(petClockProvider)();
     final hidden = prefs.hiddenAt(now) ? prefs.hiddenUntil : null;
@@ -65,14 +69,26 @@ class PetSettingsPage extends ConsumerWidget {
           footer: Text(_source(l10n, prefs.packId, ref.watch(petPackProvider(prefs.packId)).value)),
           children: const [PetPicker(importable: true)],
         ),
+        // 转换 Live2D 模型：选包 → 看它能做什么 → 给每个状态挑动作 → 出包，全在 App 里.
+        SettingsSection(
+          children: [
+            SettingsTile(
+              spot: Spots.petMake,
+              icon: AppIcons.skill,
+              title: l10n.botsPetConvertEntry,
+              subtitle: l10n.botsPetConvertEntrySub,
+              onTap: () => unawaited(Navigator.of(context).push(Live2dConvertPage.route())),
+            ),
+          ],
+        ),
         // 创意工坊: pets other people made. Only where this build has one to open.
         if (ref.watch(workshopAvailableProvider))
           SettingsSection(
             children: [
               SettingsTile(
+                spot: Spots.workshop,
                 icon: AppIcons.workshop,
                 tinted: false,
-                title: l10n.workshopTitle,
                 subtitle: l10n.workshopEntrySubtitle,
                 onTap: () => unawaited(
                   Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WorkshopScreen())),
@@ -94,6 +110,7 @@ class PetSettingsPage extends ConsumerWidget {
                     selected: prefs.size,
                     onChanged: (s) => unawaited(notifier.setSize(s)),
                   ),
+                  ExpandReveal(open: prefs.size == PetSize.custom, child: const PetCustomSizePanel()),
                   SettingsSwitchTile(
                     spot: Spots.petQuiet,
                     subtitle: l10n.botsPetQuietSubtitle,
@@ -110,7 +127,7 @@ class PetSettingsPage extends ConsumerWidget {
                 ],
               ),
               // App 外显示 (the overlay).
-              const PetOverlaySettingsSection(),
+              if (hasOutsideOverlay) const PetOverlaySettingsSection(),
             ],
           ),
         ),

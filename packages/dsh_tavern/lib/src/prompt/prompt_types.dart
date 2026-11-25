@@ -111,6 +111,7 @@ final class PromptHistoryMessage {
     this.hidden = false,
     this.isSystem = false,
     this.forceAvatar = false,
+    this.expandMacros = true,
     this.toolCalls,
     this.toolCallId,
   });
@@ -121,6 +122,10 @@ final class PromptHistoryMessage {
   final bool hidden;
   final bool isSystem;
   final bool forceAvatar;
+
+  /// Prepared request input shares its exact value with WI scanning.
+  /// Stored history retains the existing later macro phase by default.
+  final bool expandMacros;
   final List<Map<String, Object?>>? toolCalls;
   final String? toolCallId;
 }
@@ -136,12 +141,19 @@ final class PromptInjection {
     this.order = 100,
     this.fragments = const [],
     this.v3Depth = false,
+    this.sortKey,
+    this.sourceOrder = 0,
   });
   final PromptFragment fragment;
   final String role;
   final PromptPlacement placement;
   final int depth;
   final int order;
+
+  /// Preserve source sorting independently of the collision-free assembler id.
+  /// Existing extensions continue to sort by their original source identifier.
+  final String? sortKey;
+  final int sourceOrder;
 
   /// A CCV3 depth/reverse_depth is bounded by the available history, not by
   /// ST's native 10000-message extension limit. Native injections retain it.
@@ -155,11 +167,21 @@ final class PromptInjection {
 }
 
 final class PromptSegment {
-  const PromptSegment({required this.id, required this.message, required this.sources, required this.tokens});
+  const PromptSegment({
+    required this.id,
+    required this.message,
+    required this.sources,
+    required this.tokens,
+    this.collectionId,
+  });
   final String id;
   final Map<String, Object?> message;
   final List<PromptSource> sources;
   final int tokens;
+
+  /// Prompt-manager collection identity, including controls in chatHistory.
+  /// Internal grouping metadata; never part of a provider's message body.
+  final String? collectionId;
   Map<String, Object?> toJson() => {
     'id': id,
     'message': message,
@@ -176,6 +198,43 @@ final class PromptExclusion {
   Map<String, Object?> toJson() => {'id': id, 'reason': reason, 'sources': sources.map((s) => s.toJson()).toList()};
 }
 
+/// Admission choices retained after history first exceeds its available budget.
+/// The caller owns path/configuration invalidation and commits this value only
+/// when the assembled request is admitted. Dynamic prompt text may still change.
+final class PromptHistoryWindow {
+  PromptHistoryWindow({
+    required this.firstNodeId,
+    Iterable<({String kind, String id, int block})> admittedExamples = const [],
+    Iterable<({String kind, String id})> excludedOptionalSources = const [],
+    Iterable<String> excludedInjections = const [],
+  }) : admittedExamples = Set.unmodifiable(admittedExamples),
+       excludedOptionalSources = Set.unmodifiable(excludedOptionalSources),
+       excludedInjections = Set.unmodifiable(excludedInjections);
+
+  final String firstNodeId;
+
+  /// Block ordinals are local to their source, so another WI source appearing
+  /// ahead of an admitted example does not change its identity.
+  final Set<({String kind, String id, int block})> admittedExamples;
+  final Set<({String kind, String id})> excludedOptionalSources;
+
+  /// Opaque identities of depth pieces previously excluded by the budget.
+  /// Keeping those choices prevents freed history space from refilling with
+  /// an older injection in front of the retained history prefix.
+  final Set<String> excludedInjections;
+
+  Map<String, Object?> toJson() => {
+    'firstNodeId': firstNodeId,
+    'admittedExamples': [
+      for (final example in admittedExamples) {'kind': example.kind, 'id': example.id, 'block': example.block},
+    ],
+    'excludedOptionalSources': [
+      for (final source in excludedOptionalSources) {'kind': source.kind, 'id': source.id},
+    ],
+    'excludedInjections': excludedInjections.toList(),
+  };
+}
+
 final class PromptAssembly {
   const PromptAssembly({
     required this.body,
@@ -186,6 +245,7 @@ final class PromptAssembly {
     required this.remainingBudget,
     required this.counterName,
     required this.exactTokenCounts,
+    this.historyWindow,
   });
   final Map<String, Object?> body;
   final List<PromptSegment> beforePostProcessing;
@@ -195,6 +255,7 @@ final class PromptAssembly {
   final int remainingBudget;
   final String counterName;
   final bool exactTokenCounts;
+  final PromptHistoryWindow? historyWindow;
   Map<String, Object?> toJson() => {
     'body': body,
     'beforePostProcessing': beforePostProcessing.map((s) => s.toJson()).toList(),
@@ -204,6 +265,7 @@ final class PromptAssembly {
     'remainingBudget': remainingBudget,
     'counter': counterName,
     'exactTokenCounts': exactTokenCounts,
+    if (historyWindow != null) 'historyWindow': historyWindow!.toJson(),
   };
 }
 

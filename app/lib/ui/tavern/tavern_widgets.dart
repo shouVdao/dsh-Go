@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show max;
 import 'dart:typed_data';
 
 import 'package:dsh_tavern/dsh_tavern.dart';
@@ -18,11 +19,13 @@ import '../../tavern/tavern_backgrounds.dart';
 import '../../tavern/tavern_card_sites.dart';
 import '../../tavern/tavern_live2d.dart';
 import '../../tavern/tavern_provider.dart';
+import '../../tavern/tavern_session_usage.dart';
 import '../common/app_dialog.dart';
 import '../common/app_sheet.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import 'tavern_deepseek_import.dart';
 import 'tavern_import_files.dart';
 
 /// The card picture, or — for a card without one — a quiet field in the
@@ -40,7 +43,25 @@ class TavernPortrait extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final file = path;
     final Widget body = file != null
-        ? Image.file(File(file), fit: BoxFit.cover, errorBuilder: (_, _, _) => _initial(context))
+        ? LayoutBuilder(
+            builder: (context, box) {
+              // Decoded near the size it is drawn at: a card's picture is
+              // often 1–2k pixels, and a whole shelf of them at full size
+              // overflows the image cache. Twice the box's longer side, so a
+              // picture up to 2:1 the other way still covers it unblurred.
+              final sides = [box.maxWidth, box.maxHeight].where((d) => d.isFinite);
+              final side = sides.isEmpty ? double.infinity : sides.reduce(max) * 2;
+              final ImageProvider picture = side.isFinite
+                  ? ResizeImage(
+                      FileImage(File(file)),
+                      width: (side * MediaQuery.devicePixelRatioOf(context)).ceil(),
+                      height: (side * MediaQuery.devicePixelRatioOf(context)).ceil(),
+                      policy: ResizeImagePolicy.fit,
+                    )
+                  : FileImage(File(file));
+              return Image(image: picture, fit: BoxFit.cover, errorBuilder: (_, _, _) => _initial(context));
+            },
+          )
         : _initial(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -51,14 +72,9 @@ class TavernPortrait extends StatelessWidget {
   Widget _initial(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final initial = name.characters.isEmpty ? '?' : name.characters.first;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [scheme.primaryContainer, scheme.surfaceContainerHighest],
-        ),
-      ),
+    // A flat tint of the theme's accent: the initial says who it is.
+    return ColoredBox(
+      color: scheme.primaryContainer.withValues(alpha: 0.55),
       child: Center(
         child: Text(
           initial,
@@ -165,6 +181,10 @@ Future<bool> _confirmDelete(
   return ok == true;
 }
 
+/// The one card of a sheet without a title bar: the sheet's 20 gutter at
+/// the sides, as every sheet's cards and title have.
+const kTavernSheetMargin = EdgeInsets.fromLTRB(kSheetGutter, 16, kSheetGutter, 12);
+
 /// A one-row sheet of actions on something the person long-pressed.
 Future<void> showTavernActions(BuildContext context, List<(IconData, String, VoidCallback)> actions) =>
     showAppSheet<void>(
@@ -172,7 +192,7 @@ Future<void> showTavernActions(BuildContext context, List<(IconData, String, Voi
       builder: (sheet) => SafeArea(
         top: false,
         child: SheetGroup(
-          margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          margin: kTavernSheetMargin,
           children: [
             for (final (icon, title, onTap) in actions)
               SettingsTile(
@@ -218,7 +238,7 @@ final tavernHttpClientProvider = Provider<http.Client>((ref) {
   return client;
 });
 
-enum _ImportFrom { file, link, blank }
+enum _ImportFrom { file, link, deepSeek, blank }
 
 /// 导入: from a file, from a link to a card file, or a blank card of your
 /// own. Returns the character so the caller can open it ([blank]: open it
@@ -229,44 +249,62 @@ Future<({TavernCharacter character, bool blank})?> showTavernImport(BuildContext
     context,
     builder: (sheet) => SafeArea(
       top: false,
-      child: SheetGroup(
-        margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        children: [
-          SettingsTile(
-            key: const ValueKey('tavern-import-file'),
-            icon: AppIcons.files,
-            tinted: false,
-            title: l10n.tavernImportFromFile,
-            subtitle: l10n.tavernImportFromFileSubtitle,
-            chevron: false,
-            onTap: () => Navigator.of(sheet).pop(_ImportFrom.file),
-          ),
-          SettingsTile(
-            key: const ValueKey('tavern-import-link'),
-            icon: AppIcons.link,
-            tinted: false,
-            title: l10n.tavernImportFromLink,
-            subtitle: l10n.tavernImportFromLinkSubtitle,
-            chevron: false,
-            onTap: () => Navigator.of(sheet).pop(_ImportFrom.link),
-          ),
-          SettingsTile(
-            key: const ValueKey('tavern-import-blank'),
-            icon: AppIcons.edit,
-            tinted: false,
-            title: l10n.tavernWriteOwn,
-            subtitle: l10n.tavernWriteOwnSubtitle,
-            chevron: false,
-            onTap: () => Navigator.of(sheet).pop(_ImportFrom.blank),
-          ),
-        ],
+      // Four ways in: on a short screen they scroll rather than run off it.
+      child: SingleChildScrollView(
+        child: SheetGroup(
+          margin: kTavernSheetMargin,
+          children: [
+            SettingsTile(
+              key: const ValueKey('tavern-import-file'),
+              icon: AppIcons.files,
+              tinted: false,
+              title: l10n.tavernImportFromFile,
+              subtitle: l10n.tavernImportFromFileSubtitle,
+              chevron: false,
+              onTap: () => Navigator.of(sheet).pop(_ImportFrom.file),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-import-link'),
+              icon: AppIcons.link,
+              tinted: false,
+              title: l10n.tavernImportFromLink,
+              subtitle: l10n.tavernImportFromLinkSubtitle,
+              chevron: false,
+              onTap: () => Navigator.of(sheet).pop(_ImportFrom.link),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-import-deepseek'),
+              icon: AppIcons.history,
+              tinted: false,
+              title: l10n.tavernImportFromDeepSeek,
+              subtitle: l10n.tavernImportFromDeepSeekSubtitle,
+              chevron: false,
+              onTap: () => Navigator.of(sheet).pop(_ImportFrom.deepSeek),
+            ),
+            SettingsTile(
+              key: const ValueKey('tavern-import-blank'),
+              icon: AppIcons.edit,
+              tinted: false,
+              title: l10n.tavernWriteOwn,
+              subtitle: l10n.tavernWriteOwnSubtitle,
+              chevron: false,
+              onTap: () => Navigator.of(sheet).pop(_ImportFrom.blank),
+            ),
+          ],
+        ),
       ),
     ),
   );
   if (from == null || !context.mounted) return null;
+  // A conversation carried over opens as a chat, not as a card's page.
+  if (from == _ImportFrom.deepSeek) {
+    await takeInDeepSeekExport(context, ref);
+    return null;
+  }
   final character = await switch (from) {
     _ImportFrom.file => importTavernFiles(context, ref),
     _ImportFrom.link => importTavernCardFromLink(context, ref),
+    _ImportFrom.deepSeek => null,
     _ImportFrom.blank => createBlankTavernCharacter(context, ref),
   };
   return character == null ? null : (character: character, blank: from == _ImportFrom.blank);
@@ -450,7 +488,6 @@ Future<void> shareTavernCards(BuildContext context, WidgetRef ref, List<TavernCh
 }
 
 /// A file name from a character's name: no path or reserved characters.
-@visibleForTesting
 String tavernCardFileName(String name, TavernCardFormat format) {
   final safe = name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
   return '${safe.isEmpty ? 'character' : safe}.${format.name}';
@@ -554,3 +591,8 @@ class TavernFigure extends StatelessWidget {
     );
   }
 }
+
+/// [usd], a reply's or a chat's estimated cost, as it reads: about
+/// US$0.0065; under US$0.0001 when four places would show nothing.
+String tavernCostLabel(L10n l10n, double usd) =>
+    usd < 0.0001 ? l10n.tavernUsageCostUnder('US\$0.0001') : l10n.tavernUsageCost('US\$${tavernUsd(usd)}');

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import io.github.ccch1mneyyy.dsh_app.speech.CallCapture
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -24,6 +25,7 @@ class WavRecorder(
     private val onLevel: (Double) -> Unit,
     private val onLimit: () -> Unit,
     private val onError: () -> Unit,
+    private val isCurrentCapture: () -> Boolean = { true },
 ) {
     private var record: AudioRecord? = null
     private var thread: Thread? = null
@@ -79,14 +81,18 @@ class WavRecorder(
         val chunk = ShortArray(rate * 60 / 1000) // ~60 ms
         val bytes = ByteBuffer.allocate(chunk.size * 2).order(ByteOrder.LITTLE_ENDIAN)
         val limit = maxSeconds.toLong() * rate
+        val frames = PcmFrames(rate)
+        var pcmTap: StreamingPcm.Tap? = null
         var captured = 0L
         while (running) {
+            val tap = StreamingPcm.current("dictation")
             val n = try {
                 r.read(chunk, 0, chunk.size)
             } catch (error: RuntimeException) {
                 failCapture(IOException("Could not read microphone", error))
                 break
             }
+            if (!running) break
             if (n < 0) {
                 failCapture(IOException("Could not read microphone ($n)"))
                 break
@@ -101,6 +107,11 @@ class WavRecorder(
                 sum += s.toDouble() * s
             }
             synchronized(pcm) { pcm.write(bytes.array(), 0, take * 2) }
+            if (tap !== pcmTap) {
+                frames.reset()
+                pcmTap = tap
+            }
+            if (tap != null) frames.consume(chunk, take) { StreamingPcm.offer(tap, it, isCurrentCapture) }
             captured += take
             onLevel(levelOf(sum, take))
             if (captured >= limit) {
@@ -143,10 +154,10 @@ class WavRecorder(
         synchronized(captureState) { captureError }?.let { throw it }
         val raw = synchronized(pcm) { pcm.toByteArray() }
         if (raw.size < 2) return null
+        if (rate == TARGET_RATE) return CallCapture.wav(raw)
         val samples = ShortArray(raw.size / 2)
         ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(samples)
-        val pcm16k = if (rate == TARGET_RATE) samples else resample(samples, rate, TARGET_RATE)
-        return wav(pcm16k)
+        return wav(resample(samples, rate, TARGET_RATE))
     }
 
     /** Stops capturing and drops the audio. */

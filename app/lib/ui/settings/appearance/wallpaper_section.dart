@@ -1,34 +1,48 @@
-// 设置 › 主题 › 壁纸: the default backdrop or the user's own picture, side by side as two small
-// phones (the launch screen's card, same grid); where the picture sits, how soft and how calm,
-// replace it, preview it.
+// 设置 › 主题 › 壁纸: the default backdrop, the user's own picture, a looping video or a .json
+// scene, as small phones in two rows (the launch screen's card, same grid); where the picture
+// sits, how soft and how calm, which video or scene, replace it, preview it.
 //
 //          ╭──────╮    ╭──────╮
 //          │ ◖══◗ │    │▒◖══◗▒│      two phones the screen's shape, centred as a pair 12
 //          │  ▭▭  │    │▒ ▭▭ ▒│      apart, each a third of the card's inner width, a sketch
 //          ╰──────╯    ╰──────╯      of the chat on each; the one in use ringed in the accent
 //            默认         自定义
+//          ╭──────╮    ╭──────╮
+//          │  ▶   │    │  ◇   │      循环动态壁纸 / .json 动态壁纸: the same grid again
+//          ╰──────╯    ╰──────╯
+//       循环动态壁纸   .json 动态壁纸
 //   调整位置                                 ›     ┐
 //   模糊                                   30%     │
-//   ━━━━━━━━━●──────────────────────────────       │ only while the custom one is in use
+//   ━━━━━━━━━●──────────────────────────────       │ only while the custom picture is in use
 //   提亮 (light) / 压暗 (dark)              20%     │
 //   ━━━━━━●─────────────────────────────────       │
+//   自动保证文字清晰                          ◉     │
+//   播放动图 (an animated picture only)       ◉     │
 //   更换图片                                 ›     ┘
+//   显示方式                                ( 填满 | 居中 )   ┐
+//   调整显示位置                             ›             │ only while the video is in use
+//   更换视频                                 ›             ┘
+//   跟随系统时间                    白天                    ┐ only while the .json scene is in use
+//   更换 .json 文件                          ›             ┘
 //   预览                                     ›
 //
 // The custom phone shows the real bake (small), redone as a slider moves; the backdrop behind
-// the app is baked again once the slider is let go.
+// the app is baked again once the slider is let go. An animated picture's phone stays on its
+// first frame.
 
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../../performance/performance_state.dart';
 import '../../../state/wallpaper_state.dart';
 import '../../../wallpaper/custom_wallpaper.dart';
+import '../../../wallpaper/live_wallpaper.dart';
+import '../../../wallpaper/scene_document.dart' show ScenePeriod;
 import '../../../wallpaper/wallpaper_look.dart';
 import '../../../wallpaper/wallpaper_render.dart';
 import '../../common/brief_notice.dart';
@@ -36,6 +50,7 @@ import '../../common/expand_reveal.dart';
 import '../../common/pressable.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/theme.dart';
+import '../../wallpaper/video_wallpaper_editor_page.dart';
 import '../../wallpaper/wallpaper_backdrop.dart';
 import '../../wallpaper/wallpaper_editor_page.dart';
 import '../../wallpaper/wallpaper_preview_page.dart';
@@ -85,10 +100,16 @@ class _WallpaperSectionState extends ConsumerState<WallpaperSection> {
     unawaited(_bake(key));
   }
 
+  /// [frame] with the performance profile in it, as the backdrop's own bake has it.
+  WallpaperFrame _onDevice(WallpaperFrame frame) =>
+      frame.copyWith(lightweight: ref.read(performanceDefaultsProvider).lightweight);
+
   Future<void> _bake((CustomWallpaper, WallpaperFrame) key) async {
     _baking = true;
     final density = _density(context);
-    final image = await ref.read(wallpaperRendererProvider).bake(key.$1, key.$2, density: density);
+    final image = await ref
+        .read(wallpaperRendererProvider)
+        .bake(key.$1, key.$2, density: density, moving: _onDevice(key.$2).plays(key.$1));
     _baking = false;
     if (!mounted) {
       image?.dispose();
@@ -116,6 +137,8 @@ class _WallpaperSectionState extends ConsumerState<WallpaperSection> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
+    if (problem == null) await _use(WallpaperKind.image);
     final text = switch (problem) {
       null => l10n.wallpaperChanged,
       LaunchImportProblem.cancelled => null,
@@ -128,30 +151,116 @@ class _WallpaperSectionState extends ConsumerState<WallpaperSection> {
     if (text != null) messenger?.showBriefNotice(text);
   }
 
+  /// Chosen one of the four options: the picture ones turn the custom picture on or off with it,
+  /// so 默认 and 自定义 keep working exactly as before; a video or scene is chosen on its own.
+  Future<void> _use(WallpaperKind kind) async {
+    if (!mounted) return;
+    if (kind == WallpaperKind.image || kind == WallpaperKind.gradient) {
+      await ref.read(customWallpaperProvider.notifier).use(kind == WallpaperKind.image);
+    }
+    if (!mounted) return;
+    await ref.read(wallpaperKindProvider.notifier).use(kind);
+  }
+
+  /// The video phone: picks a file the first time, otherwise just selects the one in use.
+  Future<void> _onVideo() async {
+    if (ref.read(videoWallpaperProvider).value == null) {
+      await _importVideo();
+    } else {
+      await _use(WallpaperKind.video);
+    }
+  }
+
+  Future<void> _importVideo() async {
+    if (_busy) return;
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    setState(() => _busy = true);
+    LaunchImportProblem? problem;
+    try {
+      problem = await ref.read(videoWallpaperProvider.notifier).choose();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    if (problem == null) await _use(WallpaperKind.video);
+    final text = switch (problem) {
+      null => l10n.wallpaperChanged,
+      LaunchImportProblem.cancelled => null,
+      LaunchImportProblem.unavailable => l10n.wallpaperUnavailable,
+      LaunchImportProblem.tooLarge || LaunchImportProblem.overLimit => l10n.wallpaperVideoTooLarge,
+      LaunchImportProblem.unsupported => l10n.wallpaperVideoUnsupported,
+      LaunchImportProblem.unreadable => l10n.wallpaperVideoUnreadable,
+    };
+    if (text != null) messenger?.showBriefNotice(text);
+  }
+
+  Future<void> _importJson() async {
+    if (_busy) return;
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    setState(() => _busy = true);
+    (LaunchImportProblem?, String?) result;
+    try {
+      result = await ref.read(jsonWallpaperProvider.notifier).choose();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    final (problem, detail) = result;
+    if (problem == null) await _use(WallpaperKind.json);
+    final text = switch (problem) {
+      null => l10n.wallpaperChanged,
+      LaunchImportProblem.cancelled => null,
+      LaunchImportProblem.unavailable => l10n.wallpaperUnavailable,
+      LaunchImportProblem.tooLarge => l10n.wallpaperJsonTooLarge,
+      LaunchImportProblem.overLimit => l10n.wallpaperJsonPackageTooLarge,
+      // What the file got wrong, from the format itself (a field, a kind, a version).
+      LaunchImportProblem.unsupported => detail == null
+          ? l10n.wallpaperJsonInvalid
+          : '${l10n.wallpaperJsonInvalid}：$detail',
+      LaunchImportProblem.unreadable => l10n.wallpaperJsonUnreadable,
+    };
+    if (text != null) messenger?.showBriefNotice(text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final stored = ref.watch(customWallpaperProvider).value;
     final notifier = ref.read(customWallpaperProvider.notifier);
+    final kind = ref.watch(wallpaperKindProvider).value ?? WallpaperKind.gradient;
+    final video = ref.watch(videoWallpaperProvider).value;
+    final json = ref.watch(jsonWallpaperProvider).value ?? const JsonWallpaper(JsonWallpaper.bundled);
     final wallpaper = _draft ?? stored;
-    final on = stored != null && stored.on;
     final brightness = Theme.of(context).brightness;
     final frame = WallpaperBackdrop.frameOf(context);
     if (wallpaper != null) _want(wallpaper, frame);
+    final lightweight = ref.watch(performanceDefaultsProvider.select((p) => p.lightweight));
+    final onDevice = frame.copyWith(lightweight: lightweight);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         WallpaperPicker(
+          kind: kind,
           custom: stored,
           thumb: wallpaper == null ? null : _thumb,
           broken: _broken,
           busy: _busy,
-          onDefault: () => unawaited(notifier.use(false)),
-          onCustom: stored == null ? () => unawaited(_choose()) : () => unawaited(notifier.use(true)),
+          onDefault: () => unawaited(_use(WallpaperKind.gradient)),
+          onCustom: stored == null ? () => unawaited(_choose()) : () => unawaited(_use(WallpaperKind.image)),
+        ),
+        WallpaperLivePicker(
+          kind: kind,
+          video: video,
+          json: json,
+          busy: _busy,
+          onVideo: () => unawaited(_onVideo()),
+          onJson: () => unawaited(_use(WallpaperKind.json)),
         ),
         ExpandReveal(
-          open: on,
+          open: kind == WallpaperKind.image,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -182,6 +291,24 @@ class _WallpaperSectionState extends ConsumerState<WallpaperSection> {
                   unawaited(notifier.setTone(brightness, v));
                 },
               ),
+              SettingsSwitchTile(
+                key: const ValueKey('wallpaper-guard'),
+                title: l10n.wallpaperGuard,
+                // A playing picture gets no veil, only its text colours; unguarded, not those either.
+                subtitle: stored != null && stored.guard && onDevice.plays(stored)
+                    ? l10n.wallpaperGuardMotionHint
+                    : l10n.wallpaperGuardHint,
+                value: stored?.guard ?? true,
+                onChanged: (v) => unawaited(notifier.setGuard(v)),
+              ),
+              if (stored != null && onDevice.playable(stored))
+                SettingsSwitchTile(
+                  key: const ValueKey('wallpaper-play'),
+                  title: l10n.wallpaperPlay,
+                  subtitle: l10n.wallpaperPlayHint,
+                  value: stored.play,
+                  onChanged: (v) => unawaited(notifier.setPlay(v)),
+                ),
               SettingsTile(
                 key: const ValueKey('wallpaper-replace'),
                 title: l10n.wallpaperReplace,
@@ -190,6 +317,58 @@ class _WallpaperSectionState extends ConsumerState<WallpaperSection> {
             ],
           ),
         ),
+        if (video != null)
+          ExpandReveal(
+            open: kind == WallpaperKind.video,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 2,
+              children: [
+                SettingsSegmentTile<VideoFit>(
+                  key: const ValueKey('wallpaper-video-fit'),
+                  title: l10n.wallpaperVideoScale,
+                  segments: [
+                    PillSegment(VideoFit.fill, l10n.wallpaperVideoFill),
+                    PillSegment(VideoFit.center, l10n.wallpaperVideoCenter),
+                  ],
+                  selected: video.fit,
+                  onChanged: (fit) => unawaited(ref.read(videoWallpaperProvider.notifier).setFit(fit)),
+                ),
+                SettingsTile(
+                  key: const ValueKey('wallpaper-video-frame'),
+                  title: l10n.wallpaperVideoFrame,
+                  onTap: () => unawaited(showVideoWallpaperEditor(context, video)),
+                ),
+                SettingsTile(
+                  key: const ValueKey('wallpaper-video-replace'),
+                  title: l10n.wallpaperVideoReplace,
+                  onTap: _busy ? null : () => unawaited(_importVideo()),
+                ),
+              ],
+            ),
+          ),
+        if (kind == WallpaperKind.json)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 2,
+            children: [
+              SettingsTile(
+                key: const ValueKey('wallpaper-json-clock'),
+                title: l10n.wallpaperJsonTime,
+                subtitle: l10n.wallpaperJsonTimeHint,
+                value: Text(_periodLabel(l10n, ScenePeriod.of(DateTime.now()))),
+                chevron: false,
+              ),
+              SettingsTile(
+                key: const ValueKey('wallpaper-json-replace'),
+                title: l10n.wallpaperJsonReplace,
+                subtitle: _jsonSource(l10n, json),
+                onTap: _busy ? null : () => unawaited(_importJson()),
+              ),
+            ],
+          ),
         SettingsTile(
           key: const ValueKey('wallpaper-preview'),
           title: l10n.wallpaperPreview,
@@ -200,82 +379,33 @@ class _WallpaperSectionState extends ConsumerState<WallpaperSection> {
   }
 }
 
-/// A title with its percent, the slider under it (16 from the card on both sides). Neutral, like
-/// every slider in settings: the page's accent stays with the switches.
-class WallpaperSliderRow extends StatelessWidget {
-  const WallpaperSliderRow({
-    super.key,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-    required this.onChangeEnd,
-  });
+/// 白天 / 黄昏 / 晚上, the scene the .json wallpaper is showing now.
+String _periodLabel(L10n l10n, ScenePeriod period) => switch (period) {
+  ScenePeriod.day => l10n.wallpaperPeriodDay,
+  ScenePeriod.dusk => l10n.wallpaperPeriodDusk,
+  ScenePeriod.night => l10n.wallpaperPeriodNight,
+};
 
-  final String title;
+/// The last part of a copied file's path, for the rows that name it.
+String _fileName(String path) => path.substring(path.lastIndexOf('/') + 1);
 
-  /// 0–1.
-  final double value;
-  final ValueChanged<double> onChanged;
-  final ValueChanged<double> onChangeEnd;
-
-  /// Values land on 5% steps (no tick marks on the track: it stays one quiet line).
-  static const steps = 20;
-
-  static double snap(double v) => (v * steps).round() / steps;
-
-  static String label(double v) => '${(v * 100).round()}%';
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final v = value.clamp(0.0, 1.0);
-    return MergeSemantics(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(SettingsMetrics.inset, 14, SettingsMetrics.inset, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ExcludeSemantics(
-              child: Row(
-                children: [
-                  Expanded(child: Text(title, style: settingsTitleStyle(context))),
-                  const SizedBox(width: 12),
-                  Text(label(v), style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Semantics(
-              label: title,
-              child: Slider(
-                value: v,
-                padding: EdgeInsets.zero,
-                activeColor: scheme.onSurfaceVariant,
-                inactiveColor: scheme.onSurface.withValues(alpha: 0.1),
-                semanticFormatterCallback: (v) => label(snap(v)),
-                onChanged: (raw) {
-                  final next = snap(raw);
-                  if (next == snap(v)) return;
-                  HapticFeedback.selectionClick();
-                  onChanged(next);
-                },
-                onChangeEnd: (raw) => onChangeEnd(snap(raw)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+/// What the .json wallpaper is: the bundled sample, an imported package, or the
+/// name of the single .json file last picked.
+String _jsonSource(L10n l10n, JsonWallpaper wallpaper) {
+  if (wallpaper.isBundled) return l10n.wallpaperJsonSample;
+  if (wallpaper.isPackage) return l10n.wallpaperJsonPackage;
+  return _fileName(wallpaper.path);
 }
+
+/// The blur / tone rows: [SettingsSliderTile] with its defaults (5% steps, read as a percent).
+typedef WallpaperSliderRow = SettingsSliderTile;
 
 /// 默认 and 自定义 as two small phones, centred as a pair: the launch screen card's geometry
 /// ([LaunchScreenPicker]'s ring, radius and shape).
 class WallpaperPicker extends StatelessWidget {
   const WallpaperPicker({
     super.key,
+    required this.kind,
     required this.custom,
     required this.thumb,
     required this.onDefault,
@@ -284,6 +414,8 @@ class WallpaperPicker extends StatelessWidget {
     this.busy = false,
   });
 
+  /// Which of the four is in use: only 默认 or 自定义 ring here.
+  final WallpaperKind kind;
   final CustomWallpaper? custom;
 
   /// The custom one baked small; null while it bakes.
@@ -300,7 +432,6 @@ class WallpaperPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final on = custom != null && custom!.on;
     final aspect = LaunchScreenPicker.aspectFor(MediaQuery.sizeOf(context));
     const room = LaunchScreenPicker.room;
     return Padding(
@@ -324,7 +455,7 @@ class WallpaperPicker extends StatelessWidget {
                 label: l10n.wallpaperDefault,
                 width: width,
                 aspect: aspect,
-                selected: !on,
+                selected: kind == WallpaperKind.gradient,
                 onTap: onDefault,
                 child: const _Screen(child: AppBackdrop(child: _ChatSketch())),
               ),
@@ -334,7 +465,7 @@ class WallpaperPicker extends StatelessWidget {
                 label: l10n.wallpaperCustom,
                 width: width,
                 aspect: aspect,
-                selected: on,
+                selected: kind == WallpaperKind.image,
                 onTap: onCustom,
                 child: _CustomMini(custom: custom, thumb: thumb, broken: broken, busy: busy),
               ),
@@ -477,7 +608,7 @@ class _Screen extends StatelessWidget {
 }
 
 /// No picture yet: a quiet phone with the add mark. A picture: its small bake under the sketch,
-/// the guarded colours on it, as the chat will show it.
+/// the guarded colours on it (when it is guarded), as the chat will show it.
 class _CustomMini extends StatelessWidget {
   const _CustomMini({required this.custom, required this.thumb, required this.broken, required this.busy});
 
@@ -520,7 +651,7 @@ class _CustomMini extends StatelessWidget {
       final theme = Theme.of(context);
       body = _Screen(
         child: Theme(
-          data: WallpaperLook.of(context).guardTheme(theme),
+          data: custom.guard ? WallpaperLook.of(context).guardTheme(theme) : theme,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -636,4 +767,137 @@ class _SketchPainter extends CustomPainter {
       old.faint != faint ||
       old.accent != accent ||
       old.padding != padding;
+}
+
+/// 循环动态壁纸 and .json 动态壁纸: the same phones on the same grid, one row under the first pair.
+///
+/// The video phone is a dark card with a play glyph (a still of the file is not decoded for it);
+/// the scene phone says whether the bundled sample or a file of the user's own is in use.
+class WallpaperLivePicker extends StatelessWidget {
+  const WallpaperLivePicker({
+    super.key,
+    required this.kind,
+    required this.video,
+    required this.json,
+    required this.onVideo,
+    required this.onJson,
+    this.busy = false,
+  });
+
+  final WallpaperKind kind;
+  final VideoWallpaper? video;
+  final JsonWallpaper json;
+  final VoidCallback onVideo;
+  final VoidCallback onJson;
+
+  /// A video or a .json file is being read in.
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final aspect = LaunchScreenPicker.aspectFor(MediaQuery.sizeOf(context));
+    const room = LaunchScreenPicker.room;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        PickerGrid.inset - room,
+        0,
+        PickerGrid.inset - room,
+        PickerGrid.inset,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final inner = constraints.maxWidth - 2 * room;
+          final width = (inner - 2 * PickerGrid.gap) / 3;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              WallpaperPhone(
+                key: const ValueKey('wallpaper-video'),
+                label: l10n.wallpaperVideo,
+                width: width,
+                aspect: aspect,
+                selected: kind == WallpaperKind.video,
+                onTap: onVideo,
+                child: _LiveMini(
+                  icon: AppIcons.video,
+                  caption: video == null ? l10n.wallpaperVideoChoose : null,
+                  busy: busy,
+                ),
+              ),
+              const SizedBox(width: PickerGrid.gap - 2 * room),
+              WallpaperPhone(
+                key: const ValueKey('wallpaper-json'),
+                label: l10n.wallpaperJson,
+                width: width,
+                aspect: aspect,
+                selected: kind == WallpaperKind.json,
+                onTap: onJson,
+                child: _LiveMini(
+                  icon: AppIcons.code,
+                  caption: _jsonSource(l10n, json),
+                  busy: busy,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A live phone's screen: the dark card a video or a scene plays behind, its glyph, and a line
+/// naming what is in use.
+class _LiveMini extends StatelessWidget {
+  const _LiveMini({required this.icon, this.caption, required this.busy});
+
+  final IconData icon;
+  final String? caption;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1B2230), Color(0xFF0A0D13)],
+            ),
+          ),
+        ),
+        Center(child: Icon(icon, size: 22, color: Colors.white.withValues(alpha: 0.85))),
+        if (caption case final caption?)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+              child: Text(
+                caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: 0.75)),
+              ),
+            ),
+          ),
+        if (busy)
+          ColoredBox(
+            color: scheme.surface.withValues(alpha: 0.6),
+            child: const Center(
+              child: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

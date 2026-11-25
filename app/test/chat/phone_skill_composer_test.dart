@@ -63,7 +63,7 @@ void main() {
   Future<void> drainCatalogs(WidgetTester tester, SyncHarness h) async {
     expect(identical(h.client.mux.generation, catalogGeneration[h]), isTrue,
       reason: 'Catalog cleanup must not read a replacement connection generation');
-    expect(h.container.exists(skillsProvider('S')), isTrue);
+    expect(h.container.read(skillsProvider('S').exists), isTrue);
     var done = false;
     Object? error;
     StackTrace? stack;
@@ -193,7 +193,7 @@ void main() {
   testWidgets('changing selection after preparation cannot silently restore old session or send', (tester) async {
     final discarded = <Object?>[];
     messenger.setMockMethodCallHandler(_method, (call) async {
-      discarded.add(call.arguments);
+      if (call.method == 'discardSkillReplay') discarded.add(call.arguments);
       return {'kind': 'discarded'};
     });
     final h = await open(tester);
@@ -212,7 +212,7 @@ void main() {
   testWidgets('replacing an unconsumed typed insert discards just its original invocation', (tester) async {
     final discarded = <Object?>[];
     messenger.setMockMethodCallHandler(_method, (call) async {
-      discarded.add(call.arguments);
+      if (call.method == 'discardSkillReplay') discarded.add(call.arguments);
       return {'kind': 'discarded'};
     });
     final h = await open(tester);

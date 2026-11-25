@@ -83,7 +83,7 @@
 
 流式输出：正文走 gpt_markdown 自带的 reveal（`MarkdownBody.reveal`：匀速、新字淡入、只重建尾部；没有光标，停顿时下方出现呼吸小点），列表跟随是滑过去而不是跳过去（`_ChatListState._startGlide`，上翻、按住立刻交还），思考窗口连续上滑（`_FluidTicker`），工具运行中是细圆弧（`QuietArc`），刚成功时画一个对勾再归于安静。不做逐字弹跳、模糊、扫光和庆祝动画。
 
-思路参考 [Mochi Compose](https://github.com/feice11/mochi-compose)（Apache-2.0，只借鉴做法，没有拷代码）。[KhatKit](https://github.com/KhatKit/Android) 是 AGPL-3.0，只能看效果，不能抄代码。
+交互与视觉的调研记录见 [Mochi Compose](https://github.com/feice11/mochi-compose)；本项目的实现与动效参数独立编写，不复用其代码与素材。
 
 ## 3. 文案
 
@@ -110,7 +110,7 @@
 
 ## 4. 可复用组件
 
-`SegmentedPill`、`SettingsSegmentTile`（分段选择）· `GlassSurface`、`GlassPill`、`GlassIconButton` · `SheetGroup`、`SettingsTile`、`SettingsSwitchTile` · `AppPage`、`showAppSheet`、`SheetHeader` · `TopFade`（实心背景后 16dp 羽化）、`BackdropVeil`（页面顶栏默认遮罩） · `ThinkGlyph`、`WhaleTail`。新的通用组件放 `app/lib/ui/common/` 的**新文件**里，名字别撞。
+`SegmentedPill`、`SettingsSegmentTile`（分段选择）· `GlassSurface`、`GlassIconButton` · `SheetGroup`、`SettingsTile`、`SettingsSwitchTile` · `AppPage`、`showAppSheet`、`SheetHeader` · `TopFade`（实心背景后 16dp 羽化）、`BackdropVeil`（页面顶栏默认遮罩） · `ThinkGlyph`、`WhaleTail`。新的通用组件放 `app/lib/ui/common/` 的**新文件**里，名字别撞。
 
 ## 5. 验收
 

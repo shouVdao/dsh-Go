@@ -1,4 +1,6 @@
-// Portions derived from Phase (https://github.com/CikeSeven/phase), used with the author's permission. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 // Local changes: registers into PhoneRegistry; stops the task on screen off, interrupt and
 // unbind through ControlListener; debug-only probe.
 
@@ -49,6 +51,17 @@ class PhoneA11yService : AccessibilityService() {
     }
     private var overlay: ControlOverlay? = null
     private var driver: MainScreenDriver? = null
+    private var companionScreens: CompanionScreenSampler? = null
+    @Volatile internal var companionActivityAt = Long.MIN_VALUE
+        private set
+
+    internal fun companionScreenSample(control: io.github.ccch1mneyyy.dsh_app.phone.PhoneControl,
+        excluded: Set<String>, current: () -> Boolean, image: Boolean = false): Map<String, Any?> =
+        companionScreens?.sample(control, excluded, current, image) ?: mapOf("status" to "disconnected")
+
+    internal fun companionScreenCurrent(control: io.github.ccch1mneyyy.dsh_app.phone.PhoneControl,
+        excluded: Set<String>, packageName: String, requireIdle: Boolean): Boolean =
+        companionScreens?.permitsCurrent(control, excluded, packageName, requireIdle) == true
     private var probe: A11yProbe? = null
     private var receiverRegistered = false
     private var overlayContext: Context? = null
@@ -93,6 +106,7 @@ class PhoneA11yService : AccessibilityService() {
         val d = MainScreenDriver(this, o)
         overlay = o
         driver = d
+        companionScreens = CompanionScreenSampler(this, o)
         instance = this
         PhoneRegistry.mainDriver = d
         PhoneRegistry.overlayGate = o
@@ -108,6 +122,11 @@ class PhoneA11yService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         clock.tick(event?.packageName)
+        if (event != null && event.eventType in setOf(AccessibilityEvent.TYPE_VIEW_CLICKED,
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, AccessibilityEvent.TYPE_VIEW_SCROLLED,
+                AccessibilityEvent.TYPE_TOUCH_INTERACTION_START)) companionActivityAt = android.os.SystemClock.uptimeMillis()
+        // A keyboard coming or going moves the control clear of it.
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) overlay?.onWindowsChanged()
         // Window changes retire both coordinates and screenshot authorization. Only an identified
         // window of this service's controls is exempt; switching to DSH itself is still a transition.
         if (event != null && invalidatesVisual(event.eventType) {
@@ -169,6 +188,8 @@ class PhoneA11yService : AccessibilityService() {
             d?.abort()
             o?.destroy()
             d?.close()
+            companionScreens?.close()
+            companionScreens = null
             probe?.unregister()
             probe = null
             if (receiverRegistered) { runCatching { unregisterReceiver(screenOff) }; receiverRegistered = false }

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:dsh_client/dsh_client.dart';
 import 'package:dsh_remote/dsh_remote.dart' as remote;
 import 'package:flutter/foundation.dart';
 
 import '../../l10n/l10n.dart';
+import '../../secrets/secure_storage.dart';
 import '../link_status.dart';
 import '../secret_store.dart';
 import 'relay_backend.dart';
@@ -29,33 +31,29 @@ class DshRemoteRelayBackend implements RelayBackend, RelayNetworkBackend, RelayP
     bool direct = true,
     Future<RemoteNetworkRoute> Function()? resolveNetworkRoute,
     this._loadCompactHistory,
-  }) : _resolveNetworkRoute = resolveNetworkRoute ?? resolveRemoteNetworkRoute,
-       account =
+  }) : account =
            account ??
            remote.RemoteAccount(
              secrets: _Secrets(secrets),
              serverUrl: serverUrl,
-             deviceName: 'DSH App (Android)',
+             deviceName: switch (Platform.operatingSystem) {
+               'ohos' => 'DSH App (HarmonyOS)',
+               'ios' => 'DSH App (iOS)',
+               _ => 'DSH App (Android)',
+             },
              platform: 'dsh-app-android',
              clientVersion: clientVersion,
              onDirectFallback: (_) => debugPrint('[dsh-remote] automatic transport fallback'),
            ) {
     this.direct = direct;
     if (account == null) {
-      this.account.preferredTransports = () async {
-        final route = await _resolveNetworkRoute();
-        _networkRoute = route;
-        return transportsForRemoteRoute(route);
-      };
+      final resolveRoute = resolveNetworkRoute ?? resolveRemoteNetworkRoute;
+      this.account.preferredTransports = () async => transportsForRemoteRoute(await resolveRoute());
     }
   }
 
   final remote.RemoteAccount account;
   final Future<bool> Function()? _loadCompactHistory;
-  final Future<RemoteNetworkRoute> Function() _resolveNetworkRoute;
-  RemoteNetworkRoute _networkRoute = RemoteNetworkRoute.unknown;
-  final _sessionRoutes = Expando<RemoteNetworkRoute>('remote route');
-  final _networkProbes = Expando<Future<bool>>('remote network probe');
   final _loggedSessions = Expando<bool>('logged remote network');
 
   /// The WebRTC stack [direct] connections use.
@@ -182,23 +180,7 @@ class DshRemoteRelayBackend implements RelayBackend, RelayNetworkBackend, RelayP
   }
 
   @override
-  Future<bool> probe(DshClient client) =>
-      _networkProbes[client] ??= _probeNetwork(client).whenComplete(() => _networkProbes[client] = null);
-
-  Future<bool> _probeNetwork(DshClient client) async {
-    final carrier = client.remoteCarrier;
-    final session = carrier?.session;
-    if (carrier == null || session == null || session.isClosed) return true;
-    final previous = _sessionRoutes[session] ?? _networkRoute;
-    final next = await _resolveNetworkRoute();
-    if (carrier.session != session || session.isClosed) return true;
-    if (next != RemoteNetworkRoute.unknown) _sessionRoutes[session] = next;
-    if (shouldRenegotiateRemoteRoute(previous, next)) {
-      carrier.reconnect();
-      return false;
-    }
-    return carrier.probe();
-  }
+  Future<bool> probe(DshClient client) => client.remoteCarrier?.probe() ?? Future.value(true);
 
   @override
   RelayPath? pathOf(DshClient client) {
@@ -217,7 +199,6 @@ class DshRemoteRelayBackend implements RelayBackend, RelayNetworkBackend, RelayP
   @override
   RemoteNetworkStatus? networkOf(DshClient client) {
     final session = client.remoteCarrier?.session;
-    if (session != null) _sessionRoutes[session] ??= _networkRoute;
     final snapshot = session?.networkDiagnostics;
     if (session == null || session.isClosed || snapshot == null) return null;
     final value = _network(snapshot);
@@ -506,13 +487,19 @@ class DshRemoteRelayBackend implements RelayBackend, RelayNetworkBackend, RelayP
       'LOGIN_CANCELLED' => e(HostLinkErrorKind.other, appL10n.remoteSignInCancelled),
       'OAUTH_PROVIDER_UNAVAILABLE' => e(HostLinkErrorKind.unavailable, appL10n.remoteErrBrowserSignInUnsupported),
       'RATE_LIMITED' => e(HostLinkErrorKind.unreachable, appL10n.remoteErrTooManyRequests, retryable: true),
+      _credentialsUnreadableCode => e(HostLinkErrorKind.other, appL10n.harmonyCredentialsUnreadableHint),
       _ when failure.retryable => e(HostLinkErrorKind.unreachable, appL10n.remoteErrHostUnreachable),
       _ => e(HostLinkErrorKind.other, appL10n.remoteErrRemoteConnection),
     };
   }
 }
 
+const _credentialsUnreadableCode = 'SECRETS_UNREADABLE';
+
 /// dsh_remote's secret-store interface over the app's (Keystore-backed) one.
+///
+/// Credentials that can't be read leave as dsh_remote's own failure: anything
+/// else it reports as a network problem, retried for ever.
 class _Secrets implements remote.SecretStore {
   factory _Secrets(SecretStore inner) => _adapters[inner] ??= _Secrets._(inner);
 
@@ -523,12 +510,23 @@ class _Secrets implements remote.SecretStore {
 
   final SecretStore _inner;
 
-  @override
-  Future<String?> read(String key) => _inner.read(key);
+  Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } catch (e) {
+      if (!credentialsUnreadable(e)) rethrow;
+      throw remote.RemoteConnectException(
+        remote.RemoteFailure(_credentialsUnreadableCode, 'Saved credentials unreadable', retryable: false),
+      );
+    }
+  }
 
   @override
-  Future<void> write(String key, String value) => _inner.write(key, value);
+  Future<String?> read(String key) => _guard(() => _inner.read(key));
 
   @override
-  Future<void> delete(String key) => _inner.delete(key);
+  Future<void> write(String key, String value) => _guard(() => _inner.write(key, value));
+
+  @override
+  Future<void> delete(String key) => _guard(() => _inner.delete(key));
 }

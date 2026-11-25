@@ -1,4 +1,6 @@
-// Structure derived from PiPilot (https://github.com/CikeSeven/pi_pilot), MIT, Copyright (c) 2026 CikeSeven. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 
 import 'dart:async';
 
@@ -25,6 +27,8 @@ import '../../state/read_list_identity.dart';
 import '../../state/workspaces_state.dart';
 import '../bots/bots_page.dart' show BotsPage, UnreadBadge;
 import '../chat/media/media_format.dart' show chatTitleShown;
+import '../companion/companion_drawer_row.dart';
+import '../companion/companion_page.dart';
 import '../common/app_sheet.dart';
 import '../common/empty_view.dart';
 import '../common/pressable.dart';
@@ -143,6 +147,10 @@ class SessionsDrawer extends ConsumerWidget {
     // A phone on its side: the top of the drawer (brand, search, filters)
     // would leave room for two conversations, so it scrolls away with them.
     final short = MediaQuery.sizeOf(context).height < WindowClass.compactHeight;
+    // What WorkspaceSwitcher shows anything for: the host's workspaces, or a
+    // read-only list it is keeping on screen meanwhile.
+    final switcher =
+        ref.watch(workspacesProvider.select((s) => s.ready)) || ref.watch(drawerScopeProvider)?.readOnly == true;
     final top = <Widget>[
       AnimatedSwitcher(
         duration: quick,
@@ -185,20 +193,34 @@ class SessionsDrawer extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
         onDetails: () => onOpen(DrawerDestination.engine),
       ),
-      SessionSearchBar(onClose: onClose),
-      // The workspace switcher (once the host's workspace list has
-      // arrived) and the list's options, then the status filters.
-      SmoothSize(
-        duration: AppMotion.of(context, AppMotion.standard),
-        curve: AppMotion.std,
-        alignment: Alignment.topCenter,
-        child: Row(
-          children: [
-            Expanded(child: WorkspaceSwitcher(onManage: manageWorkspaces)),
-            _ViewOptionsKey(onClose: onClose),
-          ],
-        ),
+      SessionSearchBar(
+        onClose: onClose,
+        trailing: switcher ? null : _ViewOptionsKey(onClose: onClose, besideSearch: true),
       ),
+      // 伙伴小屋 has a fixed place here, whatever list or host is showing.
+      CompanionDrawerRow(
+        onTap: () {
+          Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CompanionPage(sections: true)));
+          // Close once the page covers us, so "back" lands on the chat.
+          Future<void>.delayed(AppMotion.slow, onClose);
+        },
+      ),
+      // The workspace switcher (once the host's workspace list has
+      // arrived) and the list's options, then the status filters. With no
+      // switcher the options sit beside the search bar instead of alone on an
+      // empty row.
+      if (switcher)
+        SmoothSize(
+          duration: AppMotion.of(context, AppMotion.standard),
+          curve: AppMotion.std,
+          alignment: Alignment.topCenter,
+          child: Row(
+            children: [
+              Expanded(child: WorkspaceSwitcher(onManage: manageWorkspaces)),
+              _ViewOptionsKey(onClose: onClose),
+            ],
+          ),
+        ),
       SmoothSize(
         duration: AppMotion.of(context, AppMotion.standard),
         curve: AppMotion.std,
@@ -409,19 +431,22 @@ class NewChatButton extends StatelessWidget {
 /// 「对话列表」 options at the end of the workspace row, its circle on the 10
 /// line; only while there are conversations to organise.
 class _ViewOptionsKey extends ConsumerWidget {
-  const _ViewOptionsKey({required this.onClose});
+  const _ViewOptionsKey({required this.onClose, this.besideSearch = false});
 
   final VoidCallback onClose;
+
+  /// Inside the search bar's row, whose padding already ends on the 10 line.
+  final bool besideSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(drawerScopeProvider);
     final filtered = ref.watch(drawerFilterProvider) != DrawerFilter.all;
     ref.watch(sessionsProvider);
-    final hasArchived = ref.read(sessionsProvider.notifier).archivedSessions.isNotEmpty;
+    late final hasArchived = ref.read(sessionsProvider.notifier).archivedSessions.isNotEmpty;
     if (scope == null || (scope.sessions.isEmpty && !filtered && !hasArchived)) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
+      padding: besideSearch ? const EdgeInsets.only(left: 6) : const EdgeInsets.only(right: 10),
       child: DrawerViewButton(onTap: () => openDrawerViewOptions(context, ref, onClose: onClose)),
     );
   }
@@ -870,13 +895,18 @@ class _EmptyState extends ConsumerWidget {
         actionLabel: l10n.shellStartEngine,
         onAction: () => unawaited(EngineControl.ensureStarted(ProviderScope.containerOf(context))),
       ),
-      RuntimePhase.notInstalled when status.runtimeMissing => EmptyView(
-        compact: true,
-        icon: AppIcons.thisPhone,
-        title: l10n.localEnvNotInstalled,
-        actionLabel: l10n.phoneEngineInstallRuntime,
-        onAction: () => unawaited(openLocalInstall(context)),
-      ),
+      RuntimePhase.notInstalled when status.runtimeMissing => switch (localMissingCopy(
+        l10n,
+        available: ref.watch(localRuntimeProvider.select((s) => s.available)),
+      )) {
+        final copy => EmptyView(
+          compact: true,
+          icon: AppIcons.thisPhone,
+          title: copy.title,
+          actionLabel: copy.action,
+          onAction: () => unawaited(openLocalInstall(context)),
+        ),
+      },
       _ => EmptyView(
         compact: true,
         icon: AppIcons.power,

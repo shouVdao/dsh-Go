@@ -33,6 +33,18 @@ class BuildApkRuntimeTest(unittest.TestCase):
         tawcroot = self.root / "runtime/tawcroot"
         tawcroot.mkdir(parents=True)
         (tawcroot / "build.py").write_text("import os, sys\nsys.exit(int(os.environ.get('TAWCROOT_EXIT', '0')))\n")
+        # Stand-in for tooling/check_apk_jni.py: notes each APK; JNI_CHECK_EXIT decides whether it passes.
+        self.jni_file = self.root / "jni-checks.txt"
+        (self.root / "tooling/check_apk_jni.py").write_text(
+            "import os, sys\nopen(os.environ['RUNTIME_GATE_TEST_JNI'], 'a').write(sys.argv[1] + '\\n')\n"
+            "sys.exit(int(os.environ.get('JNI_CHECK_EXIT', '0')))\n")
+        # Stand-in for tooling/companion_pack.py: notes each call; the pack is a placeholder file.
+        self.pack_file = self.root / "pack-calls.txt"
+        (self.root / "tooling/companion_pack.py").write_text(
+            "import os, sys\nopen(os.environ['RUNTIME_GATE_TEST_PACK'], 'a').write(' '.join(sys.argv[1:]) + '\\n')\n"
+            "sys.exit(int(os.environ.get('PACK_CHECK_EXIT', '0')) if sys.argv[1] == 'check' else 0)\n")
+        pack = self.root / "whale-girl-source.zip"
+        pack.write_bytes(b"pack")
         self.calls_file = self.root / "flutter-calls.jsonl"
         tools = self.root / "bin"
         tools.mkdir()
@@ -41,6 +53,8 @@ class BuildApkRuntimeTest(unittest.TestCase):
 args = sys.argv[1:]
 with open(os.environ['RUNTIME_GATE_TEST_CALLS'], 'a') as out:
     out.write(json.dumps(args) + '\\n')
+if code := int(os.environ.get('RUNTIME_GATE_TEST_FLUTTER_EXIT', '0')):
+    sys.exit(code)
 flavor = args[args.index('--flavor') + 1]
 mode = next((arg[2:] for arg in reversed(args) if arg in ('--release', '--debug', '--profile')), 'release')
 apk = pathlib.Path('build/app/outputs/flutter-apk') / f'app-{flavor}-{mode}.apk'
@@ -53,13 +67,83 @@ apk.write_bytes(b'fake APK: shell flow only')
 ''')
         aapt.chmod(0o755)
         self.env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ["PATH"],
-                        RUNTIME_GATE_TEST_CALLS=str(self.calls_file))
+                        RUNTIME_GATE_TEST_CALLS=str(self.calls_file), RUNTIME_GATE_TEST_JNI=str(self.jni_file),
+                        RUNTIME_GATE_TEST_PACK=str(self.pack_file), DSH_COMPANION_PACK=str(pack))
 
-    def run_script(self, *args):
+    def run_script(self, *args, keep_daemon=True):
         self.calls_file.unlink(missing_ok=True)
         return subprocess.run(["bash", str(self.root / "tooling/build-apk.sh"),
-                               "--keep-daemon", "--build-name", "1.0.0", "-n", "10251234", *args],
+                               *(["--keep-daemon"] if keep_daemon else []),
+                               "--build-name", "1.0.0", "-n", "10251234", *args],
                               env=self.env, capture_output=True, text=True, timeout=15)
+
+    def test_release_places_and_checks_the_companion_pack(self):
+        self.make_bundle("arm64", 2)
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        place, check = self.pack_file.read_text().splitlines()
+        self.assertTrue(place.startswith("place ") and check.startswith("check "), (place, check))
+
+        self.env["PACK_CHECK_EXIT"] = "1"
+        result = self.run_script()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("companion pack", result.stderr)
+        del self.env["PACK_CHECK_EXIT"]
+
+        self.pack_file.unlink()
+        self.env["DSH_COMPANION_PACK"] = str(self.root / "missing.zip")
+        result = self.run_script()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--no-companion", result.stderr)
+        # A pack an earlier build placed sits out a --no-companion build and comes back after.
+        placed = self.root / "app/assets/companion/whale-girl.zip"
+        placed.parent.mkdir(parents=True)
+        placed.write_bytes(b"placed")
+        self.assertEqual(self.run_script("--no-companion").returncode, 0)
+        self.assertFalse(self.pack_file.exists())
+        self.assertEqual(placed.read_bytes(), b"placed")
+        self.assertFalse((self.root / "app/build/.whale-girl.zip.held").exists())
+
+    def test_exit_cleanup_leaves_daemons_outside_gradle_stop_alive(self):
+        android = self.root / "app/android"
+        android.mkdir()
+        stop_log = self.root / "gradle-stop.log"
+        gradlew = android / "gradlew"
+        gradlew.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$RUNTIME_GATE_TEST_STOP_LOG"\n')
+        gradlew.chmod(0o755)
+        self.env["RUNTIME_GATE_TEST_STOP_LOG"] = str(stop_log)
+        # Use the actual name predicate, but forward only our own peer's PID.
+        # No unrelated workspace process can reach the shipped shell's kill.
+        real_pgrep = shutil.which("pgrep")
+        self.assertIsNotNone(real_pgrep)
+        pgrep = self.root / "bin/pgrep"
+        pgrep.write_text(f"#!{sys.executable}\nimport os, subprocess, sys\n"
+                         f"pids = subprocess.check_output([{real_pgrep!r}, *sys.argv[1:]], text=True)\n"
+                         "for pid in pids.splitlines():\n"
+                         "    if pid == os.environ['RUNTIME_GATE_TEST_PEER_PID']: print(pid)\n")
+        pgrep.chmod(0o755)
+        for flutter_exit in (0, 23):
+            for keep_daemon in (False, True):
+                with self.subTest(flutter_exit=flutter_exit, keep_daemon=keep_daemon):
+                    stop_log.unlink(missing_ok=True)
+                    self.env["RUNTIME_GATE_TEST_FLUTTER_EXIT"] = str(flutter_exit)
+                    # A stand-in for another version/home: Gradle's scoped stop
+                    # leaves it alone; a global name-based SIGTERM reaches it.
+                    peer = subprocess.Popen(["bash", "-c",
+                                             "exec -a org.gradle.launcher.daemon.bootstrap.GradleDaemon sleep 30"])
+                    self.env["RUNTIME_GATE_TEST_PEER_PID"] = str(peer.pid)
+                    try:
+                        result = self.run_script("--debug", keep_daemon=keep_daemon)
+                        self.assertEqual(result.returncode, flutter_exit, result.stderr)
+                        if keep_daemon:
+                            self.assertFalse(stop_log.exists())
+                        else:
+                            self.assertEqual(stop_log.read_text().splitlines(), ["--stop", "-q"])
+                        with self.assertRaises(subprocess.TimeoutExpired):
+                            peer.wait(timeout=0.2)
+                    finally:
+                        peer.terminate()
+                        peer.wait(timeout=5)
 
     def calls(self):
         if not self.calls_file.exists():
@@ -124,6 +208,15 @@ apk.write_bytes(b'fake APK: shell flow only')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([args[args.index("--flavor") + 1] for args in self.calls()], ["arm64", "x64"])
         self.assertEqual({args[args.index("--build-number") + 1] for args in self.calls()}, {"10251234"})
+        checked = [Path(line).name for line in self.jni_file.read_text().splitlines()]
+        self.assertEqual(checked, ["app-arm64-release.apk", "app-x64-release.apk"])
+
+    def test_an_apk_without_the_onnx_jni_classes_stops_the_build(self):
+        self.make_bundle("arm64", 1)
+        self.env["JNI_CHECK_EXIT"] = "1"
+        result = self.run_script()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("proguard-rules.pro", result.stderr)
 
     def test_each_archive_is_required(self):
         for schema, kind in ((1, "rootfs"), (2, "base"), (2, "engine")):
@@ -187,6 +280,28 @@ apk.write_bytes(b'fake APK: shell flow only')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls(), [])
         self.assertEqual(result.stdout.count("flutter build apk"), 2)
+
+    def test_public_release_builds_ask_for_a_star(self):
+        star = "--dart-define-from-file=../tooling/star-prompt-on.json"
+        self.assertEqual(json.loads((ROOT / "tooling/star-prompt-on.json").read_text()), {"DSH_STAR_PROMPT": "true"})
+        self.make_bundle("arm64", 2)
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(star, self.calls()[0])
+        # Ahead of the extra flags: a DSH_STAR_PROMPT there, inline or in a file, wins.
+        result = self.run_script("--", "--dart-define-from-file=release.json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = self.calls()[0]
+        self.assertLess(args.index(star), args.index("--dart-define-from-file=release.json"))
+        token = self.root / "beta.token"
+        token.write_text("dshc_fixture\n")
+        token.chmod(0o600)
+        self.env["DSH_BETA_TOKEN_FILE"] = str(token)
+        for args in (("--no-star",), ("--side",), ("--beta",), ("--debug",)):
+            with self.subTest(args=args):
+                result = self.run_script(*args)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn(star, self.calls()[0])
 
     def test_leading_zero_build_number_uses_one_decimal_value(self):
         result = self.run_script("--debug", "-n", "00010251234")

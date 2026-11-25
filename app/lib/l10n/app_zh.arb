@@ -30,6 +30,8 @@
   "accessFeatureBackgroundNeeds": "任务跑完通知你，需要通知和后台权限",
   "accessFeatureVoice": "语音输入",
   "accessFeatureVoiceNeeds": "需要麦克风权限",
+  "accessFeatureAlerts": "回复提醒",
+  "accessFeatureAlertsNeeds": "需要通知权限",
   "accessVoiceModel": "离线识别，需下载约 {size} MB 语音模型",
   "@accessVoiceModel": {
     "placeholders": {
@@ -982,13 +984,15 @@
   "androidShellEntryHint": "独立的系统命令通道，默认关闭",
   "androidShellSubtitle": "通过 Shizuku 或自连 ADB 在这台手机上执行 Android 系统命令，不是 Ubuntu 里的 bash。",
   "androidShellEnable": "允许 Android Shell",
-  "androidShellEnableHint": "独立开关，不随不打扰模式或屏幕免确认设置开启。",
-  "androidShellConfirmationNote": "每条命令都要经过手机上的原生确认；屏幕操控的「免确认」不适用于这里。Shell 权限范围与屏幕操控不同，不能依靠应用名单拦截所有命令。",
-  "androidShellMasterOff": "先在上一页打开「手机操控」，才能启用 Android Shell。你仍可在这里查看授权和配对引导。",
+  "androidShellEnableHint": "独立开关，不随不打扰模式或屏幕免确认开启；只增加 Android 命令通道，不影响 Ubuntu 里的 bash / run_code 等工具，两者可同时使用。",
+  "androidShellConfirmationNote": "每条命令均需确认，可能修改系统和文件。",
+  "androidShellMasterOff": "先在上一页打开「手机操控」。",
   "androidShellRiskTitle": "允许执行 Android 系统命令？",
   "androidShellRiskBody": "命令使用所选通道的实际 UID，可能修改应用、系统设置和共享文件。它不受屏幕应用名单完整保护；每条命令仍会单独请求原生确认。只允许你理解并信任的命令。",
   "androidShellRiskAction": "允许 Android Shell",
-  "androidShellBackend": "执行通道",
+  "androidShellBackend": "连接方式",
+  "androidShellDetails": "详情",
+  "androidShellReady": "已连接",
   "androidShellShizukuHint": "使用已安装并启动的 Shizuku，需单独授权；不需要 Android 14、无障碍或不打扰模式。",
   "androidShellAdb": "自连 ADB",
   "androidShellAdbHint": "连接本机的无线调试，复用 App 的私有 ADB 身份；不会连接其他设备。",
@@ -1043,6 +1047,7 @@
   "androidShellErrorAdbNotPaired": "请先完成本机无线调试配对，再连接 ADB。",
   "androidShellErrorConnectFailed": "连接未成功。请检查所选通道和当前无线调试连接端口，再重试。",
   "androidShellErrorIdentityChanged": "通道身份已改变，请停止后重新授权或连接。",
+  "androidShellErrorHelperStartFailed": "Android Shell 辅助进程未能启动，命令未执行。",
   "androidShellErrorBusy": "另一项操作尚未结束，请稍后重试，或先停止 Android Shell。",
   "androidShellErrorInvalidArguments": "输入无效。配对码须为六位数字，端口须在 1–65535 之间。",
   "androidShellErrorCancelled": "操作已取消。",
@@ -1055,8 +1060,35 @@
   "androidShellErrorProtocolMismatch": "当前原生模块不支持此 Shell 协议，请更新 App。",
   "androidShellErrorNativeUnavailable": "此构建的 Android Shell 原生模块不可用。",
   "androidShellErrorInvalidResponse": "没有收到有效的原生状态，请刷新或更新 App。",
+  "androidShellErrorStopped": "本轮已结束或暂停，请重新开启后再试。",
   "androidShellErrorStopFailed": "未确认已停止，请刷新状态并重试停止。",
   "androidShellErrorUnknown": "未能确认操作结果。先核实结果；已派发的命令不要自动重试。",
+  "androidBackgroundProtectionTitle": "增强保活",
+  "androidBackgroundProtectionAudioHint": "有本机任务时在后台播放静音音频，可能增加耗电。",
+  "androidBackgroundProtectionLocationHint": "使用粗略位置，可能增加耗电；不保存或发送坐标。关闭后停止定位，但不撤回系统权限。",
+  "androidBackgroundProtectionNeedsLocation": "尚未授予位置权限。点此打开 App 的系统设置，在「权限」中允许访问位置。",
+  "androidBackgroundProtectionNeedsAlways": "后台定位尚未生效。点此打开 App 的系统设置，在「权限」中将位置设为“始终允许”。",
+  "backgroundProtectionDescription": "默认关闭，仅在有本机任务且 App 退到后台时尝试保护；系统仍可能暂停任务。",
+  "backgroundProtectionAudio": "静音音频保护",
+  "backgroundProtectionAudioHint": "任务期间在后台播放静音音频，会增加耗电；不会抢占录音、通话或朗读。",
+  "backgroundProtectionLocation": "后台定位保护",
+  "backgroundProtectionLocationHint": "需系统“始终允许”位置权限，会增加耗电并涉及位置隐私；不保存坐标。",
+  "backgroundProtectionTask": "连续任务保护",
+  "backgroundProtectionTaskHint": "仅在本机任务期间申请系统连续任务，是否生效取决于当前版本和系统许可。",
+  "backgroundProtectionStatus": "当前状态",
+  "backgroundProtectionOff": "未开启增强保护",
+  "backgroundProtectionReady": "已开启，当前未运行；有本机任务且退到后台时才会尝试保护。",
+  "backgroundProtectionAudioActive": "静音音频保护正在运行",
+  "backgroundProtectionLocationActive": "后台定位保护正在运行",
+  "backgroundProtectionBothActive": "静音音频与后台定位保护正在运行",
+  "backgroundProtectionTaskActive": "系统连续任务保护正在运行",
+  "backgroundProtectionLocationRestricted": "定位权限被系统限制，无法开启定位保护；可保持前台或使用远程主机。",
+  "backgroundProtectionNeedsAlways": "定位保护尚未生效，请点此在系统设置中将位置权限设为“始终允许”。",
+  "backgroundProtectionLocationServicesOff": "系统定位服务已关闭，请点此检查系统设置。",
+  "backgroundProtectionTaskUnavailable": "当前版本缺少系统连续任务资格，请保持 App 在前台或使用远程主机。",
+  "backgroundProtectionUnavailable": "保护暂不可用，请返回 App 重试；长任务可保持前台或使用远程主机。",
+  "backgroundProtectionCleanup": "正在结束上一次后台保护，尚未完成释放。",
+  "backgroundProtectionUpdateFailed": "未能更新后台保护，请查看当前状态后重试。",
   "botsFolderGone": "这个文件夹已经不在了",
   "botsFolderReadFailed": "没能读取这个文件夹",
   "botsFolderOpenFailed": "打不开这个文件夹",
@@ -1788,6 +1820,9 @@
   "botsPetOverlayFramingFull": "全身",
   "botsPetOverlayFramingHalf": "半身",
   "botsPetOverlayFramingHint": "换取景会重新加载她",
+  "botsPetOverlaySize": "悬浮窗大小",
+  "botsPetOverlaySizeHint": "只影响 App 外的宠物；聊天页里的「大小」单独调整",
+  "botsPetOverlayCustomSize": "自定义悬浮窗大小",
   "botsPetSwitchDisabled": "开关点不动",
   "botsPetRestrictedSettings": "允许受限制的设置",
   "botsPetHiddenToday": "今天不再显示",
@@ -1797,11 +1832,198 @@
   "botsPetSettings": "宠物设置",
   "botsPetDeepy": "Deepy 小鲸鱼",
   "botsPetWhaleGirl": "鲸娘",
+  "botsPetPinkFish": "小粉鱼",
   "botsPetNone": "不显示",
   "botsPets": "宠物",
   "botsPetSource": "来自 DSH-TUI",
   "botsPetImport": "导入",
   "botsPetImportHint": "导入你自己的像素宠物：一个 zip，里面是 pack.json 和序列帧 PNG，格式见仓库里的 docs/design/pets.md。长按导入的宠物可以删除。",
+  "botsPetConvertEntry": "转换 Live2D 模型",
+  "botsPetConvertEntrySub": "把外来的 Live2D 模型做成宠物包或伙伴小屋素材包",
+  "botsPetConvertPick": "选择模型压缩包",
+  "botsPetConvertPickHint": "把 Live2D 模型的文件夹打成 zip：根目录直接是模型文件，或者外面只套一层文件夹。",
+  "botsPetConvertPickSubtitle": "还没选",
+  "botsPetConvertWorking": "正在读取模型…",
+  "botsPetConvertModel": "模型",
+  "botsPetConvertFiles": "文件",
+  "botsPetConvertCount": "{count} 个 · {size}",
+  "@botsPetConvertCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTextures": "贴图",
+  "botsPetConvertMotions": "动作",
+  "botsPetConvertExpressions": "表情",
+  "botsPetConvertMotionList": "模型自带的动作",
+  "botsPetConvertPhysicsOnly": "只动物理参数，几乎看不出在动",
+  "botsPetConvertLoop": "循环",
+  "botsPetConvertOnce": "只播一次",
+  "botsPetConvertMap": "每个状态用哪个动作",
+  "botsPetConvertMapDone": "每个状态都挑好了。想换位置，用下面的「互换」。",
+  "botsPetConvertMissing": "还没实现的：{names}",
+  "@botsPetConvertMissing": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertNone": "不实现",
+  "botsPetConvertEvents": "点她时的反应",
+  "botsPetConvertNoMotions": "这个模型没有自带动作，只能用封面待着。",
+  "botsPetConvertIgnored": "有 {count} 个动作没用上",
+  "@botsPetConvertIgnored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "botsPetConvertAuto": "按名字自动匹配",
+  "botsPetConvertSwap": "互换两个状态",
+  "botsPetConvertSwapPick": "先选要换走的状态",
+  "botsPetConvertSwapPick2": "再选要和「{name}」互换的状态",
+  "@botsPetConvertSwapPick2": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertPet": "生成宠物包并换上",
+  "botsPetConvertPetHint": "模型文件夹会一起打进去，手机上要先装过 Live2D 运行库",
+  "botsPetConvertRoom": "生成伙伴小屋包",
+  "botsPetConvertRoomHint": "存到手机的 Download；也可以直接在下面导入",
+  "botsPetConvertTarget": "生成什么",
+  "botsPetConvertTargetHint": "宠物包按状态切动作；伙伴小屋包按情绪和动作切",
+  "botsPetConvertTargetPet": "宠物包",
+  "botsPetConvertTargetRoom": "伙伴小屋包",
+  "botsPetConvertRoomEmotions": "情绪绑哪个表情",
+  "botsPetConvertRoomEmotionsHint": "一行一个情绪；挑选的时候可以 ▶ 试看",
+  "botsPetConvertRoomNoExpressions": "这个模型没有表情文件：情绪只能靠动作表达",
+  "botsPetConvertRoomActions": "动作绑哪个动作",
+  "botsPetConvertRoomActionsHint": "伙伴小屋让角色做这些动作时，播放对应的动作",
+  "botsPetConvertChooseExpression": "挑一个表情",
+  "botsPetConvertExpressionNone": "不套表情",
+  "botsPetConvertPreviewExpressionTitle": "试看表情「{name}」",
+  "@botsPetConvertPreviewExpressionTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertRuntime": "运行库",
+  "botsPetConvertRuntimeBundle": "把运行库一起打包",
+  "botsPetConvertRuntimeBundleHint": "带上之后，这个包在没装过伙伴小屋的手机上也能直接导入",
+  "botsPetConvertRuntimeReady": "手机上已经有运行库，可以一起打包",
+  "botsPetConvertRuntimeMissing": "手机上还没有运行库：先导入一个伙伴小屋包，或者让包自带运行库",
+  "botsPetConvertRuntimeImport": "导入伙伴小屋包",
+  "botsPetConvertRuntimeImportHint": "用来取得运行库；会替换伙伴小屋里现在的角色",
+  "botsPetConvertRuntimeDone": "运行库已就绪",
+  "botsPetConvertResult": "结果",
+  "botsPetConvertRoomImport": "导入到伙伴小屋",
+  "botsPetConvertRoomImportHint": "会替换伙伴小屋里现在的角色",
+  "botsPetConvertRoomImported": "已把「{name}」装进伙伴小屋",
+  "@botsPetConvertRoomImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertFraming": "位置与缩放",
+  "botsPetConvertFramingHint": "伙伴小屋默认按 1.2 倍、居中摆放；这三个数就是包里的取景，改完可以点▶看效果",
+  "botsPetConvertFramingZoom": "缩放",
+  "botsPetConvertFramingX": "左右",
+  "botsPetConvertFramingY": "上下",
+  "botsPetConvertFramingPreview": "预览取景",
+  "botsPetConvertFramingReset": "恢复默认",
+  "botsPetConvertPetDone": "「{name}」已经是你的宠物了",
+  "@botsPetConvertPetDone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertRoomDone": "已存到 {path}，去伙伴小屋 › 安装素材包导入",
+  "@botsPetConvertRoomDone": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertFailed": "没做成：{detail}",
+  "@botsPetConvertFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertMapping": "状态动作还没配好：{problem}",
+  "@botsPetConvertMapping": {
+    "placeholders": {
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertNeedIdle": "「待机」还没有动作：她空着的时候一直用它",
+  "botsPetConvertChooseMotion": "挑一个动作",
+  "botsPetConvertPreview": "试播",
+  "botsPetConvertPreviewTitle": "试播「{name}」",
+  "@botsPetConvertPreviewTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertPreviewHint": "试播要用手机里的 Live2D 运行库（伙伴小屋的完整素材包）。这里只是看着玩，不会改动模型，也不会安装。",
+  "botsPetConvertTooLarge": "模型太大：{size}",
+  "@botsPetConvertTooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTooLargeHint": "转换最多读 {cap} 的压缩包：再大手机还没开始读就会先没内存。先用 AI 把它压小，再回来选。",
+  "@botsPetConvertTooLargeHint": {
+    "placeholders": {
+      "cap": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetConvertTooLargeCopy": "复制给 AI 的压小说明",
+  "botsPetConvertTooLargeCopied": "已复制，发给 AI 就行",
+  "botsPetConvertTooLargePrompt": "请你把这个 Live2D 模型压小到 160 MB 以内，好让 dsh-Go 的转换器能读：把 4096 的贴图降到 2048 或 1024；删掉 .mp3 和 .wav；只保留 *.model3.json、*.moc3、*.physics3.json、*.pose3.json、*.cdi3.json、*.motion3.json、*.exp3.json 和贴图；用不到的表情和动作也可以删；最后重新打成一个 zip，根目录直接放这些文件（或者只套一层文件夹）。",
+  "botsPetStateIdle": "待机",
+  "botsPetStateThinking": "思考",
+  "botsPetStateWorking": "工作",
+  "botsPetStateJuggling": "同时做几件事",
+  "botsPetStateSweeping": "清理",
+  "botsPetStateNotification": "有新消息",
+  "botsPetStateAttention": "在叫你",
+  "botsPetStateError": "出错",
+  "botsPetStateCarrying": "搬东西",
+  "botsPetStateSleeping": "睡觉",
+  "botsPetStateWaking": "醒来",
+  "botsPetReactionTapLeft": "点左边",
+  "botsPetReactionTapRight": "点右边",
+  "botsPetReactionTickle": "挠痒",
+  "botsPetReactionAnnoyed": "被惹到",
+  "botsPetReactionDrag": "被拖动",
   "botsPetImportDone": "「{name}」来了",
   "@botsPetImportDone": {
     "placeholders": {
@@ -1867,6 +2089,16 @@
     }
   },
   "botsPetImportTooLarge": "这个宠物包太大了",
+  "botsPetImportLive2dModel": "Live2D 模型缺失或读不了：{detail}",
+  "@botsPetImportLive2dModel": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "botsPetImportLive2dPoster": "封面图 poster.png 缺失、不是 PNG，或者尺寸和 canvas 不一致",
+  "botsPetExportLive2d": "这只宠物是 Live2D 的，模型文件夹没办法打进宠物卡片。导出后只会得到一张封面图，所以这里先不导出。",
   "botsPetImportStorage": "没能存到手机上，再试一次",
   "botsPetRemoveTitle": "删除「{name}」？",
   "@botsPetRemoveTitle": {
@@ -1886,6 +2118,7 @@
     }
   },
   "botsPetSize": "大小",
+  "botsPetCustomSize": "自定义大小",
   "botsPetQuiet": "安静模式",
   "botsPetQuietSubtitle": "只做动作，不冒气泡",
   "botsPetShowNow": "立即显示",
@@ -1908,6 +2141,7 @@
   "botsKeySlash": "斜杠",
   "botsKeyDash": "短横线",
   "botsTerminal": "终端",
+  "botsTerminalShowKeyboard": "唤起键盘",
   "botsTerminalRename": "重命名终端",
   "botsTerminalName": "终端名称",
   "botsTerminalRenameFailed": "没能重命名",
@@ -2919,6 +3153,7 @@
   "chatOutputToEnd": "跳到末尾",
   "chatOutputToStart": "回到开头",
   "chatErrApiKey": "API Key 无效或已过期",
+  "chatErrForbidden": "凭据不可用或权限不足",
   "chatErrBalance": "余额不足",
   "chatErrAccountQuota": "账号额度已用完",
   "chatErrRateLimit": "请求太频繁，稍后再试",
@@ -3131,12 +3366,25 @@
   },
   "companionMenu": "更多",
   "companionVoice": "语音",
+  "companionSystemAssistant": "系统数字助理",
+  "companionAssistantChoose": "选择默认数字助理",
+  "companionAssistantChooseHint": "在 Android 设置选中 DSH Go 小屋伙伴，再用手机的助理手势或按键唤起。",
+  "companionAssistantSelected": "小屋伙伴已设为默认助理。再次打开可切换回其他助理。",
+  "companionAssistantSettingsMissing": "找不到助理选择页。请在系统设置搜索「默认数字助理」。",
+  "companionAssistantSharePage": "带上唤起时的页面文字",
+  "companionAssistantSharePageHint": "仅使用 Android 允许提供的文字，发送本轮问题时交给伙伴模型。你可以在发送前移除。",
+  "companionAssistantPageAttached": "已附当前页面文字",
+  "companionAssistantCalendarAccess": "允许读取日历",
+  "companionAssistantCalendarHint": "让伙伴和手机工具读取可见日程。查询结果会发给当前模型。",
+  "companionAssistantCalendarAllowed": "已授权读取。点此可在系统应用权限中撤回。",
+  "companionAssistantAppPermissions": "打开系统应用权限",
   "companionStop": "让她停下",
   "companionSend": "发送",
   "companionNotConnected": "现在连不上引擎，等一下再和我说吧。",
   "companionSendFailed": "这句话没送出去，要不要再说一次？",
+  "companionAgentRetryClosed": "刚才那件事我可能已经动手了，怕做两遍。你先在「交代的事」里看一眼，再告诉我要不要接着来？",
   "companionLogTitle": "聊天记录",
-  "companionContextUnsupported": "这台主机的伙伴还不支持上下文：她的名字、设定和刚才发生的事传不过去，只发你说的话。升级主机或换成轻量模式就好。",
+  "companionContextUnsupported": "这台主机还不支持她的上下文：名字、设定、刚才发生的事和手机里的记忆都传不过去，只发你说的话。升级主机或换成轻量模式就好。",
   "companionLogEmpty": "还没有说过话。",
   "companionLogYou": "你",
   "companionLogOpenChat": "在主对话里看",
@@ -3213,6 +3461,7 @@
   "companionShake1": "哇啊，别摇啦！",
   "companionShake2": "头好晕……水都晃起来了。",
   "companionShake3": "再摇我要吐泡泡了！",
+  "companionShakeDizzy": "头好晕……世界在转。",
   "companionStatusIdle": "在发呆",
   "companionStatusListening": "在听你说",
   "companionStatusThinking": "在想",
@@ -3224,7 +3473,18 @@
   "companionArriving": "她正在游过来…",
   "companionPrivacyLine": "素材只存在这台手机上，聊天走当前主机。",
   "companionMemoryTitle": "她记得的事",
-  "companionMemoryScope": "保存在{host}上。她现在还不会自己想起这些，之后的版本会接上。",
+  "companionMemoryCard": "卡片",
+  "companionMemoryPerson": "人物档案",
+  "companionMemoryDiary": "日记",
+  "companionMemoryImpression": "她对你的印象",
+  "companionMemorySearchTitle": "记忆检索",
+  "companionMemorySearchDescription": "下载约24 MB的模型，用手机本地查找意思相近的记忆。",
+  "companionMemorySearchDownload": "下载模型",
+  "companionMemorySearchReady": "本地模型已就绪",
+  "companionMemorySearchDownloading": "正在下载…",
+  "companionMemorySearchFailed": "暂时无法准备本地模型。可以重试下载。",
+  "companionMemorySearchUnavailable": "此设备暂不支持本地记忆检索。",
+  "companionMemoryScope": "保存在{host}，两种模式共用。你可以随时改或忘。",
   "@companionMemoryScope": {
     "placeholders": {
       "host": {
@@ -3233,13 +3493,13 @@
     }
   },
   "companionMemoryAdd": "添加",
-  "companionMemoryEdit": "修改",
+  "companionMemoryEdit": "更新现况",
   "companionMemorySave": "保存",
   "companionMemoryHint": "比如：我喜欢无糖的茶，不喝咖啡",
   "companionMemoryForget": "忘掉",
   "companionMemoryForgetTitle": "让她忘掉这件事？",
   "companionMemoryEmpty": "还没有记下什么",
-  "companionMemoryEmptyHint": "想让她记住的事，可以在这里写下来。只存在当前主机上，随时能改能删。",
+  "companionMemoryEmptyHint": "你们聊过的事，她会自己慢慢记住。想让她特别记着什么，也可以写在这里。",
   "companionMemoryUnsupported": "这台主机还不能保存她的记忆",
   "companionMemoryUnsupportedHint": "经 DSH Remote 中继连接时用不了，或者这台主机的 dsh-go 桥接比较旧。",
   "companionMemoryLoadFailed": "没读到",
@@ -3267,9 +3527,11 @@
   "companionLightNoKey": "轻量模式要用 DeepSeek API Key，在设置里填上就能和我聊啦。",
   "companionLightBadKey": "API Key 好像不对，或者已经失效了。",
   "companionLightBusy": "那边有点忙，等一下再和我说吧。",
-  "companionNotConnectedTryLight": "现在连不上主机。只想聊天的话，可以在右上角菜单换成轻量模式。",
-  "companionMenuRestartLightHint": "清掉这台手机上的聊天记录",
-  "companionMenuRestartLightConfirm": "她会忘记这段对话，这台手机上的聊天记录会被删掉。",
+  "companionNotConnectedTryLight": "现在连不上电脑那边。你可以检查连接，或在「对话方式」里换成轻量模式。",
+  "companionHostModelUnavailable": "电脑那边还没选好模型。选好后我们再聊，或在「对话方式」里换成轻量模式。",
+  "companionHostUnavailable": "电脑那边暂时接不了这次对话。检查连接和更新后再试，或在「对话方式」里换成轻量模式。",
+  "companionMenuRestartLightHint": "开始新对话，保留旧记录",
+  "companionMenuRestartLightConfirm": "开始一段新对话。她记得的事和旧聊天记录都会保留。",
   "companionInviteRest": "要不要陪我在软垫上歇一会儿？",
   "companionInviteAccept": "好呀",
   "companionInviteDecline": "等会儿",
@@ -3293,19 +3555,28 @@
   "companionHug2": "被你这样抱着，好安心。",
   "companionHug3": "再抱一会儿，就一会儿。",
   "companionBondTitle": "你们的关系",
-  "companionBond0": "刚认识",
-  "companionBond1": "渐渐熟悉",
-  "companionBond2": "熟起来了",
-  "companionBond3": "很亲近",
+  "companionBond0": "初识",
+  "companionBond1": "熟悉",
+  "companionBond2": "朋友",
+  "companionBond3": "亲近",
+  "companionBond4": "很亲",
+  "companionBond5": "离不开",
   "companionCloser1": "好像……没那么紧张了。",
   "companionCloser2": "和你待着，越来越自在了。",
   "companionCloser3": "以后也要常来哦，我会想你的。",
+  "companionCloser4": "你在的时候，连安静待着都很开心。",
+  "companionCloser5": "不知不觉，已经很习惯有你在了。",
   "companionPatClose": "最喜欢被你摸头了。",
   "companionHugClose": "抱紧一点也没关系哦。",
   "companionTaskDoneUntitled": "你那边的任务跑完啦。",
   "companionTaskFailedUntitled": "你那边的任务好像出错了，要去看看吗？",
   "companionTaskOpen": "去看看",
   "companionMenuSignals": "她会提起什么",
+  "companionAlwaysOn": "她一直在",
+  "companionAlwaysOnHint": "离开小屋她也在。通知栏里留着她，可以直接回她一句",
+  "companionAlwaysOnRunning": "她在通知栏里陪着你",
+  "companionAlwaysOnNoNotify": "通知被关了，打开后才能在通知栏里回她",
+  "companionAlwaysOnFailed": "这次没能留下来，再开一次试试",
   "companionSignalsHint": "这些只在小屋里说给你听，不会发给模型。说多说少跟着「她多主动」，和邀请共用次数，深夜不说；选「安静」她也不说。",
   "companionSignalState": "留意别的对话",
   "companionSignalStateHint": "这台主机上别的对话跑完或出错时，她心里有数",
@@ -3441,7 +3712,7 @@
   "companionMovesNone": "这个模型没有自带的表情和动作，她用的是内置的那些。",
   "companionMovesRename": "改个叫法",
   "companionMovesTry": "试一下",
-  "companionPackLegacyModel": "这是 Cubism 2 的旧模型（.moc 和 model.json），手机上的运行库只认 Cubism 3 以后的 .moc3。用 Cubism Editor 打开后导出成 moc3 再导入就行。",
+  "companionPackLegacyModel": "包里只有 .moc，没有 model.json。Cubism 2 模型要把 model.json、.moc 和贴图一起打包；现在的版本已经支持 Cubism 2，缺的是描述文件。",
   "companionFailedMocVersion": "这个模型是用更新版本的 Cubism 导出的（moc 版本 {version}），手机上的运行库最高只认到 {latest}。在 Cubism Editor 里导出成旧一点的版本再导入就行。",
   "@companionFailedMocVersion": {
     "placeholders": {
@@ -3486,7 +3757,901 @@
   "companionAdaptUnreadable": "模型的回答看不懂",
   "companionAdaptEmpty": "模型没找到能用的对应",
   "companionAdaptNetwork": "网络不通",
+  "companionMemoryMigrationPending": "旧记忆还没搬完，原来的资料已保留。稍后可以再试。",
+  "companionMemoryWaiting": "这次还没整理好，原话已保存在手机上。",
+  "companionMemoryWidgetPending": "小组件上那句旧话稍后会清掉。",
+  "companionMemoryConfiguration": "当前通道还不能自动记下新内容。原话已留好，也可以直接改手记。",
+  "companionMemoryWording": "只改文字",
+  "companionMemoryPin": "置顶",
+  "companionMemoryUnpin": "取消置顶",
+  "companionMemoryConfirmReality": "这是我的现实情况",
+  "companionMemorySources": "我的原话",
+  "companionMemoryEditSource": "修改这句原话",
+  "companionMemoryDeleteSource": "删除手机原话",
+  "companionMemoryDeleteSourceHint": "删除手机保存的这句原话及只靠它的记忆。主机旧对话和你另存的副本不会随之删除。",
+  "companionMemoryNoSource": "这条是手写的，或原来的出处已经找不到了。",
+  "companionMemoryCleanupUnknown": "还不能确认所有该删的原话，这次没有删除。",
+  "companionMemoryTooLong": "原话太长，这一版未自动提取",
+  "companionMemoryNotExtracted": "这一批没有自动记下来",
+  "companionMemoryPending": "还没自动整理",
+  "companionMemorySourceKept": "原话保留",
+  "companionMemoryDisplayOnly": "旧记录，仅保留原文",
+  "companionMemoryCancelled": "计划已取消",
+  "companionMemoryLess": "少主动提",
+  "companionMemoryNever": "别主动提",
+  "companionMemoryNormal": "以后可以聊",
+  "companionMemoryCancelPlan": "取消这项计划",
+  "companionMemoryActions": "这件事的选项",
+  "companionMemoryWhich": "你说的是哪件事呀？",
+  "companionMemoryForgotten": "好，忘掉了。",
+  "companionMemoryNeverDone": "嗯，不提了。",
+  "companionMemoryLessDone": "好，我少说一点。",
+  "companionMemoryNormalDone": "好呀，想聊的时候随时聊。",
+  "companionMemoryCancelledDone": "好，那就不等着问你了。",
+  "companionMemoryCorrected": "啊，是我记岔了。",
+  "companionMemoryHostSourceRemaining": "手机原话已删除。主机的旧对话仍保留；需要时可在对话列表删除那段对话。",
+  "companionMemoryHostRestarted": "主机刚重启过。这句话已留好，再点一次发送就能接着聊。",
+  "companionMemoryUsage": "模型用量",
+  "companionMemoryUsageHint": "最近的请求记录。未知不表示免费；费用按已核费率估算，不是供应商账单。主机记录只覆盖已捕获的伙伴聊天。",
+  "companionMemoryUsageUnknown": "未知",
+  "companionMemoryUsageExtract": "记下内容",
+  "companionMemoryUsageOrganize": "整理记忆",
+  "companionMemoryUsageChat": "聊天",
+  "companionMemoryUsageWaiting": "等待本次的用量记录",
+  "companionMemoryUsageIncomplete": "本次用量范围仍不完整，已知记录已保留",
+  "companionMemoryUsageInput": "未缓存输入",
+  "companionMemoryUsageCacheRead": "缓存读取",
+  "companionMemoryUsageCacheWrite": "缓存写入",
+  "companionMemoryUsageOutput": "输出",
+  "companionMemoryUsageCost": "估算费用",
+  "companionMemoryUsageNotSent": "本地未发出",
+  "companionMemoryUsageEmpty": "还没有记录到用量",
+  "companionMemoryHostUnsupported": "这台主机的版本有点旧，在这里她暂时想不起你们聊过的事。升级主机就好。",
+  "companionMemoryPostponedDone": "好，那等你定了新时间再说。",
+  "companionTasksTitle": "交代的事",
+  "companionTasksEmpty": "你还没交代我什么事呢。",
+  "companionTasksEarlier": "更早的事",
+  "companionTaskMissing": "这件事我这儿找不到了。",
+  "companionTaskChanged": "这件事后来又改过了，我按最新的来。",
+  "companionReminderEdit": "改提醒",
+  "companionReminderCancel": "不用提醒了",
+  "companionReminderText": "提醒你什么",
+  "companionReminderWhen": "哪天几点",
+  "companionReminderWhenHint": "比如 2026-11-21 08:00",
+  "companionReminderZone": "时区",
+  "companionReminderZoneHint": "比如 Asia/Shanghai 或 +08:00",
+  "companionReminderQueued": "好，提醒记下了，还没确认设好。",
+  "companionReminderDone": "设好了，到点我叫你。",
+  "companionReminderUnknown": "这条提醒我不太确定设上没，你看一眼系统闹钟？",
+  "companionReminderFailed": "这条提醒没设上，抱歉。",
+  "companionReminderCancelled": "好，这条不提醒了。",
+  "companionReminderTextMissing": "要提醒你什么呀？",
+  "companionReminderDateMissing": "哪天提醒你？",
+  "companionReminderTimeMissing": "那天几点提醒你？",
+  "companionReminderZoneMissing": "按哪个时区算？",
+  "companionReminderGap": "那天这个钟点会被跳过去（夏令时），换个时间吧。",
+  "companionReminderOverlap": "那天这个钟点有两次，要哪一次？",
+  "companionReminderFirst": "第一次",
+  "companionReminderSecond": "第二次",
+  "companionReminderNotificationsMissing": "设好了，可通知还关着，到点我叫不到你。去系统设置里打开通知就好。",
+  "companionReminderChannelMissing": "设好了，可「提醒」这类通知被关掉了，到点我叫不到你。去系统设置里打开就好。",
+  "companionReminderGroupMissing": "设好了，可提醒所在的那组通知被关掉了，到点我叫不到你。去系统设置里打开就好。",
+  "companionReminderTimePassed": "约好的时间已经过了，我就没再补响。",
+  "companionReminderInvalidTime": "这个时间我没弄明白，再告诉我一次哪天、几点、哪个时区？",
+  "companionReminderCancelUnknown": "取消的要求已记下，还没确认这条提醒已撤下。",
+  "companionReminderWhich": "你说的是哪一条？去「交代的事」里点给我看看。",
+  "companionReminderSyntax": "告诉我哪天几点吧，比如“明早八点提醒我带证件”。",
+  "companionReminderSaveFailed": "刚才没记下来，你写的还在，再试一次？",
+  "companionReminderSettings": "去系统设置",
+  "companionReminderCheck": "刷新",
+  "companionReminderUnknownNotification": "这条提醒可能已经响过了，我不太确定。",
+  "companionReminderUnhandled": "这句我还没法帮你办：{text}",
+  "@companionReminderUnhandled": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReminderCancelSource": "取消{text}的提醒",
+  "@companionReminderCancelSource": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReminderNotHere": "这条不是在这台手机上设的，我在这儿改不了也撤不了。",
+  "companionReminderPlatformUnavailable": "现在看不到手机上的提醒，等会儿再看看？",
+  "companionReminderPastRegistration": "之前是设好过的。",
+  "companionLookupAccepted": "好，我去查一下，查完放在「交代的事」里。",
+  "companionLookupSyntax": "想查哪家馆、哪一天？告诉我全名和日期吧。",
+  "companionLookupDateMissing": "想查哪一天的？给我个具体日期。",
+  "companionLookupZoneMissing": "那边是哪个时区？日期和时区一起告诉我吧。",
+  "companionLookupWhich": "你想撤哪个查询？去「交代的事」里点一下。",
+  "companionLookupQueued": "我在查了，稍等。",
+  "companionLookupDone": "查到了，出处放在下面。",
+  "companionLookupPartial": "查到一些，但那天到底怎样还说不准。",
+  "companionLookupFailed": "这次没找到靠得住的说法，没法确定。",
+  "companionLookupUnknown": "这次没得到明确结果，我先不重复去查。",
+  "companionLookupCancelled": "好，不查了。",
+  "companionLookupCancelUnknown": "已记下不再查，还没确认原来的查询已停。",
+  "companionLookupUnavailable": "现在连不上能查的地方，还没查到结果。",
+  "companionLookupDeadline": "约好的时间过了，就查到这儿，不再接着查了。",
+  "companionLookupInputLimit": "资料太多，我一次读不完，先把出处给你。",
+  "companionLookupQueryLong": "名字有点长，换个简短点、不会认错的叫法？",
+  "companionLookupAnswerIncomplete": "资料找到了，但我还没理清楚，先把出处给你。",
+  "companionLookupNotHere": "这个不是在这台手机上查的，在这儿我只能给你看看结果。",
+  "companionLookupSources": "我看过的地方",
+  "companionLookupSearchOnly": "只看了搜索摘要，没点进去细看",
+  "companionLookupNoTitle": "没有标题",
+  "companionLookupCancel": "不用查了",
+  "companionLookupSaveFailed": "刚才没办成，等会儿再试试？",
+  "companionLookupCancelSource": "取消{name}的查询",
+  "@companionLookupCancelSource": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "companionLookupObservedAt": "{time} 看的",
+  "@companionLookupObservedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "companionLookupViewSources": "看看出处 · {name}",
+  "@companionLookupViewSources": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotesTitle": "把笔记整理成待办",
+  "companionNotesView": "看看这件事",
+  "companionNotesSyntax": "要整理哪天的笔记？你离开以后要不要接着做？说好了我再请你选文件夹。",
+  "companionNotesDateMissing": "日期、时区或者截止时间还没说清楚，再告诉我一下？",
+  "companionNotesConnect": "先连上放笔记的那台电脑，再选文件夹。",
+  "companionNotesOriginalHost": "这件事在原来那台电脑上，连上它我才能接着看。",
+  "companionNotesUnavailable": "这台电脑现在还接不了这件事。",
+  "companionNotesNoDirectory": "还没选文件夹，所以还没开始。",
+  "companionNotesChooseDirectory": "选笔记文件夹",
+  "companionNotesChooseOutput": "选存放的文件夹",
+  "companionNotesKeepDirectory": "笔记文件夹不变",
+  "companionNotesKeepOutput": "存放的文件夹不变",
+  "companionNotesWhich": "想撤哪一件整理？去「交代的事」里点一下。",
+  "companionNotesQueued": "记下了，等电脑接手。",
+  "companionNotesRunning": "电脑接下这件事了，结果还没出来。",
+  "companionNotesDone": "整理好了，待办存成了新文件，点开就能看。",
+  "companionNotesPartial": "只整理了一部分就停了，已有的可以先看看。",
+  "companionNotesFailed": "这次没整理成。",
+  "companionNotesWaiting": "这件事暂时还做不了，先留在这里。",
+  "companionNotesUnknown": "电脑那边现在什么情况，我还不太清楚。",
+  "companionNotesCancelUnknown": "已记下不再整理，还没确认电脑是否停下。已经写好的文件会保留。",
+  "companionNotesCancelled": "好，不整理了，已经写好的文件还在。",
+  "companionNotesPauseUnavailable": "你说过离开就先停，可我现在没法确定你离没离开，所以还没开始。要不改成离开也接着做？",
+  "companionNotesOpportunityLost": "刚才没赶上交给电脑，你又说过别等它上线。要继续的话再跟我说一声。",
+  "companionNotesDeadline": "约好的截止时间过了，就不再接着做了。",
+  "companionNotesOriginalPending": "电脑收到你的修改了，稍等它理一理。",
+  "companionNotesSaveFailed": "刚才没办成，这件事还在，等会儿再试试？",
+  "companionNotesModifiedDay": "我会把这个文件夹里那天改过的笔记（Markdown 和纯文本）整理成一页待办，原文件不动。",
+  "companionNotesNoInputs": "那天这个文件夹里没有改过的笔记，所以没写待办。",
+  "companionNotesOutputExists": "已经有同名文件了，我没覆盖它。改个新文件名就好。",
+  "companionNotesFileCountLimit": "符合的笔记超过 20 份，有点多。换个小点的文件夹，或者分几次来？",
+  "companionNotesFileSizeLimit": "有一份笔记超过 64 KiB，太长了。缩小点范围吧，我不想只读一半。",
+  "companionNotesTotalSizeLimit": "这些笔记加起来超过 256 KiB，有点多。缩小范围，或者分几次来？",
+  "companionNotesModelLimit": "笔记太多，我一次读不下。缩小点范围吧，我不想只读一半。",
+  "companionNotesPause": "离开就先停",
+  "companionNotesForegroundStart": "在这里继续",
+  "companionNotesForegroundReady": "留在这里时，我请电脑继续做。离开后会请它先停，回来再核对进度。",
+  "companionNotesForegroundUnknown": "还没确认电脑现在的进度，先刷新看看。",
+  "companionNotesContinue": "离开也接着做",
+  "companionNotesAllowQueue": "电脑不在线就等它上线再做",
+  "companionNotesNoQueue": "电脑不在线就别等了",
+  "companionNotesApproval": "电脑那边要你点个头，才能接着做。",
+  "companionNotesOpenFile": "看看这页待办",
+  "companionNotesFileMissing": "这个文件找不到了，我没重新生成。",
+  "companionNotesFileChanged": "这个文件后来被改过，已经不是我当时写的样子了。",
+  "companionNotesFileUnknown": "这个文件现在打不开。",
+  "companionNotesCancel": "不用整理了",
+  "companionNotesEdit": "改一下",
+  "companionNotesDate": "哪天的笔记",
+  "companionNotesFilename": "新文件名（.md 或 .txt）",
+  "companionNotesDeadlineField": "新的截止时间（不填就不变）",
+  "companionNotesClearDeadline": "不设截止时间",
+  "companionNotesKeepDeadline": "截止时间不变",
+  "companionNotesSourceDirectory": "笔记在：{path}",
+  "@companionNotesSourceDirectory": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotesOutputDirectory": "存到：{path}",
+  "@companionNotesOutputDirectory": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotesDue": "{time} 前做完",
+  "@companionNotesDue": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotesCancelSource": "取消《{name}》的笔记整理",
+  "@companionNotesCancelSource": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotesAmendSource": "把笔记整理改成：{date}的笔记，存成《{name}》，截止时间：{deadline}；{afterExit}；{queue}；{source}；{output}。",
+  "@companionNotesAmendSource": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "deadline": {
+        "type": "String"
+      },
+      "afterExit": {
+        "type": "String"
+      },
+      "queue": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotesRetry": "让电脑接着做",
+  "companionNotesSubmitSaved": "现在交给电脑",
+  "companionNotesResendOriginal": "再交给电脑一次",
+  "companionNotesResendCancel": "再跟电脑说一次不做了",
+  "companionNotesResendAmend": "再把改动发给电脑",
+  "companionMapChoose": "用哪个地图打开？",
+  "companionMapSystemChoice": "让我在系统里选择",
+  "companionMapDone": "地址已交给地图打开。",
+  "companionMapUnknown": "还不能确定地图有没有打开，不会自动再打开。",
+  "companionMapCancelled": "已取消这次打开。如果地图已经打开，不会替你关闭。",
+  "companionMapUnavailable": "现在用不了地图，地址还在，可以复制。",
+  "companionMapNotHere": "这是之前留下的记录。需要的话，可以复制地址或再打开一次。",
+  "companionMapFailed": "地图没打开，地址在这里，可以复制。",
+  "companionMapChoiceWaiting": "刚才打开的是选择页面，还不能确定地址交给了哪个地图。",
+  "companionMapWaiting": "这次还没打开地图，地址已保留。",
+  "companionMapQueued": "地址记下了，还没打开地图。",
+  "companionMapSyntax": "请给一个明确的完整地址，例如：在地图打开“文华路 18 号东门”。有多个地址时，请先选一个。",
+  "companionMapWhich": "想改哪个地址，或重新打开哪一个？可以在交代的事里选。",
+  "companionMapNoTarget": "这次没选地图，还没有打开。",
+  "companionMapSaveFailed": "这次没能确认地图是否打开；不会自动再试。",
+  "companionMapTarget": "所选地图：{label}",
+  "@companionMapTarget": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "companionMapCopy": "复制原地址",
+  "companionMapView": "查看地址",
+  "companionMapReopen": "再打开一次",
+  "companionMapCancel": "取消这次打开",
+  "companionMapReopenSource": "用地图再次打开这个地址",
+  "companionMapCancelSource": "取消这个地址的地图打开",
+  "companionFindTitle": "找稿件",
+  "companionFindSyntax": "请说明在哪个文件夹这一层找、找哪天改过的稿件，以及你离开后还要不要继续。有截止时间的话，也一起告诉我。",
+  "companionFindWhich": "要停下哪次找稿？可以在交代的事里选。",
+  "companionFindConnect": "还没选过这台电脑上的文件夹。请先连上电脑选一下。",
+  "companionFindSavedDirectory": "选一个之前用过的文件夹",
+  "companionFindSeven": "你说的七点是上午还是晚上？",
+  "companionFindMorningSeven": "上午 07:00",
+  "companionFindEveningSeven": "晚上 19:00",
+  "companionFindDeadlineMissing": "还没定好截止时间，这次先不开始。",
+  "companionFindChooseDirectory": "选择“{name}”文件夹",
+  "@companionFindChooseDirectory": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindChooseAgain": "重新选择文件夹",
+  "companionFindKeepDirectory": "还找原来的文件夹",
+  "companionFindUnavailable": "这台电脑现在还不能帮你找稿并打开原稿。",
+  "companionFindNoDirectory": "还没选文件夹，这次先不开始。",
+  "companionFindDone": "找完了，结果在下面。",
+  "companionFindPartial": "这次没能全找完，已找到的稿件和没查完的地方在下面。",
+  "companionFindFailed": "这次没能找完，原来的记录还在。",
+  "companionFindWaiting": "暂时还没能继续找，稍后可以再查看。",
+  "companionFindCancelled": "已停止继续找，之前找到的清单还在。",
+  "companionFindCancelUnknown": "已记下不再找，但还没确认电脑是否停下。已有清单还在。",
+  "companionFindCancel": "停止找稿",
+  "companionFindCancelSource": "取消这次找稿",
+  "companionFindAmendSource": "修改找稿：只找这一层在 {date} 改过的 {formats} 文件。截止：{deadline}；{afterExit}；{queue}；{source}。",
+  "@companionFindAmendSource": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "formats": {
+        "type": "String"
+      },
+      "deadline": {
+        "type": "String"
+      },
+      "afterExit": {
+        "type": "String"
+      },
+      "queue": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindDate": "稿件修改日期",
+  "companionFindScope": "只找这一层在这一天修改的 {formats} 文件，不改原稿。",
+  "@companionFindScope": {
+    "placeholders": {
+      "formats": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindSourceDirectory": "查找目录：{path}",
+  "@companionFindSourceDirectory": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindReport": "这次找到的稿件",
+  "companionFindPreviousReport": "之前找到的稿件",
+  "companionFindCoverage": "查看了 {entries} 项，其中 {supported} 份是所选格式，找到 {matches} 份符合日期的稿件。",
+  "@companionFindCoverage": {
+    "placeholders": {
+      "entries": {
+        "type": "String"
+      },
+      "supported": {
+        "type": "String"
+      },
+      "matches": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindEnumerationComplete": "这一层的文件名已检查完，能否打开见下面的结果。查找时后来加入的文件可能不在结果里。",
+  "companionFindEnumerationPartial": "还有一些地方没查完。",
+  "companionFindEntryLimit": "这次最多检查 200 项，剩下的还没查。",
+  "companionFindCandidateLimit": "符合日期的稿件超过 20 份，这次先列出其中 20 份。",
+  "companionFindEmpty": "查过的范围里，没有这一天改过的所选格式稿件。",
+  "companionFindGap": "这项还没查清楚：{name}",
+  "@companionFindGap": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindModified": "修改时间：{time}",
+  "@companionFindModified": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "companionFindWasOpenable": "当时能打开；现在点开时会确认它有没有变化。",
+  "companionFindWasUnreadable": "当时没能读到这份稿件。",
+  "companionFindOpenSource": "打开这份原稿",
+  "companionFindSourceOffline": "清单还在。连上原来的电脑后才能打开稿件。",
+  "companionFindSourceMissing": "这份稿件现在找不到了，当时的清单还在。",
+  "companionFindSourceChanged": "这份稿件已被替换或修改，不能确认还是当时那一份。",
+  "companionFindSourceUnreadable": "这份稿件现在没能完整打开；没有换成别的文件。",
+  "companionFindSourceUnknown": "现在还打不开这份稿件，请连上原来的电脑再试。",
+  "companionFindDeadline": "已经过了约好的时间，不会再开始新的查找。已有结果会留在这里。",
+  "companionFindOriginalPending": "电脑已收到修改，还需要确认原先那次找稿。",
+  "companionFindUnknown": "还没确认电脑有没有收到，或找到了哪一步。",
+  "companionCompareTitle": "对比两版稿件",
+  "companionCompareA": "A · 旧稿",
+  "companionCompareB": "B · 新稿",
+  "companionCompareSyntax": "请按 A 旧稿、B 新稿选这两份，说明是否等电脑上线、离开后是否继续；如果有截止时间，也请说清楚。",
+  "companionCompareWhich": "要停止哪次对稿？请打开那件事再点停止。",
+  "companionCompareDeadlineMissing": "这次还没确定截止时刻，请把日期、时间和时区说清楚。",
+  "companionCompareUnavailable": "这台电脑目前还不能对比两份稿件。",
+  "companionCompareConnect": "先连上原来的电脑，选好 A 旧稿和 B 新稿；还没有可供离线选择的两份原稿。",
+  "companionCompareAmbiguousFile": "这个名字对应不止一份已选稿件。请连上原来的电脑重新选。",
+  "companionCompareNoInputs": "还没选齐两份原稿，这次没有开始对比。",
+  "companionCompareOriginalHost": "约定和已有结果会保留。连上原来的电脑后再查看。",
+  "companionCompareSaveFailed": "这次对稿还没核清，请稍后再查看这件事。",
+  "companionCompareSaved": "选择之前选过的 {side}",
+  "@companionCompareSaved": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareChooseDirectory": "选择 {side} 所在的文件夹",
+  "@companionCompareChooseDirectory": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareFilename": "输入 {side} 的文件名",
+  "@companionCompareFilename": {
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareFileLimit": "输入所选文件夹内的确切文件名。只支持 Markdown 或 txt，每份最多 64 KiB；不会改动原文件。",
+  "companionCompareFilenameMissing": "请填写文件名。",
+  "companionCompareQueued": "两份稿件记下了，等电脑接手。",
+  "companionCompareRunning": "两份稿件已经交给电脑了，对照还没出来。",
+  "companionCompareDone": "两份稿件的对照已经准备好。",
+  "companionComparePartial": "这次只完成了一部分，已核的变化和还没核清的地方在下面。",
+  "companionCompareCancelled": "已停止继续对稿，之前留下的对照还在。",
+  "companionCompareCancelUnknown": "已记下停止对稿，还没确认电脑是否停下。已有结果会保留。",
+  "companionCompareWaiting": "这次还不能继续对稿，原来的两份选择和约定会保留。",
+  "companionCompareUnknown": "还没核清电脑做到哪里，不会自动重新比较。",
+  "companionCompareFailed": "这次没能完成两稿对比，原文件没有因此被改写。",
+  "companionCompareDeadline": "原定时间已经到了，不会把这次对稿顺延到别的时间。",
+  "companionCompareOriginalPending": "修改已经记下，原来的两稿约定还没补齐。",
+  "companionCompareReport": "这次的文字对照",
+  "companionCompareUnfinishedReport": "未完成的对照",
+  "companionComparePreviousReport": "之前留下的文字对照",
+  "companionCompareUnread": "这份稿件还没有完整读到。",
+  "companionCompareChanged": "读到过这份稿件，但交还结果时没能确认还是原来那一份。",
+  "companionCompareIncomplete": "这次还有没完成的部分，已确认的文字变化会保留。",
+  "companionCompareIdentical": "这次读到的两份稿件没有文字改动。",
+  "companionCompareCoverage": "这次核到 {total} 组文字变化，列出其中 {shown} 组。",
+  "@companionCompareCoverage": {
+    "placeholders": {
+      "total": {
+        "type": "String"
+      },
+      "shown": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareSourceOrder": "下面按原文顺序列出已核的改动，还没排出重练重点。",
+  "companionCompareDifference": "文字变化 {number}",
+  "@companionCompareDifference": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareNoExcerpt": "这一侧没有可展示的原文短句。",
+  "companionCompareSuggestions": "排练建议",
+  "companionComparePractice": "变化 {number}：{practice}",
+  "@companionComparePractice": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "practice": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareSuggestionsUnknown": "排练建议还没核清，已核的文字变化会保留。",
+  "companionCompareSuggestionsMissing": "还没准备好排练建议，下面保留已核的文字变化。",
+  "companionCompareParagraph": "第 {range} 段",
+  "@companionCompareParagraph": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareBetween": "第 {before} 段与第 {after} 段之间",
+  "@companionCompareBetween": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareAfter": "第 {number} 段后",
+  "@companionCompareAfter": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareBefore": "第 {number} 段前",
+  "@companionCompareBefore": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareLines": "第 {range} 行附近",
+  "@companionCompareLines": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareCancel": "停止对稿",
+  "companionCompareCancelSource": "取消这次对稿，保留已经交还的对照。",
+  "companionCompareAmendSource": "修改这次对稿：{deadline}；{exit}；{queue}；{inputs}。两个原文件都别动。",
+  "@companionCompareAmendSource": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      },
+      "exit": {
+        "type": "String"
+      },
+      "queue": {
+        "type": "String"
+      },
+      "inputs": {
+        "type": "String"
+      }
+    }
+  },
+  "companionCompareChooseAgain": "重新选择 A 旧稿和 B 新稿",
+  "companionCompareKeepInputs": "保留原来选定的 A 旧稿和 B 新稿",
+  "companionCompareNewDeadline": "填写时按这次修改所用的当地时区解释；留空则保留原定截止。",
+  "companionReceiptTitle": "票据整理",
+  "companionReceiptSyntax": "请说清是哪四张票、新表的名字，以及离开后是否继续。我只会新建，不覆盖旧表。",
+  "companionReceiptUnavailable": "这台电脑目前不能整理这些票据。",
+  "companionReceiptConnect": "先连回原电脑，选好四张票和放新表的文件夹；没有选过的原件，我不能替你猜。",
+  "companionReceiptWhich": "想停哪一张表？请到那件事里点取消。",
+  "companionReceiptSaveFailed": "这次还没交妥，原话留着。稍后可再试。",
+  "companionReceiptOriginalHost": "要连回原来的电脑才能继续交代或查看结果。",
+  "companionReceiptNoInputs": "四张票和放表的文件夹还没选齐，这次先不交给电脑。",
+  "companionReceiptInput": "第 {index} 份",
+  "@companionReceiptInput": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptSavedInput": "选之前选过的第 {index} 份票据",
+  "@companionReceiptSavedInput": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptChooseDirectory": "第 {index} 份票据在哪个文件夹？",
+  "@companionReceiptChooseDirectory": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptFilename": "第 {index} 份票据的文件名",
+  "@companionReceiptFilename": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptFormats": "这台电脑可读 {formats}，每份最多 4 MiB。请填所选文件夹中的文件名。",
+  "@companionReceiptFormats": {
+    "placeholders": {
+      "formats": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptSavedOutput": "把新表放到之前选过的哪个文件夹？",
+  "companionReceiptQueued": "手机记下了，还没交给电脑。",
+  "companionReceiptRunning": "电脑已经接了，还没有可交的表。",
+  "companionReceiptDone": "新表已经写好，约定的字段都核实了。",
+  "companionReceiptPartial": "新表已经写好，还有几项没核实，表里已说明。",
+  "companionReceiptCancelled": "后面不再做了。此前已写好的表仍留着。",
+  "companionReceiptFailed": "这次没做成可交的新表，下面保留已查到的情况。",
+  "companionReceiptWaiting": "这件事还在等条件，尚未写好表。",
+  "companionReceiptUnknown": "还没核清表有没有写好，先查原来那件事，不另做一张。",
+  "companionReceiptCancelUnknown": "已记下先停后面的事；刚才的表有没有写好，还要向原电脑核实。",
+  "companionReceiptNoFields": "这四张目前没有可用于成表的已核实字段，没有创建空表。",
+  "companionReceiptOutputExists": "那里已有同名文件，我没有覆盖。可以改一个新文件名再交代。",
+  "companionReceiptDeadline": "已经过了约定时间，不再开始新的整理；此前的结果仍可核对。",
+  "companionReceiptOriginalPending": "电脑还没收齐原来的交代，暂时不会开始做表。",
+  "companionReceiptReport": "已查到的票据字段",
+  "companionReceiptPreviousReport": "此前查到的票据字段",
+  "companionReceiptCoverage": "四份里，{count} 份有已核实的字段。",
+  "@companionReceiptCoverage": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptImageScope": "这里只读取了 PDF 的文字层，图片里的日期或其他字段没有核实。",
+  "companionReceiptUnread": "这份原件还没完整读到。",
+  "companionReceiptParseFailed": "这份原件的文字还没完整提取出来。",
+  "companionReceiptChanged": "发布前没能核准还是原来的那份，这行不能当作已核实。",
+  "companionReceiptDate": "日期",
+  "companionReceiptItem": "项目",
+  "companionReceiptAmount": "金额",
+  "companionReceiptUnverified": "未核：{reason}",
+  "@companionReceiptUnverified": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptFieldUnknown": "原文还不足以确认",
+  "companionReceiptSourcePosition": "第 {from}–{to} 行",
+  "@companionReceiptSourcePosition": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptPdfPosition": "第 {page} 页，文字提取第 {from}–{to} 行",
+  "@companionReceiptPdfPosition": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptOpenWorkbook": "打开 {name}",
+  "@companionReceiptOpenWorkbook": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptOpenFailed": "现在没能打开当时那份表。原来的完成记录仍保留，不会自动重做。",
+  "companionReceiptChooseAgain": "重新选择四张票",
+  "companionReceiptKeepInputs": "四张票仍用原来的",
+  "companionReceiptOutputName": "新表文件名（.xlsx）",
+  "companionReceiptCancelSource": "取消这次整理票据，后面没做的先停，已写好的表保留。",
+  "companionReceiptAmendSource": "把这次票据整理改为新建《{name}》；截止：{deadline}；离开以后：{afterExit}；等待电脑：{queue}；原件：{inputs}；目标文件夹：{output}。",
+  "@companionReceiptAmendSource": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "deadline": {
+        "type": "String"
+      },
+      "afterExit": {
+        "type": "String"
+      },
+      "queue": {
+        "type": "String"
+      },
+      "inputs": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "companionReceiptNoText": "没有读到可用文字层，图片里的字段还没核实。",
+  "companionReceiptPassword": "原件需要密码，这次未能读取。",
+  "companionReceiptPdfUnavailable": "这台电脑还不能提取 PDF 文字。",
+  "companionReceiptLimit": "超过这次可读取的大小、页数或文字范围。",
+  "companionReceiptDateUnknown": "没有可核实的完整日期，或日期有歧义。",
+  "companionReceiptItemUnknown": "没有可核实的明确项目。",
+  "companionReceiptAmountUnknown": "金额或币种还不能确认。",
+  "companionReceiptKeepOutput": "仍放原来的文件夹",
+  "companionReceiptPriorResult": "此前约定写出的表已找到；新的约定尚未完成。",
+  "companionLegacyConversation": "旧对话（角色未记录）",
+  "companionScreen": "陪你看屏幕",
+  "companionScreenHint": "隔一会儿看一眼屏幕，有值得说的才开口；看到的不会记下来",
+  "companionScreenNeedsAccess": "要先打开手机操控的无障碍，或者允许她录屏",
+  "companionScreenAllowProjection": "允许录屏",
+  "companionScreenVision": "允许发送屏幕图片",
+  "companionScreenVisionHint": "发图前要先用本机文字识别（OCR）查一遍隐私，所以得开着它。图片最长边 512 像素，不会保存",
+  "companionScreenVisionTextOnly": "现在的截图方式只能读到文字；要发图片，得用无障碍截图并开着本机文字识别",
+  "companionScreenVisionModel": "看图使用的模型",
+  "companionScreenVisionChoose": "选择支持图片的模型",
+  "companionScreenVisionAvailable": "所选模型能看图；开着本机文字识别时才会发图，图片不会保存",
+  "companionScreenVisionChecking": "正在检查所选模型，先只用文字",
+  "companionScreenVisionUnavailable": "当前连接或模型不能看图，看屏时只用文字",
+  "companionScreenFrequency": "多久开口",
+  "companionScreenQuiet": "安静",
+  "companionScreenQuietHint": "很少开口，只说要紧的",
+  "companionScreenNormal": "正常",
+  "companionScreenNormalHint": "看到有意思的会说一句",
+  "companionScreenChatty": "话多",
+  "companionScreenChattyHint": "多陪你聊几句",
+  "companionScreenUsageAccess": "让她知道你在用哪个 App",
+  "companionScreenCost": "今天大概花了 ¥{amount}",
+  "@companionScreenCost": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "companionNotices": "她会留意你的通知",
+  "companionNoticesHint": "你选的 App 来了通知，她看一眼，值得说的才开口",
+  "companionNoticesNeedsAccess": "还差一步：允许 DSH Go 读取通知",
+  "companionNoticesAllow": "去授权",
+  "companionNoticesApps": "她看哪些 App",
+  "companionNoticesAppsEmpty": "开启后收到过通知的 App 会出现在这里",
+  "companionNoticesAppCount": "7 天内 {count} 条",
+  "@companionNoticesAppCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companionNoticesQuiet": "最近没来过通知",
+  "companionNoticesToday": "今天收到 {received} 条 · 她说了 {said} 次",
+  "@companionNoticesToday": {
+    "placeholders": {
+      "received": {
+        "type": "int"
+      },
+      "said": {
+        "type": "int"
+      }
+    }
+  },
+  "companionNoticesFooter": "通知会发给你给她配置的模型（现在是 DeepSeek），只发你选的 App 的。原文不存，只存她记下的那几句近况，在记忆页能看到、能删；本机另外只留条数、用量和防重复用的标记。锁屏时她不看。",
+  "companionNoticesFailed": "没改成，再试一次",
+  "companionNoticeLevelOff": "不看",
+  "companionNoticeLevelOffHint": "这个 App 的通知她不读",
+  "companionNoticeLevelGlance": "看一眼",
+  "companionNoticeLevelGlanceHint": "只用来决定要不要告诉你，看完就忘",
+  "companionNoticeLevelRemember": "会记住",
+  "companionNoticeLevelRememberHint": "值得记的近况，她会记下来",
+  "companionMemoryAll": "全部",
+  "companionMemoryFromNotices": "从通知看到的",
+  "companionMemoryNoticesClear": "全部清掉",
+  "companionMemoryNoticesClearTitle": "让她忘掉通知里看到的事？",
+  "companionMemoryNoticesClearBody": "她从通知里记下的近况都会删掉，同样的事以后也不再记。",
+  "companionPanelCompany": "陪伴",
+  "companionPanelHer": "她",
+  "companionPanelTalk": "对话",
+  "companionPanelMore": "更多",
+  "companionDrawerHere": "她一直在",
+  "companionDrawerRoom": "伙伴小屋",
+  "companionTabRoom": "小屋",
+  "companionTabMemory": "记忆",
+  "companionTabTasks": "交代",
+  "companionTabHer": "她",
+  "companionDrawerReminderToday": "{time} 提醒你",
+  "@companionDrawerReminderToday": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "companionDrawerReminderTomorrow": "明天 {time}",
+  "@companionDrawerReminderTomorrow": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "companionDrawerReminderLater": "{date} 提醒你",
+  "@companionDrawerReminderLater": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "companionRawEraseAsk": "「{quote}」这句原话也一起删掉吗？删了就找不回来了。",
+  "@companionRawEraseAsk": {
+    "placeholders": {
+      "quote": {
+        "type": "String"
+      }
+    }
+  },
+  "companionRawEraseAskMany": "「{quote}」等 {count} 句原话也一起删掉吗？删了就找不回来了。",
+  "@companionRawEraseAskMany": {
+    "placeholders": {
+      "quote": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companionRawEraseYes": "删掉",
+  "companionRawEraseNo": "留着",
+  "companionRawErased": "好，原话也删掉了。",
+  "companionRawKept": "好，原话留着。",
+  "companionRawEraseGone": "这次来不及了，原话还留着。",
+  "companionSetupWorkshop": "去创意工坊找一位",
+  "companionRosterTitle": "伙伴",
+  "companionRosterHere": "正在小屋里",
+  "companionRosterAdd": "添加伙伴",
+  "companionRosterBring": "请她进小屋",
+  "companionRosterRemove": "从手机上移除",
+  "companionRosterRemoveConfirm": "把「{name}」从这台手机上移除？她的文件会删掉，记忆和提醒还在。",
+  "@companionRosterRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "automaticDiagnosticsRecover": "恢复本地记录",
+  "automaticDiagnosticsRecoverHint": "仅在本机恢复分析记录，跳过已留存故障，不重新发送旧请求。",
+  "automaticDiagnosticsTitle": "自动故障分析",
+  "automaticDiagnosticsHint": "默认关闭 · 仅本机、前台且引擎可用时发送；同版本同类故障 24 小时内合并。关闭后停止新请求，已发送信息无法撤回。",
+  "automaticDiagnosticsConsentTitle": "开启自动故障分析？",
+  "automaticDiagnosticsConsent": "发生故障时，App 会将脱敏的版本、设备与系统信息、运行时状态、错误类别、语音阶段及自身进程退出原因，发送给当前本机引擎配置的模型服务商，可能产生模型费用。不含聊天正文、录音、凭据或原始日志。报告保存在独立的只读分析对话，不自动切换当前对话，不自动执行修复或向 GitHub 外发。关闭或切换主机后不再发起新分析，并尝试停止已有分析；已发送的信息无法撤回。",
+  "automaticDiagnosticsEnable": "同意并开启",
+  "automaticDiagnosticsOff": "已关闭",
+  "automaticDiagnosticsWaiting": "等待本机连接、前台与引擎可用",
+  "automaticDiagnosticsReady": "已开启 · 等待新故障",
+  "automaticDiagnosticsCollecting": "正在采集结构化故障信息",
+  "automaticDiagnosticsAnalyzing": "正在独立对话分析（最多 2 分钟）",
+  "automaticDiagnosticsComplete": "分析完成",
+  "automaticDiagnosticsCancelled": "分析已停止或中断；不会自动重试",
+  "automaticDiagnosticsFailed": "分析失败；本次故障不会自动重试",
+  "automaticDiagnosticsStoreFailed": "无法保存诊断设置或状态；自动分析已停止",
+  "automaticDiagnosticsCancelFailed": "停止请求失败；请在报告对话中检查并手动停止",
+  "automaticDiagnosticsViewReport": "查看最新分析对话",
+  "automaticDiagnosticsReportHint": "仅点击时打开，不打断当前对话；报告可能仍在生成或已中断。",
+  "automaticDiagnosticsReportTitle": "自动故障分析报告",
   "systemImeTitle": "系统输入法诊断",
+  "systemImeOhosTitle": "本应用键盘几何",
+  "systemImeOhosCollect": "导出最近的键盘几何",
+  "systemImeOhosPrivacy": "复现后再导出。只取本应用主窗口最近 120 秒的键盘弹出、高度和避让位置（最多 64 条），不含输入内容，也不读系统输入法日志。",
+  "systemImeOhosUnavailable": "主窗口暂时不可用，回到聊天页再试",
   "systemImeCollect": "采集本次日志",
   "systemImePrivacy": "复现后再采集。每次须在原生弹窗确认，仅读取最近 120 秒的固定事件（最多 64 条），不含输入内容或原始日志；不会自动申请权限。",
   "systemImeEvidenceLimits": "请求显示/隐藏不等于键盘实际可见；空结果或采集失败不代表系统正常。",
@@ -3787,6 +4952,11 @@
   "engineProvidersSigningIn": "正在登录…",
   "engineProvidersSignInOrKey": "登录账号或填写 API Key",
   "engineProvidersOfficial": "官方",
+  "engineProvidersChatGptOfficial": "ChatGPT 官方订阅",
+  "engineSubscriptionReconnectAccount": "登录原账号",
+  "engineSubscriptionUseAnotherAccount": "使用其他账号",
+  "engineSubscriptionPlanNotEnabled": "此授权无法使用 ChatGPT 订阅模型。",
+  "engineSubscriptionRevocationUnconfirmed": "已在本机退出，但没能确认 OpenAI 已撤销授权。",
   "engineProvidersSubscription": "订阅",
   "engineProvidersCustom": "自定义",
   "engineProvidersCompatibleHint": "OpenAI、Anthropic 兼容的服务",
@@ -5154,6 +6324,136 @@
     }
   },
   "fileUploadFailed": "没能传到电脑",
+  "harmonyUnknownResults": "有工具调用没等到结果，可能已经执行，也可能没有。处理之前，这个对话不能再调用工具。",
+  "harmonyUnknownResultsReview": "处理",
+  "harmonyUnknownResultsTitle": "这些工具调用的结果未知",
+  "harmonyUnknownResultsBody": "{tools}\n\n应用在等结果时中断了，它们可能已经执行，也可能没有。可以先看看实际情况，比如文件改了没有。\n\n继续之后，这些调用不会重新运行，记录也不会改成成功。",
+  "@harmonyUnknownResultsBody": {
+    "placeholders": {
+      "tools": {
+        "type": "String"
+      }
+    }
+  },
+  "harmonyUnknownResultsContinue": "继续这个对话",
+  "harmonyUnknownResultsChanged": "情况变了，请再看一遍。",
+  "harmonyUnknownResultsFailed": "没有确认成功，请再试一次。",
+  "harmonyCallsNotRecorded": "本机引擎记不下工具调用的状态，工具调用已暂停。重启引擎后再试。",
+  "harmonyAccessSubtitle": "各项功能用到的系统权限",
+  "harmonyNotifyWhy": "应用在运行时，回复跑完、需要确认会提醒你",
+  "harmonyKwSystemAccess": "权限一览,授权,麦克风,通知权限,回复提醒,语音输入,补开权限",
+  "harmonyBackgroundSubtitle": "应用离开屏幕后，本机的对话很快会暂停",
+  "harmonyBackgroundAway": "离开屏幕后",
+  "harmonyBackgroundLocal": "正在跑的对话可能还能跑一小会儿，多久由系统决定。之后跟着应用暂停，回到应用后会尽量接着跑",
+  "harmonyBackgroundRemoteTitle": "已连接的远程主机",
+  "harmonyBackgroundRemote": "上面的回复继续跑，不受影响",
+  "harmonyBackgroundLong": "长任务",
+  "harmonyBackgroundStay": "把应用留在屏幕上",
+  "harmonyBackgroundUseRemote": "或者放到已连接的远程主机上跑",
+  "harmonyEngineBackgroundHint": "离开屏幕后本机引擎很快会暂停",
+  "harmonyKwBackground": "后台,保活,挂起,暂停,被杀,杀后台",
+  "harmonyPausedInBackground": "对话在后台可能暂停过",
+  "harmonyAlertsRequirement": "提醒要应用在运行才发得出：离开屏幕后系统很快会挂起应用，挂起期间没有提醒",
+  "harmonyLiveUnavailable": "这个版本没有进度通知",
+  "harmonySchedulesLocal": "本机的任务只在应用运行时触发：应用被系统挂起时，到点不会运行",
+  "harmonyPageUnavailable": "这个版本没有这个页面",
+  "harmonyNotificationSettingsFailed": "没能打开系统设置。到「设置 → 通知和状态栏 → DSH Go」里开启",
+  "harmonySearchUnavailable": "这个版本没有这项功能",
+  "harmonyCredentialsSection": "密钥",
+  "harmonyCredentialsUnreadable": "已保存的密钥无法读取",
+  "harmonyCredentialsUnreadableHint": "已保存的密钥无法读取。到「设置 → 隐私与分享」清除后再试",
+  "harmonyCredentialsClear": "清除已保存的密钥",
+  "harmonyCredentialsClearBody": "重试没有用。清除后，App 保存的 API key、DSH Remote 登录、SSH 密码和私钥、论坛登录都会被删除，需要重新填写或登录。已发布的分享链接还在，但这台手机上删不掉了。对话和主机列表会保留。此操作无法撤销。",
+  "harmonyCredentialsClearAction": "清除密钥",
+  "harmonyCredentialsCleared": "已清除，请重新填写或登录",
+  "harmonyCredentialsClearFailed": "没能清除，再试一次",
+  "harmonyIconChangeFailed": "没能更换。使用自定义主题或应用分身时不能换桌面图标",
+  "harmonyEngineUnclean": "没有正常退出",
+  "harmonyFailureUnclean": "引擎没有正常退出",
+  "harmonyFailureUncleanHint": "原因不明：可能是系统回收了应用或应用被关掉，也可能是引擎出了错。",
+  "harmonyFailureHeld": "连续几次都这样，引擎不会自己启动了。可以再试一次，或换一种方式启动。",
+  "harmonyResetKept": "主机列表、App 设置和已保存的密钥不受影响。确认后 App 会重新打开，在打开时完成重置。",
+  "harmonyResetReopening": "重置已记下，App 正在重新打开",
+  "harmonyResetCommittedTitle": "还差重新打开 App",
+  "harmonyResetCommittedBody": "重置已经记下，下次打开 App 时完成。可以现在重新打开，也可以自己关掉再打开。",
+  "harmonyResetUnknownTitle": "不确定重置有没有记下",
+  "harmonyResetUnknownBody": "重新打开 App：记下了就会完成重置，没记下对话和文件都还在。",
+  "harmonyResetNotCommittedTitle": "没有重置",
+  "harmonyResetNotCommittedBody": "对话和文件都还在。引擎已经停了，重新打开 App 后恢复。",
+  "harmonyResetInstalling": "正在安装运行环境，装完再试",
+  "harmonyResetOlderPendingTitle": "已经有一次重置在等",
+  "harmonyResetOlderPendingBody": "重新打开 App 完成它。这次的选择没有生效。",
+  "harmonyReopenApp": "重新打开",
+  "harmonyResetPendingTitle": "重置还没完成",
+  "harmonyResetPendingBody": "重新打开 App 继续。在这之前本机引擎不会启动。",
+  "harmonyResetFinishing": "正在完成重置",
+  "harmonyResetDone": "运行环境已重置",
+  "harmonyResetMaybeDone": "App 已重新打开。如果对话还在，说明这次重置没有生效，可以再试一次。",
+  "harmonyUninstallHint": "删除已解压的运行环境和本机数据",
+  "harmonyUninstallBody": "本机的对话、工作区、插件、设置、界面配置和技能会一并删除，App 会重新打开。安装包里自带的那份运行环境还在，只有卸载 App 才会释放。",
+  "harmonyKwEngineUninstall": "卸载,删除运行环境,清理本机数据",
+  "harmonyUpdateNoticeTitle": "到发布页看获取方式",
+  "harmonyUpdateNoticeText": "鸿蒙版不能在应用内更新。发布页可能还没有鸿蒙安装包。",
+  "harmonyUpdateNoticeNoPage": "这个版本没有给出下载页，过些时候再看看。",
+  "harmonyLiveTitle": "进度通知",
+  "harmonyLiveSwitch": "显示进度通知",
+  "harmonyLiveSubtitle": "对话进行中，在通知栏显示一条状态",
+  "harmonyLiveFooter": "这是普通通知，应用被系统挂起后不再更新。",
+  "harmonyLockScreenPrivacy": "锁屏是否显示对话内容由系统决定：设置 › 通知和状态栏 › 锁屏通知",
+  "harmonyLiveBlockedTitle": "系统没有允许进度通知",
+  "harmonyLiveBlockedText": "在系统设置里为 DSH Go 打开通知",
+  "harmonyAlertsOffTitle": "提醒通知已关闭",
+  "harmonyAlertsOffText": "回复跑完和等你确认都不会提醒",
+  "harmonyEnableBanner": "横幅默认关闭，要弹出来请开启「横幅通知」",
+  "harmonyKwNotifyLive": "进度通知,通知栏进度,状态栏进度",
+  "harmonyTerminalNoPty": "这个引擎没有交互终端，可连 SSH 主机",
+  "harmonyTerminalSupportedHosts": "在 SSH 主机上可用",
+  "harmonyPluginRemoveRefused": "这个引擎不能卸载插件",
+  "harmonyPluginRefusedHint": "可以开关随包插件，或连接电脑管理插件",
+  "harmonyVoiceLocalLine": "鸿蒙本机没有语音模型",
+  "harmonyPasswordStorageHelp": "只保存在这台手机上，由系统密钥库加密",
+  "harmonyKeyStorageHelp": "只保存在这台手机上，由系统密钥库加密。支持 Ed25519、RSA、ECDSA",
+  "harmonyUsageNotSent": "鸿蒙版暂不发送使用统计",
+  "harmonyVoiceSystemHint": "使用系统的语音识别",
+  "harmonyVoiceSystemHintChinese": "使用系统的语音识别，只认中文",
+  "harmonyVoiceAutoHint": "有 DeepSeek 账号或 API Key 时用 DeepSeek，否则用系统识别",
+  "harmonyVoiceSystemUnavailable": "系统语音识别不可用",
+  "harmonyNetworkRelayOnly": "当前版本走 Relay 中继，全程端到端加密。",
+  "harmonyNetworkFallbackRelayOnly": "当前版本只走 Relay 中继",
+  "harmonySetupStay": "安装时请留在这个页面",
+  "harmonyLaunchEmbedded": "应用内启动",
+  "harmonyLaunchNodeExited": "引擎已退出",
+  "harmonyKwAccent": "颜色,主题色,强调色",
+  "harmonyKwPets": "宠物,小鲸,桌宠,鲸鱼",
+  "harmonyKwVoice": "语音识别,麦克风,听写,说话,语音",
+  "harmonyBackgroundSubtitleLong": "应用离开屏幕后，正在跑的对话会尽量继续",
+  "harmonyBackgroundLocalLong": "这个版本可以申请长时任务：对话留在后台继续跑，通知栏会有一条提示。系统不批准或中途收回时，对话跟着应用暂停，回到应用后会尽量接着跑",
+  "harmonyEngineBackgroundHintLong": "离开屏幕后，正在跑的对话会尽量继续",
+  "harmonyAlertsRequirementLong": "提醒要应用在运行才发得出：对话在后台继续时会提醒，应用被系统挂起后就没有了",
+  "harmonySaveToFile": "保存到文件",
+  "harmonySaveChooseLocation": "选择保存位置",
+  "harmonySaving": "正在保存…",
+  "harmonySaved": "已保存",
+  "harmonyCommandExportDescription": "把这个对话的完整记录打包成 ZIP，分享或保存到文件",
+  "harmonySafeEnterTitle": "以安全模式启动？",
+  "harmonySafeEnterBody": "用随包的默认配置启动，不加载你装的插件。对话都在，原来的配置不会改动。",
+  "harmonySafeReopenNote": "进行中的回复会中断，App 会重新打开。",
+  "harmonyRestoredReopening": "已恢复上次正常的配置，App 正在重新打开",
+  "harmonySafeRepairPrompt": "我的 DSH 正常模式出了问题（{what}）。现在是安全模式，用的是随包的默认配置，我原来的配置没有动。请帮我找原因，动手改之前先告诉我要改什么。",
+  "@harmonySafeRepairPrompt": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "harmonyRemindersTitle": "闹钟和计时器",
+  "harmonyRemindersCanHint": "到点由系统提醒，引擎不会因此运行。系统也可能不接受，AI 会告诉你",
+  "harmonyRemindersNoBuild": "这个版本没有开通系统提醒",
+  "harmonyRemindersNoDevice": "这台设备没有系统提醒",
+  "harmonyReminderSet": "已设提醒",
+  "harmonyReminderRefused": "系统没有接受提醒，没有设置。",
+  "harmonyPluginVoiceUnavailable": "这台设备不能听你开口",
   "hostDetailsConnectionType": "连接方式",
   "hostDetailsSshNetworkHint": "通过 SSH 隧道连接。此连接不提供 LAN / P2P 路径检测或延迟测量。",
   "hubSessionDetails": "对话详情",
@@ -5494,12 +6794,157 @@
   "hubQuickPanelSwipeHint": "在对话里从右向左滑。代码块、表格这些能横向滚动的内容不受影响。",
   "hubQuickPanelItems": "显示的入口",
   "hubQuickPanelItemsNone": "没有选择，左滑不会打开",
+  "iosSaveToFiles": "存到「文件」",
+  "iosFilesFolderHint": "文件 App 的 DSH Go 文件夹",
+  "iosSavingToFiles": "正在存到「文件」…",
+  "iosCommandExportDescription": "把这个对话的完整记录打包成 ZIP，分享或存到「文件」",
+  "iosEnableBanners": "横幅不弹时，到系统设置打开「横幅」",
+  "iosNotificationSettingsFailed": "没能打开系统设置。到「设置 → DSH Go → 通知」里开启",
+  "iosVoiceSystemHint": "使用系统的语音识别",
+  "iosVoiceAllowSystem": "请在系统设置里允许语音识别",
+  "iosPluginsPermissionLocalThirdParty": "插件以 DSH 的权限运行：能读写文件、执行命令、读取 API Key，不受工作区沙箱限制。由第三方提供，DSH 官方未审核。",
+  "iosPluginsPermissionLocalTrusted": "插件以 DSH 的权限运行：能读写文件、执行命令、读取 API Key，不受工作区沙箱限制。只装你信任的插件。",
+  "iosIconChanged": "桌面图标已更换",
+  "iosPhotosDenied": "没有相册权限，未能保存",
+  "iosRelocationOriginUnavailable": "发现旧对话，但找不到它们原来的位置。原数据都还在，这些对话暂时不能继续。",
+  "iosRelocationSessionIsolated": "有些对话没能迁移，已经单独保留。原文件和原因都还在，可以在诊断里导出后反馈。",
+  "iosAccessSubtitle": "各项功能用到的系统权限",
+  "iosLinuxTitle": "Linux 环境",
+  "iosLinuxIntro": "装好并重启本机引擎后，普通命令会在 Linux 里运行。Python 等软件需用 apk 另装；修改 Linux 系统仍需本次审批。App 文件只开放工作区和临时目录。",
+  "iosLinuxInstall": "安装 Linux 环境",
+  "iosLinuxDownloadSize": "约 4 MB",
+  "iosLinuxDownloading": "正在下载",
+  "iosLinuxVerifying": "正在校验",
+  "iosLinuxExtracting": "正在解压",
+  "iosLinuxFinishing": "即将完成",
+  "iosLinuxSystem": "系统",
+  "iosLinuxStorage": "占用空间",
+  "iosLinuxUninstall": "卸载 Linux 环境",
+  "iosLinuxUninstallBody": "会删除 Linux 环境和在里面装的所有软件。工作区里的文件不受影响。",
+  "iosLinuxUninstallConfirm": "卸载",
+  "iosLinuxUninstalling": "正在卸载…",
+  "iosLinuxRestartEngine": "已装好。重启本机引擎后，命令才会用上它。",
+  "iosLinuxErrorNetwork": "下载没成功。检查网络后再试一次。",
+  "iosLinuxErrorDamaged": "下载的文件不完整，已经丢掉了，再试一次。",
+  "iosLinuxErrorNoSpace": "手机存储空间不够了。",
+  "iosLinuxErrorInUse": "Linux 环境正在使用，重新打开 App 后才能卸载。",
+  "iosLinuxErrorOther": "没有完成，再试一次。",
+  "iosLinuxState": "状态",
+  "iosLinuxStatePaused": "已暂停",
+  "iosLinuxSuspendedBody": "上次 App 退出时，Linux 里还有命令没跑完，App 可能就是因为它闪退的。为免再闪退，Linux 环境先暂停，其他功能照常。想再用就重新启用。",
+  "iosLinuxResume": "重新启用 Linux 环境",
+  "iosLinuxResumed": "已重新启用。重启本机引擎后，命令才会用上它。",
+  "iosLinuxErrorBusy": "Linux 环境还在使用。等命令停下再试，不行就重新打开 App。",
+  "iosPhoneLinkTitle": "本机连接",
+  "iosPhoneLinkIntro": "用这台 iPhone 自己的开发者服务读屏、点按和输入，不用一直连着电脑。先打开开发者模式，并确认用于本机连接的 LocalDevVPN 已接通。每个任务首次授权一次，最多 30 分钟，可随时暂停。",
+  "iosPhoneLinkUnavailable": "需要 iOS 17 或更高版本。",
+  "iosPhoneLinkStepPairing": "导入配对凭据",
+  "iosPhoneLinkPairingHint": "用 Mac 或 Windows 电脑生成的远程配对文件（.plist）",
+  "iosPhoneLinkPairingDevice": "已记住在这台手机上",
+  "iosPhoneLinkPairingSession": "只用这一次，退出 App 后清除",
+  "iosPhoneLinkPairingLocked": "手机解锁后才能读取保存的凭据",
+  "iosPhoneLinkPairingUnreadable": "保存的凭据读不出来，重新导入一次",
+  "iosPhoneLinkImport": "导入",
+  "iosPhoneLinkReplace": "更换",
+  "iosPhoneLinkLegacy": "发现旧版本留下的配对文件",
+  "iosPhoneLinkLegacyHint": "迁移时按你选的方式保存，然后删掉旧文件。迁移前不会用它。",
+  "iosPhoneLinkMigrate": "迁移",
+  "iosPhoneLinkStepEnable": "打开开发者连接",
+  "iosPhoneLinkEnableHint": "默认关闭。关掉会立刻停下正在进行的手机任务。",
+  "iosPhoneLinkStepCheck": "检查连接",
+  "iosPhoneLinkCheckHint": "确认 VPN、配对和开发者服务都通",
+  "iosPhoneLinkCheck": "检查",
+  "iosPhoneLinkChecked": "连接正常",
+  "iosPhoneLinkReadOnly": "连接正常，可读屏和打开应用；点按、滚动和输入需使用 XCTest 增强",
+  "iosPhoneLinkErrorServices": "当前开发者服务不支持这条 CoreDevice 连接。已有镜像时重新下载不一定有用；可启用 XCTest 增强，或交还自己操作。",
+  "iosPhoneLinkDdi": "开发者镜像",
+  "iosPhoneLinkDdiHint": "部分功能需要。约 17 MB，来自第三方 DeveloperDiskImage 镜像仓库（不是 Apple 下载站），按固定哈希校验，再由 Apple 为这台手机个性化。",
+  "iosPhoneLinkDdiPrepare": "准备",
+  "iosPhoneLinkDdiMounted": "已挂载",
+  "iosPhoneLinkWorking": "正在处理…",
+  "iosPhoneLinkDownloading": "正在下载 {done} / {total}",
+  "@iosPhoneLinkDownloading": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "iosPhoneLinkClear": "清除配对凭据",
+  "iosPhoneLinkClearHint": "同时关掉开发者连接。电脑和「文件」里的原文件需要你自己删。",
+  "iosPhoneLinkClearConfirm": "清除配对凭据？",
+  "iosPhoneLinkEnhanceTitle": "可选增强",
+  "iosPhoneLinkXctest": "XCTest 增强",
+  "iosPhoneLinkXctestHint": "需要另外安装并签名 PhoneRunner，能读取界面元素。部分 App 可能要求重新登录或拒绝使用。不开时用本机连接。",
+  "iosPhoneLinkClipboardTitle": "回到 App 恢复原剪贴板",
+  "iosPhoneLinkClipboardHint": "输入时临时借用了剪贴板。先核对目标 App 已经完成或取消粘贴，再恢复。",
+  "iosPhoneLinkClipboardRestore": "恢复",
+  "iosPhoneLinkClipboardOverwrite": "仍要恢复，覆盖现在的剪贴板",
+  "iosPhoneLinkClipboardDiscard": "丢弃保存的旧剪贴板",
+  "iosPhoneLinkErrorBusy": "连接设置仍在处理另一项准备。回到「本机连接」点取消，确认 LocalDevVPN 已接通后再检查。",
+  "iosPhoneLinkErrorForeground": "要在 App 打开、手机解锁时操作。",
+  "iosPhoneLinkErrorPairingInvalid": "这个文件不是可用的远程配对凭据。",
+  "iosPhoneLinkErrorStorage": "保存没成功。「记住在这台手机上」需要手机设了解锁密码。",
+  "iosPhoneLinkErrorPairingRequired": "先导入配对凭据。",
+  "iosPhoneLinkErrorTunnel": "连不上本机服务。先确认用于本机连接的 LocalDevVPN 已接通、开发者模式已打开，再检查连接。",
+  "iosSpeechCallEndNoRecognizer": "语音通话需要能识别录音的方式：登录 DeepSeek 账号、填写 API Key，或配置其他可用的云端识别。iOS 暂不提供本地语音模型下载。",
+  "iosSpeechCallEndNoRecognizerSignedIn": "当前连接不能用已登录账号识别通话录音（例如经 DSH Remote 中继）；请填写 DeepSeek API Key 或配置其他可用的云端识别。iOS 暂不提供本地语音模型下载。",
+  "iosPhoneLinkErrorPairingRejected": "手机不认这份配对凭据。重新生成一份再导入。",
+  "iosPhoneLinkErrorDdiNeeded": "需要先准备开发者镜像。",
+  "iosPhoneLinkErrorDdiDownload": "镜像下载没成功。检查网络后再试。",
+  "iosPhoneLinkErrorDdiIntegrity": "下载的镜像没通过校验，已经丢掉了。",
+  "iosPhoneLinkErrorDdiUnsupported": "没有适合这台手机型号或系统版本的镜像。",
+  "iosPhoneLinkErrorDdiMount": "挂载没成功。已经在用的其他镜像不会被替换。",
+  "iosPhoneLinkErrorClipboardChanged": "之后又复制过别的内容，所以没有恢复。",
+  "iosPhoneLinkFaulted": "上一次连接没能确认已经关掉",
+  "iosPhoneLinkFaultedHint": "为了不让两条连接同时操作手机，先不再连接。如果上一次连接稍后确认关掉了，这里会自动恢复；一直没恢复的话，在后台彻底关掉 App 再重新打开。",
+  "iosPhoneLinkErrorOther": "没有完成（{code}）。",
+  "@iosPhoneLinkErrorOther": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "iosPetPipTitle": "宠物画中画",
+  "iosPetPipHint": "可选的宠物小窗，可以辅助后台运行。手机操控使用系统持续任务，不需要先开启画中画或选择宠物。",
+  "iosPetPipRequired": "可选，默认关闭",
+  "iosPetPipReady": "已就绪，手机任务开始时出现",
+  "iosPetPipKeepingAlive": "正在让 App 在后台继续运行",
+  "iosPetPipAlways": "任务结束后也留着",
+  "iosPetPipStart": "开始画中画",
+  "iosPetPipStartHint": "画中画没有自己出现时，点这里打开",
+  "iosPetPipPaused": "手机任务在画中画里暂停了",
+  "iosPetPipReview": "继续或停止",
+  "iosPetPipResume": "恢复",
+  "iosPetPipChoosePet": "选宠物",
+  "iosPetPipErrorNoPet": "先选一只宠物",
+  "iosPetPipErrorUnsupported": "这台手机不支持画中画",
+  "iosPetPipErrorLocked": "锁屏时画中画停了",
+  "iosPetPipErrorAudio": "录音、通话或别的声音占用时，画中画停了",
+  "iosPetPipErrorPack": "这只宠物的素材有问题，换一只试试",
+  "iosPetPipErrorStart": "画中画没能打开",
+  "iosPetPipErrorClosed": "画中画被关掉了",
+  "iosPetPipErrorOther": "画中画停了（{code}）",
+  "@iosPetPipErrorOther": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "iosPetPipChoosePetHint": "在宠物设置里选一只",
+  "iosPetPipReopen": "重新准备画中画",
   "launchScreenTitle": "启动画面",
   "launchDefault": "默认",
   "launchCustom": "自定义",
   "launchFit": "适配方式",
   "launchFitFill": "填满",
   "launchFitCenter": "居中",
+  "launchFrame": "调整位置",
   "launchBackground": "背景色",
   "launchBackdropAuto": "自动",
   "launchBackdropEdge": "取自图片",
@@ -5539,6 +6984,71 @@
   "iconShortcutFailed": "没能添加，稍后再试",
   "searchKwLaunchScreen": "开屏,启动动画,闪屏,开机画面,欢迎画面",
   "searchKwIconShortcut": "快捷方式,自定义图标,桌面图片,换图标",
+  "linuxTitle": "Linux 环境",
+  "linuxSubtitle": "在手机里运行 gh、Python、git 等命令行工具",
+  "linuxSwitch": "开启 Linux",
+  "linuxStatus": "状态",
+  "linuxFirstHint": "第一次开启会下载约 3.5 MB 的基础系统并安装，大约一两分钟；之后再开几秒就好。",
+  "linuxMemoryNote": "开着 Linux 时 App 大约多占 100 MB 以上内存；关掉开关会把这部分还给系统，之后要重新打开 App 才能再开启。",
+  "linuxStateOn": "已开启",
+  "linuxStateOff": "未开启",
+  "linuxStateInstalling": "正在准备",
+  "linuxStateStopping": "正在关闭",
+  "linuxStateFailed": "出错了",
+  "linuxStateUnavailable": "暂不可用",
+  "linuxStageDownload": "下载基础系统",
+  "linuxStageDisk": "准备磁盘",
+  "linuxStageBoot": "启动",
+  "linuxStageTools": "安装工具",
+  "linuxEngineOffline": "本机引擎没在运行，启动引擎后再来开启。",
+  "linuxRequestFailed": "没能和引擎通信，请稍后重试。",
+  "linuxRestartRequired": "Linux 已经停止，重新打开 App 后才能再开启。",
+  "linuxReopenApp": "重新打开 App",
+  "linuxReopenFailed": "没能自动重新打开，请手动退出 App 再打开。",
+  "linuxErrorWithCode": "没能开启：{code}",
+  "@linuxErrorWithCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "linuxReinstall": "重新安装 Linux",
+  "linuxReinstallHint": "删除 Linux 里的全部内容，再开启时全新安装",
+  "linuxReinstallAfterRestart": "这次运行已经启动过 Linux：完全退出并重新打开 App 后才能重新安装",
+  "linuxReinstallTitle": "重新安装 Linux？",
+  "linuxReinstallBody": "会删除 Linux 里的全部内容：装过的软件和 Python 包、只存在 Linux 里的文件，以及在 Linux 里登录过的账号（比如 gh）。对话工作区里的文件不受影响。\n\n开关保持关闭；之后打开会重新下载并安装。",
+  "linuxRetainedRefused": "原来的 Linux 数据没法继续用了（常见于 App 更新之后），App 不会自动覆盖它。点「重新安装 Linux」删除后再开启，即可全新安装。（{code}）",
+  "@linuxRetainedRefused": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "linuxReinstallRestart": "这次运行已经启动过 Linux，数据可能仍被占用。完全退出并重新打开 App 后，再点「重新安装 Linux」。",
+  "linuxReinstallFailed": "没能重新安装：{code}",
+  "@linuxReinstallFailed": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "linuxProxyTitle": "网络代理",
+  "linuxProxyFooter": "只作用于 Linux 里的命令。gitee、华为云等国内源始终直连。",
+  "linuxProxyMode": "方式",
+  "linuxProxyInherit": "跟随 App",
+  "linuxProxyDirect": "不用代理",
+  "linuxProxyManual": "手动",
+  "linuxProxyHttp": "HTTP 代理",
+  "linuxProxyHttps": "HTTPS 代理",
+  "linuxProxyNoProxy": "不走代理的地址",
+  "linuxProxyUnset": "未设置",
+  "linuxProxySameAsHttp": "同 HTTP",
+  "linuxProxyLoopbackNote": "127.0.0.1 指的是这台手机，不是电脑。",
+  "linuxProxyUrlInvalid": "请填 http:// 或 https:// 开头的地址，例如 http://127.0.0.1:7890",
+  "searchKwLinux": "Linux,终端,命令行,虚拟机,gh,GitHub CLI,python,pip,代理",
   "liveThinking": "正在思考",
   "liveWorking": "正在干活",
   "liveJuggling": "子代理在帮忙",
@@ -5570,6 +7080,12 @@
   "liveUnsupported": "这台手机的系统还不支持实时活动",
   "liveBlockedTitle": "系统没有允许实时活动",
   "liveBlockedText": "在系统设置里为 DSH Go 打开「实时活动」（有的手机叫「在流体云中显示」）",
+  "liveStop": "停止",
+  "liveStale": "暂停更新 · 打开 App 查看",
+  "liveIosSubtitle": "干活、等你处理时，在灵动岛和锁屏上显示宠物、进度和用时",
+  "liveIosFooter": "需要 iOS 16.2 及以上。有灵动岛的 iPhone 显示在岛上，其他机型只在锁屏上。锁屏上不显示对话标题。iOS 17 起可以在卡片上直接停止这一轮。App 被系统挂起后，卡片会标出「暂停更新」。",
+  "liveIosUnsupported": "需要 iOS 16.2 或更高版本",
+  "liveIosBlockedText": "在「设置」→「DSH Go」里打开「实时活动」",
   "localeTitle": "语言",
   "localeSystem": "跟随系统",
   "localeZh": "简体中文",
@@ -5604,6 +7120,8 @@
     }
   },
   "localEnvRemoteDetail": "连接电脑或服务器上的 DSH",
+  "localEnvUnavailable": "这台设备暂时不能在本机运行 DSH",
+  "localEnvUnsupported": "暂不支持",
   "localEnvRecommended": "推荐",
   "localEnvInstallTitle": "安装本机运行环境",
   "localEnvInstallMessage": "在这台手机上运行 DSH",
@@ -5634,6 +7152,29 @@
   "localEnvPhoneNeedsRuntime": "安装本机运行环境后可用",
   "localEnvSignInNeedsRuntime": "需要本机运行环境",
   "localEnvSignInInstallFirst": "安装后即可登录",
+  "engineStartReopensApp": "引擎每次打开 App 只能启动一次，再启动会重新打开 App。",
+  "engineReopenFailed": "引擎要重新打开 App 才能再启动，请手动重开一次。",
+  "engineCapShell": "命令行",
+  "engineCapShellBuiltin": "内置 {count} 个命令",
+  "@engineCapShellBuiltin": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "engineCapShellSystem": "系统",
+  "engineCapNodeScripts": "Node 脚本",
+  "engineCapMarket": "安装市场插件",
+  "engineCapBackground": "切到后台时",
+  "engineCapMayFreeze": "可能被系统暂停",
+  "engineCapKeepsRunning": "继续运行",
+  "engineCapYes": "可以",
+  "engineCapNone": "不可用",
+  "marketInstallRefused": "这个引擎不能安装市场插件",
+  "localEnvChooseUseTitle": "想怎么用 dsh-Go？",
+  "localEnvTavernTitle": "和角色聊天",
+  "localEnvTavernDetail": "接回 DeepSeek 的对话也在这里 · 不用安装",
   "marketSectionOfficial": "官方",
   "marketSectionAdapted": "适配 DSH Go",
   "marketSectionAll": "全部",
@@ -6034,6 +7575,7 @@
   "mediaConfigTargetConfirm": "信任目标并继续",
   "mediaVideoLoading": "正在加载视频…",
   "mediaVideoCannotPlay": "无法在 App 内播放此视频，请重试或使用其他应用打开。",
+  "mediaVideoUnsupported": "此版本暂不支持在 App 内播放视频，可保存到相册或在其他应用中打开。",
   "mediaVideoPlay": "播放",
   "mediaVideoPause": "暂停",
   "mediaVideoSaveFailed": "视频保存失败，请重试。",
@@ -6077,6 +7619,35 @@
     }
   },
   "nearbyChange": "更换",
+  "pendantBalance": "余额",
+  "pendantNoKey": "还没有填密钥",
+  "pendantOffline": "暂时查不到",
+  "pendantInvalidKey": "密钥无效",
+  "pendantChecking": "查询中…",
+  "pendantGranted": "赠金",
+  "pendantToppedUp": "充值",
+  "pendantTopUp": "去充值",
+  "pendantLow": "余额不多了",
+  "pendantValley": "谷",
+  "pendantPeak": "峰",
+  "pendantTitle": "余额小鲸鱼",
+  "pendantArtTitle": "角色",
+  "pendantArtHead": "内置头像",
+  "pendantArtCustom": "自定义图片",
+  "pendantArtPick": "选一张图…",
+  "pendantSoundTitle": "音效",
+  "pendantSoundDuck": "小黄鸭",
+  "pendantSoundFx1": "音效一",
+  "pendantSoundOff": "静音",
+  "pendantSoundCustom": "自定义音频",
+  "pendantSoundPick": "选一段音频…",
+  "pendantLinesTitle": "气泡台词",
+  "pendantLinesHint": "一行一句，点气泡随机说一句",
+  "pendantLinesEdit": "编辑台词",
+  "pendantLinesReset": "恢复默认",
+  "pendantResetPlace": "回到左下角",
+  "pendantPickFailed": "没能读取这个文件",
+  "pendantPickUnsupported": "这张图读不出来，换 PNG / JPEG / WebP 试试",
   "performanceTitle": "性能",
   "performanceAuto": "自动",
   "performanceFull": "完整",
@@ -6098,6 +7669,9 @@
   "performanceRefreshMax": "最高",
   "performanceRefreshSystem": "系统",
   "performanceRefreshHint": "自动：动时用最高刷新率，停下交回系统；系统：完全由系统决定。",
+  "performanceRefreshHintOhos": "自动：动画和滚动时用最高刷新率，停下交回系统；最高：一直最高，更耗电也更热；系统：不额外要求。",
+  "performanceFrameCache": "帧缓存",
+  "performanceFrameCacheHint": "更顺滑，触摸响应略慢一点",
   "searchKwRefreshRate": "刷新率 高刷 120Hz 90Hz 流畅",
   "petActionSending": "正在发送…",
   "petActionTargetChanged": "主机已变化，重新打开「问一句」；文字已保留",
@@ -6217,6 +7791,23 @@
   "phoneAppRulesAcceptRisk": "我知道风险，仍然修改",
   "phoneAppRulesPackage": "包名",
   "phoneAppRulesPackageHint": "在「设置 → 应用 → 应用信息」里能找到",
+  "phoneAlwaysAllowTitle": "始终允许",
+  "phoneAlwaysAllowOff": "未开启",
+  "phoneAlwaysAllowCount": "已允许 {count} 个应用",
+  "@phoneAlwaysAllowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "phoneAlwaysAllowSwitchHint": "不再询问就把内容发到你选的应用",
+  "phoneAlwaysAllowWarning": "开启后 DSH 可不再询问就把内容发到这些应用，发出后无法撤回。",
+  "phoneAlwaysAllowConfirm": "确认开启",
+  "phoneAlwaysAllowAdd": "添加应用",
+  "phoneAlwaysAllowEmpty": "还没有允许的应用",
+  "phoneAlwaysAllowRemove": "移除",
+  "phoneAlwaysAllowSaveFailed": "保存失败",
   "phoneDndRequiresAndroid": "需要 Android 14 及以上",
   "phoneDndHiddenScreen": "在看不见的屏幕上操作",
   "phoneNotReadyYet": "还没准备好",
@@ -6234,7 +7825,7 @@
   "phoneDndKeepDebugging": "用 Shizuku 或自连 ADB 时，连接 Wi‑Fi 并保持无线调试开启。",
   "phoneReady": "可以用了",
   "phoneDndDirectAdb": "自连 ADB",
-  "phoneDndChannels": "通道",
+  "phoneDndChannels": "连接方式",
   "phoneDndShizukuFor": "装了 Shizuku App 的手机",
   "phoneDndSuiFor": "Magisk 或 KernelSU 装了 Sui 模块",
   "phoneDndRootFor": "已 root 的手机",
@@ -6254,18 +7845,18 @@
   "phoneDndSuiMissing": "没有检测到 Sui。在 Magisk 或 KernelSU 里装好 Sui 模块并重启手机，再回到这里。",
   "phoneDndSuiRunning": "Sui 接口可用",
   "phoneDndSuiStopped": "Sui 接口当前不可用。确认 Sui 模块已启用，重启手机后再试。",
-  "phoneDndSuiAllSet": "Sui 这边准备好了。",
+  "phoneDndSuiAllSet": "Sui 已启动并授权，接下来连接后台屏。",
   "phoneDndSuiPermissionFailed": "没能请求 Sui 授权。确认 Sui 模块已启用后再试。",
   "phoneDndRootWaiting": "正在等待 root 授权，请在 root 管理器的弹窗里选择。",
-  "phoneDndRootConnected": "root 已连接。断开后要回到这里再选一次；打开上面的「保持 root 通道」，DSH Go 才会自己再去申请。",
+  "phoneDndRootConnected": "root 已连接。断开后要回到这里再选一次；打开「更多设置」中的「保持 root 通道」，DSH Go 才会自己再去申请。",
   "phoneDndRootConnectedKept": "root 已连接。断开后 DSH Go 会自己向 root 管理器再次申请。",
   "phoneDndRootRetry": "重新申请 root 授权",
-  "phoneDndInstallShizuku": "先装 Shizuku（免费、开源）。已经在用冰箱、黑阈这类工具的话，多半已经装了。",
+  "phoneDndInstallShizuku": "先安装 Shizuku（免费、开源）。",
   "phoneDndOpenShizukuSite": "打开 Shizuku 官网",
   "phoneDndStartShizuku": "打开 Shizuku，按里面「通过无线调试启动」的说明做一遍（要连 Wi‑Fi）。回到这里会自动刷新。",
   "phoneDndGrantShizukuHint": "Shizuku 已在运行，还要给 DSH Go 授权。",
   "phoneDndGrantShizuku": "授权给 DSH Go",
-  "phoneDndShizukuAllSet": "Shizuku 这边准备好了。",
+  "phoneDndShizukuAllSet": "Shizuku 已启动并授权，接下来连接后台屏。",
   "phoneDndShizukuInstalled": "已安装 Shizuku",
   "phoneDndShizukuRunning": "Shizuku 正在运行",
   "phoneDndShizukuGranted": "已授权给 DSH Go",
@@ -6293,7 +7884,7 @@
   "phoneConfirmTask": "本任务免确认",
   "phoneConfirmAlways": "始终免确认",
   "phoneConfirmAskHint": "进新 App、发送、删除、付款前先问你",
-  "phoneConfirmTaskHint": "每个任务只问一次",
+  "phoneConfirmTaskHint": "本轮只问一次",
   "phoneConfirmAlwaysHint": "从不询问，直接操作",
   "phoneConfirmTitle": "确认方式",
   "phoneConfirmAlwaysTitle": "始终免确认？",
@@ -6311,7 +7902,12 @@
   "phoneControlWorking": "正在操作手机",
   "phoneControlTaskNoConfirmHint": "本任务免确认 · 悬浮条上也能暂停或停止",
   "phoneControlFloatingBarHint": "悬浮条上也能暂停或停止",
-  "phoneControlAdvanced": "进阶",
+  "phoneControlAdvanced": "更多设置",
+  "phoneDndMoreChannels": "更多连接方式（Root / Sui）",
+  "phoneDndChangeChannel": "更换连接方式",
+  "phoneDndPairingHelp": "配对帮助 / 手动填写",
+  "phoneDndConnectHelp": "连接不上？",
+  "phoneDndPairNext": "先在系统开发者选项打开「无线调试」，再点「开始配对」，按通知填写配对码。",
   "phoneControlKeepAliveHint": "防止系统关掉无障碍",
   "phoneControlReadingEllipsis": "正在读取…",
   "phoneControlNotReady": "未就绪",
@@ -6421,6 +8017,8 @@
   "phoneFailureKilledHint": "多半是内存不足或系统省电",
   "phoneFailureLaunch": "本机运行环境未能启动",
   "phoneFailureLaunchHint": "查看日志了解原因，或连接远程主机继续使用",
+  "phoneFailureTawcHint": "PRoot 无法执行本机引擎。可以尝试用 tawcroot 启动，继续使用已有的运行环境和数据。",
+  "phoneFailureRetryWithTawcroot": "用 tawcroot 启动",
   "phoneFailureNoSpaceHint": "清理一些空间后重试",
   "phoneFailureStartup": "DSH 启动失败",
   "phoneFailureCrashedEarly": "DSH 启动后很快崩溃了",
@@ -6740,7 +8338,13 @@
   "phoneFloatingBar": "悬浮条",
   "phoneIdleOpacity": "闲置时不透明度",
   "phoneAutoCollapse": "闲置时自动收起",
-  "phoneAutoCollapseHint": "收成小球，点按展开",
+  "phoneAutoCollapseHint": "一会儿不碰就收起卡片、收成小球；关着时只在你点按时收起",
+  "phoneEdgeGlow": "屏幕边缘光效",
+  "phoneEdgeGlowHint": "操控时屏幕四周的流光",
+  "phoneSystemIsland": "用系统灵动岛显示",
+  "phoneSystemIslandHint": "小米超级岛、ColorOS 流体云、荣耀 MagicOS 上，操作进度放进系统的灵动岛，不再出悬浮条",
+  "phoneSystemIslandOff": "要先在通知设置里打开「实时活动」，没打开时仍用悬浮条",
+  "phoneSystemIslandUnsupported": "这台手机没有可用的系统灵动岛，用悬浮条",
   "phoneDeveloperOptions": "开发者选项",
   "phoneDirectEngine": "直接启动本机引擎",
   "phoneDirectHint": "实验功能，默认关闭，下次启动生效。部分手机（例如 Android 16）会拦截直接启动，届时自动改用兼容启动，数据不受影响。",
@@ -6751,7 +8355,7 @@
   "phoneDirectNeedsRuntime": "此选项需要支持直接启动的运行环境。",
   "phoneDirectChangeFailed": "未能切换启动方式，请停止本机引擎后重试。",
   "phoneTawcEngine": "tawcroot 加速启动",
-  "phoneTawcHint": "实验功能，默认关闭，下次启动生效，和「直接启动」二选一。用 tawcroot 代替兼容启动运行本机引擎：启动快约三倍，装包、apt 也更快。启动不成功会自动改回兼容启动。关掉后的第一次启动会先把它留下的硬链接整理成普通文件，可能要多等一会。",
+  "phoneTawcHint": "默认开启，改动下次启动生效，和「直接启动」二选一。用 tawcroot 代替兼容启动运行本机引擎：启动快约三倍，装包、apt 也更快。启动不成功会自动改回兼容启动。关掉后的第一次启动会先把它留下的硬链接整理成普通文件，可能要多等一会。",
   "phoneTawcFailedHint": "这台手机上 tawcroot 没有启动成功，已改用兼容启动。停止引擎后打开可再试一次。",
   "phoneTawcUnavailable": "这个安装包不含 tawcroot，或系统低于 Android 10。",
   "phoneLaunchTawcroot": "tawcroot",
@@ -6823,19 +8427,21 @@
   },
   "phoneCleanupRetry": "重试清理",
   "phoneCleanupRetryFailed": "仍未能确认上一后台屏已清理，屏幕占用继续保留。",
-  "phoneSelfCheckTitle": "本机手机自检",
+  "phoneSelfCheckTitle": "检查手机操控",
+  "phoneSelfCheckTechnicalDetails": "技术详情",
+  "phoneLocalOcrSummary": "本机识别；结果可发给模型，SDK 会收集使用统计。",
+  "phoneLocalOcrPrivacyDetails": "隐私详情",
   "phoneSelfCheckPartial": "部分自检：仅已观察的项目有结果",
   "phoneSelfCheckScope": "使用已选择并连接的通道和临时展示屏。应用启动、文字输入、截图、OCR及主屏受扰情况均未测试。清理通过不代表展示屏创建成功。",
-  "phoneSelfCheckStart": "开始部分自检",
+  "phoneSelfCheckStart": "开始检查",
   "phoneSelfCheckCancel": "请求取消",
-  "phoneSelfCheckRetry": "仅重试清理",
   "phoneSelfCheckRefresh": "刷新状态",
   "phoneSelfCheckSave": "保存脱敏报告",
   "phoneSelfCheckSaving": "保存中…",
   "phoneSelfCheckSaved": "报告已存入下载/DSH-Go。",
   "phoneSelfCheckSaveFailed": "报告保存失败。",
   "phoneSelfCheckReportHint": "仅在你点击保存时导出。本机报告只含固定结果，不含截图、识别文字、日志、账户数据或运行标识。",
-  "phoneSelfCheckRunState": "{state, select, idle{尚未开始} running{部分自检进行中} cleaning{正在清理；取消不代表已撤销派发的输入} done{执行和清理已结束，请逐项查看下方结果} cancelled{已取消，已观察到的操作仍保留} cleanup_pending{清理尚未确认，资源仍保留} other{状态不可用}}",
+  "phoneSelfCheckRunState": "{state, select, idle{尚未开始} running{部分自检进行中} cleaning{正在清理；取消不代表已撤销派发的输入} done{检查已结束，结果见技术详情} cancelled{已取消，已观察到的操作仍保留} other{状态不可用}}",
   "@phoneSelfCheckRunState": {
     "placeholders": {
       "state": {
@@ -6859,7 +8465,7 @@
       }
     }
   },
-  "phoneSelfCheckReason": "{reason, select, busy{手机或通道正忙。} unsupported{设备或特权端不支持这项自检。} cancelled{本次请求已取消或退役。} disabled{手机操控尚未开启。} locked{设备已锁定。} identity{原运行或通道身份已改变。} invalid{请求或结果无法验证。} display{临时展示屏未能确认。} input{输入受理或送达未确认，不会重放已派发输入。} cleanup{资源清理未确认，仅可重试清理。} denied{系统拒绝了操作。} timeout{操作超时，已派发工作仍可能完成。} unavailable{本机状态或已选通道不可用。} target_unavailable{无法核实固定目标，请完成清理后再开始。} target_changed{原目标已变化，请仅继续清理。} target_cleanup{目标清理未确认，请仅重试清理。} target_main{目标曾出现在主屏，已停止后续步骤，请完成清理。} target_readback{固定目标计数或文本回读不符，不要重复操作，请完成清理。} tree_cleanup{树连接清理未确认，请仅重试清理。} target_launch{目标启动被拒绝或未确认，请检查设备并完成清理。} frame_unavailable{未取得可用的本地图样帧，请完成清理后再开始新的自检。} frame_mismatch{实际画面与本次目标及阶段不符，请完成清理。} continuity{有限受控刷新序列未确认；这不是帧率结果。} main_changed{主屏采样点发生变化，也可能包含用户操作；请完成清理，不能据此判定原因。} main_unchanged{这些有限采样点未见变化，采样之间是否受扰仍未知。} main_incomplete{主屏样本不完整，不能据此证明没有受扰。} not_installed{本自检未接入 OCR，未执行识别测试。} other{收到无法识别的结果。}}",
+  "phoneSelfCheckReason": "{reason, select, busy{手机或通道正忙。} unsupported{设备或特权端不支持这项自检。} cancelled{本次请求已取消或退役。} disabled{手机操控尚未开启。} locked{设备已锁定。} identity{原运行或通道身份已改变。} invalid{请求或结果无法验证。} display{临时展示屏未能确认。} input{输入受理或送达未确认，不会重放已派发输入。} cleanup{资源清理未确认，请重新连接通道后再检查。} denied{系统拒绝了操作。} timeout{操作超时，已派发工作仍可能完成。} unavailable{本机状态或已选通道不可用。} target_unavailable{无法核实固定目标，请完成清理后再开始。} target_changed{原目标已变化，请仅继续清理。} target_cleanup{目标清理未确认，请重新连接通道后再检查。} target_main{目标曾出现在主屏，已停止后续步骤，请完成清理。} target_readback{固定目标计数或文本回读不符，不要重复操作，请完成清理。} tree_cleanup{树连接清理未确认，请重新连接通道后再检查。} target_launch{目标启动被拒绝或未确认，请检查设备并完成清理。} frame_unavailable{未取得可用的本地图样帧，请完成清理后再开始新的自检。} frame_mismatch{实际画面与本次目标及阶段不符，请完成清理。} continuity{有限受控刷新序列未确认；这不是帧率结果。} main_changed{主屏采样点发生变化，也可能包含用户操作；请完成清理，不能据此判定原因。} main_unchanged{这些有限采样点未见变化，采样之间是否受扰仍未知。} main_incomplete{主屏样本不完整，不能据此证明没有受扰。} not_installed{本自检未接入 OCR，未执行识别测试。} other{收到无法识别的结果。}}",
   "@phoneSelfCheckReason": {
     "placeholders": {
       "reason": {
@@ -6940,7 +8546,7 @@
   "phoneInterruptionAcknowledge": "已核对中断提示",
   "phoneInterruptionRetry": "重试保存或读取",
   "phoneInterruptionActionFailed": "任务记录尚未确认，请重试",
-  "phoneLocalOcrTitle": "本机文字识别（ML Kit）",
+  "phoneLocalOcrTitle": "文字识别",
   "phoneLocalOcrUnknown": "暂时无法读取本机文字识别设置，请刷新后再试。",
   "phoneLocalOcrDisclosure": "识别在本机进行，截图和文字不会发给 Google；Google 的 SDK 会收集机型、应用版本、耗时等使用统计。",
   "phoneLocalOcrDetails": "默认开启。关闭时，文字识别请求不会触发 SDK 加载或初始化；Remote 扫码配对会独立按需初始化共用的 SDK，不会开启文字识别。截图和识别文字可能发送给你配置的模型。关闭后不再开始新的本机文字识别；已经开始的识别可能仍在收尾。关闭不会卸载 SDK，也不承诺清除或停止发送此前积累的 SDK 统计。",
@@ -6972,8 +8578,7 @@
   "phoneBackgroundParallelUnsupported": "此设备当前无法使用后台操作。",
   "phoneBackgroundParallelConnection": "建立连接后才能接纳新的后台任务。",
   "phoneBackgroundParallelBusy": "后台通道正在准备或维护，暂不能接纳新任务。",
-  "phoneBackgroundParallelRecovery": "请先处理未完成的后台资源恢复，再开始新任务。",
-  "phoneBackgroundParallelPeer": "当前连接的服务不支持所需的后台能力。",
+  "phoneGateRetest": "重新检查此通道",
   "phoneBackgroundParallelSerial": "此连接支持一个后台槽位，设置偏好仍会保留。",
   "phoneSkillBundlePublishedUnverified": "文件已发布，但尚未通过完整核验。不要重复保存。",
   "phoneSkillBundleUnknown": "保存结果尚未确认，文件可能已经写入。不要重复保存。",
@@ -7001,6 +8606,11 @@
   "phoneSkillReplayQueue": "发送路线（排队）",
   "phoneSkillReplayQueued": "路线消息已被接收或排队，尚不代表路线执行成功。",
   "phoneSkillReplaySendUncertain": "路线消息未确认发送成功；没有自动重新准备或重放。请核对原对话结果。",
+  "phoneIosServiceTitle": "iOS 自动化服务",
+  "phoneIosServiceHint": "授权后按需启动。任务结束会停止服务，系统的“Automation Running”提示也会结束。",
+  "phoneIosSetupHint": "保持 LocalDevVPN 已连接，首次使用时允许 30 分钟操控。",
+  "phoneIosReturnHint": "任务完成后回到当前对话，并停止手机操控服务。",
+  "phoneIosNeedsSetup": "运行器尚未就绪，请确认本机引擎和开发者环境已配置。",
   "phoneTaskResultReady": "任务完成 · 查看结果",
   "phoneTaskEndedResult": "任务已结束 · 查看结果",
   "phoneBackgroundGuideTitle": "后台确认与返回",
@@ -7024,12 +8634,6 @@
   "phonePrivilegedSuggested": "建议",
   "phonePrivilegedRootRiskTitle": "给 DSH Go root 权限？",
   "phonePrivilegedRootRiskBody": "root 管理器（Magisk、KernelSU 或 APatch）会弹窗问你。允许后，DSH Go 以 root 运行自己的后台服务；只有打开「保持 root 通道」，断开或重启后才会自己再去申请。",
-  "phoneGateCleanupTitle": "探针清理尚未确认",
-  "phoneGateCleanupUnknown": "新后台资源已被阻止。原通道仍可用时，只能重试原清理，不会重跑探针。",
-  "phoneGateCleanupRunning": "正在等待原探针及清理完成；清理确认前保留原通道。",
-  "phoneGateCleanupRetry": "仅重试清理",
-  "phoneGateCleanupDone": "清理已确认。请再次明确选择通道，重新检查。",
-  "phoneGateRetest": "重新检查此通道",
   "phoneKeepTitle": "{mode, select, shizuku{保持 Shizuku 通道} sui{保持 Sui 通道} root{保持 root 通道} adb{保持自连 ADB 通道} other{保持这个通道}}",
   "@phoneKeepTitle": {
     "placeholders": {
@@ -7048,58 +8652,141 @@
   "phoneKeepWaitingNetwork": "等连上 Wi‑Fi 后再连",
   "phoneKeepNotPaired": "还没有配对，请先完成无线调试配对",
   "phoneKeepFailed": "没连上；下次打开 App 或开始操控时再试",
-  "phoneResourceRecoveryTitle": "后台资源待核验",
-  "phoneResourceRecoveryRunning": "正在核对原资源记录，完成前不能开始新的手机任务。",
-  "phoneResourceRecoveryStorage": "无法读取或保存资源记录。可重试保存或读取；已确认的释放不会重复执行，也不会重放旧操作。",
-  "phoneResourceRecoveryPending": "旧后台资源尚未核验，新的手机任务暂被阻止。请选择原授权通道后重试；仍无法核验时，可重启设备后再次检查。旧操作结果可能已经发生。确认任务中断提示不会清除这些资源。",
-  "phoneResourceRecoveryRetry": "重试资源核验",
-  "phoneSkillSectionTitle": "成功任务与技能",
-  "phoneSkillAskAfterSuccess": "任务成功后询问是否存成技能",
-  "phoneSkillAskAfterSuccessHint": "默认关闭。此页可见时，新完成的任务会询问一次；也可随时手动选择。",
-  "phoneSkillTask": "任务 {taskId} · {steps} 步",
-  "@phoneSkillTask": {
+  "phoneSkillsTitle": "手机技能",
+  "phoneSkillsSummaryNone": "做过的事会在这里变成技能",
+  "phoneSkillsSummary": "已学会 {count} 项",
+  "@phoneSkillsSummary": {
     "placeholders": {
-      "taskId": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "phoneSkillsSummaryDrafts": "已学会 {count} 项 · {drafts} 份待确认",
+  "@phoneSkillsSummaryDrafts": {
+    "placeholders": {
+      "count": {
         "type": "int"
       },
-      "steps": {
+      "drafts": {
         "type": "int"
       }
     }
   },
-  "phoneSkillCandidateHint": "请先核对实际结果；工具返回成功不等于目标已经完成。",
-  "phoneSkillSaveAction": "存成技能",
-  "phoneSkillConfirmGoal": "这次任务达到了目标吗？",
-  "phoneSkillConfirmGoalBody": "请核对实际结果。确认后才会起草，保存前仍可查看和编辑。",
-  "phoneSkillGoalDone": "目标已完成，查看草稿",
-  "phoneSkillPrivacyHint": "草稿只在本机处理。不要填写密码、密钥或验证码。本阶段自由文字会替换成参数，删除和重排步骤会保留；以最终预览为准。",
-  "phoneSkillGoal": "目标",
-  "phoneSkillPrerequisites": "前提（应用、版本、登录态）",
-  "phoneSkillStep": "原步骤 {number}",
-  "@phoneSkillStep": {
+  "phoneSkillsLearn": "从做过的事里学",
+  "phoneSkillsLearnHint": "手机操控办成的事会起草成技能，你收下才会用",
+  "phoneSkillsLearnOffHint": "关着时不再起草新技能，已收下的照常用",
+  "phoneSkillsTabMine": "我的技能",
+  "phoneSkillsTabDrafts": "待确认 {count}",
+  "@phoneSkillsTabDrafts": {
     "placeholders": {
-      "number": {
+      "count": {
         "type": "int"
       }
     }
   },
-  "phoneSkillCheckpoint": "这一步之后应看到什么",
-  "phoneSkillMoveUp": "上移一步",
-  "phoneSkillMoveDown": "下移一步",
-  "phoneSkillUpdatePreview": "更新脱敏预览",
-  "phoneSkillPreviewTitle": "将保存的完整内容",
-  "phoneSkillParameterizedHint": "自由文字已替换成参数；使用技能时需要补充并重新核对。",
-  "phoneSkillFinalConfirmation": "我已核对当前完整预览，同意保存这一版本。",
-  "phoneSkillSavedBody": "文件已写入本机技能目录。尚未核实引擎技能列表是否已刷新；可在技能页检查。",
-  "phoneSkillWriting": "正在写入技能",
-  "phoneSkillCannotCancel": "写入可能已进入提交阶段，无法保证撤回。关闭只关闭此页；已经提交的文件仍会保存。",
-  "phoneSkillKeepWaiting": "继续查看",
-  "phoneSkillCheckWrite": "检查写入结果",
-  "phoneSkillStale": "这份草稿已失效。请关闭后重新选择任务。",
-  "phoneSkillSensitive": "编辑中包含敏感内容，请移除后再更新预览。",
-  "phoneSkillInvalid": "编辑内容或步骤顺序不符合限制。请减少文字，至少保留一个步骤。",
-  "phoneSkillWriteFailed": "未能写入。请核对本机运行环境和存储；修改并更新预览后才能再次确认保存。",
-  "phoneSkillUnavailable": "当前无法处理技能草稿。请检查本机引擎状态后重试。",
+  "phoneSkillsTabDraftsNone": "待确认",
+  "phoneSkillsEmpty": "还没有学会的技能。手机操控办成一件事后，DSH 会起草一份，等你收下。",
+  "phoneSkillsDraftsEmpty": "没有要确认的草稿",
+  "phoneSkillsFootnote": "技能是给 DSH 看的做事说明：下次做同类的事，它会先读一遍再动手。用得越多，它越熟练。",
+  "phoneSkillStateActive": "常用 · 用了 {uses} 次",
+  "@phoneSkillStateActive": {
+    "placeholders": {
+      "uses": {
+        "type": "int"
+      }
+    }
+  },
+  "phoneSkillStateTrial": "试用中 · 还没用它办成过事",
+  "phoneSkillStateSuspended": "已停用",
+  "phoneSkillStateSuspendedMisses": "已停用 · 最近不灵",
+  "phoneSkillSourceWritten": "你让 DSH 写的",
+  "phoneSkillUse": "使用这项技能",
+  "phoneSkillLearnedTitle": "DSH 学会了一个新做法",
+  "phoneSkillUpdateTitle": "DSH 想改进「{name}」",
+  "@phoneSkillUpdateTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneSkillAccept": "收下",
+  "phoneSkillAcceptUpdate": "收下这次修改",
+  "phoneSkillEditDraft": "改一改",
+  "phoneSkillDiscard": "不要",
+  "phoneSkillDiscarded": "没有存这份草稿",
+  "phoneSkillAccepted": "已收下「{name}」，先试用",
+  "@phoneSkillAccepted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneSkillOpenSource": "看那次对话",
+  "phoneSkillLegacyTitle": "早期存下的",
+  "phoneSkillLegacyHint": "旧版存下的模板，DSH 不会用它们，可以删掉",
+  "phoneSkillDelete": "删除技能",
+  "phoneSkillDeleteTitle": "删除「{name}」？",
+  "@phoneSkillDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneSkillDeleteBody": "删了以后 DSH 不再用它做事。",
+  "phoneSkillRestore": "恢复上一版",
+  "phoneSkillRestored": "已恢复上一版",
+  "phoneSkillUseInChat": "在对话里用",
+  "phoneSkillSaved": "已保存",
+  "phoneSkillSectionEntry": "入口",
+  "phoneSkillSectionSteps": "步骤",
+  "phoneSkillSectionPitfalls": "容易出错的地方",
+  "phoneSkillSectionSuccess": "怎样算办成",
+  "phoneSkillSectionHandoff": "什么时候停下交给你",
+  "phoneSkillFieldName": "名字",
+  "phoneSkillFieldDescription": "做什么",
+  "phoneSkillFieldWhen": "什么时候用",
+  "phoneSkillEditHint": "具体的人名、号码、内容写成 <参数>，DSH 做事时会按这次的要求填进去。",
+  "phoneSkillRecent": "最近几次",
+  "phoneSkillRecentNone": "还没用过",
+  "phoneSkillRecentOk": "办成",
+  "phoneSkillRecentMiss": "不灵",
+  "phoneSkillRecentVoid": "不算",
+  "phoneSkillRecentSeparator": "、",
+  "phoneSkillErrorChanged": "这项技能在你改的时候变了，这次修改没有覆盖它。回去重新看看。",
+  "phoneSkillErrorInvalid": "有一节是空的或格式不对，每一节都写上内容再存。",
+  "phoneSkillErrorSensitive": "里面有密码、验证码这类内容，去掉再存。",
+  "phoneSkillErrorUnavailable": "手机技能暂时用不了，稍后再试。",
+  "phoneSkillPromoted": "「{name}」用它办成了事，转为常用",
+  "@phoneSkillPromoted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneSkillSuspended": "「{name}」最近不灵，先停用了",
+  "@phoneSkillSuspended": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneSkillTurnOn": "恢复",
+  "phoneSkillApps": "用在 {apps}",
+  "@phoneSkillApps": {
+    "placeholders": {
+      "apps": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneSkillUndo": "撤销",
+  "searchKwPhoneSkills": "技能、学会、熟练、沉淀、存成技能、做法",
   "phoneModeTitle": "选择确认方式",
   "phoneModeMessage": "随时可在设置里更改",
   "phoneModeAsk": "关键步骤先问我",
@@ -7734,6 +9421,12 @@
   "pluginsTheme": "主题",
   "pluginsAppearance": "外观",
   "pluginsColors": "配色",
+  "pluginsLook": "材质与文字",
+  "pluginsLookHint": "不透明度与模糊作用于玻璃面板和卡片；字体颜色只改文字。",
+  "pluginsOpacity": "不透明度",
+  "pluginsBlur": "模糊",
+  "pluginsFontColor": "字体颜色",
+  "pluginsFollowTheme": "跟随主题",
   "pluginsFeatureIcons": "功能图标",
   "pluginsAppIcon": "桌面图标",
   "pluginsPet": "宠物",
@@ -8597,7 +10290,7 @@
   "remoteErrSharedInstance": "远端托管 DSH 仍在运行，但启动命令不同或缺少有效启动日志。为保护共享实例，未自动重启；请检查配置，改用“只连接”，或在编辑主机中明确选择“重启托管 DSH”。",
   "remoteErrAttachSettings": "请填写有效的远端 DSH 端口和登录令牌",
   "remoteDshAttached": "已连接既有 DSH",
-  "remoteStartupSection": "启动",
+  "remoteConnectionSettings": "连接设置",
   "remoteAutoConnectOnStartup": "连接上次使用的主机",
   "remoteAutoConnectOnStartupHint": "关闭后从本机开始",
   "remoteStepConnect": "连接服务器",
@@ -9178,7 +10871,6 @@
   "remoteSshRequirements": "需要那台主机开着 SSH，并装好 DSH",
   "remoteAddSshHost": "添加 SSH 主机",
   "remoteSshDirect": "不经过第三方服务器",
-  "remoteOtherMethods": "其他方式",
   "remoteWebConsole": "网页版远程控制台",
   "remoteWebConsoleProvider": "dsh.r2049.cn · 第三方页面",
   "remoteActiveHost": "正在使用「{name}」",
@@ -9224,6 +10916,14 @@
   },
   "remoteErrRefreshHosts": "没能刷新主机列表",
   "remoteSwitchWarning": "一次只连一台主机，切换会断开上一台",
+  "remoteHostOfflineHint": "「{name}」现在不在线。在那台电脑上打开 DSH 后再试",
+  "@remoteHostOfflineHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "remoteRefreshHosts": "刷新主机列表",
   "remoteSignOut": "退出",
   "remoteErrHostsRetry": "没能获取主机列表 · 轻点重试",
@@ -9283,6 +10983,8 @@
   "remoteAuthentication": "登录方式",
   "remotePasswordStorageHelp": "只保存在这台手机上，由 Android Keystore 加密",
   "remoteKeyStorageHelp": "只保存在这台手机上，由 Android Keystore 加密。支持 Ed25519、RSA、ECDSA",
+  "remotePasswordStorageHelpIos": "只保存在这台手机上，由系统钥匙串加密",
+  "remoteKeyStorageHelpIos": "只保存在这台手机上，由系统钥匙串加密。支持 Ed25519、RSA、ECDSA",
   "remotePrivateKey": "私钥",
   "remoteShow": "显示",
   "remoteImportKeyFile": "从文件导入",
@@ -9340,7 +11042,7 @@
   "remoteDirectoryRecent": "最近",
   "remoteDirectoryEnterPath": "输入路径",
   "remoteDirectoryGo": "前往",
-  "remoteDirectoryAbsolutePath": "从「/」开始写完整路径",
+  "remoteDirectoryAbsolutePath": "写完整路径，如 /root/workspace 或 C:/Users/me",
   "remoteDirectoryNewFolder": "新建文件夹",
   "remoteDirectoryParentCaption": "在「{name}」里",
   "@remoteDirectoryParentCaption": {
@@ -9634,10 +11336,16 @@
   "remoteNetworkFallbackPathUnverified": "尚未确认 WebRTC 路径类型",
   "remoteNetworkSnapshotHint": "显示最近一次确认的路径与延迟，刷新可重新检测。",
   "remoteNetworkObservedAt": "最近观测",
+  "remoteHostedLoadFailed": "无法读取已保存的分享链接，请重试。",
+  "remoteHostedSaveFailed": "分享链接的更改尚未保存，请重试。",
+  "remoteHostedDeleteSaveFailed": "删除未完成，链接仍然有效。请重试。",
+  "remoteHostedUndoUnsaved": "本次删除已取消，但撤销尚未保存。重启后可能继续删除，请到“我的分享链接”重试保存。",
+  "remoteHostedUndoFailed": "无法恢复分享，删除可能已开始。请检查“我的分享链接”。",
+  "remoteHostedCreatedUnsaved": "链接已创建，可以复制使用，但尚未保存到本机。请保留链接，并到“我的分享链接”重试保存。",
+  "remoteHostedStopFailed": "未能停止分享，链接仍然有效。请重试。",
   "remoteNetworkLocalIpVersion": "手机 ICE IP 版本",
   "remoteNetworkRemoteIpVersion": "主机 ICE IP 版本",
   "remoteNetworkIceProtocol": "ICE 协议",
-  "remoteTransferSettings": "远程传输",
   "remoteCompactHistory": "精简历史",
   "remoteErrHistoryModeChanged": "主机已不支持精简历史，请切换到其他主机后再连回来，或重启 App，重新加载历史",
   "remoteCompactHistoryHint": "支持的 DSH Remote 主机会精简历史工具详情，实时回复和审批不变。切换主机或重启 App 后生效；旧主机仍传输完整历史。",
@@ -9657,6 +11365,8 @@
   "remotePairImageNoCode": "这张图里没找到二维码",
   "remotePairCameraDenied": "没有相机权限。可以在系统设置里打开，或者用「从相册识别」「粘贴配对链接」",
   "remotePairCameraFailed": "相机打不开。可以用「从相册识别」或「粘贴配对链接」",
+  "remotePairSystemScan": "扫码",
+  "remotePairSystemScanHint": "打开系统扫码，里面也能从相册选截图",
   "remotePairReading": "正在读取配对信息…",
   "remotePairConfirmTitle": "要连接这台电脑吗？",
   "remotePairComputer": "电脑",
@@ -9735,6 +11445,20 @@
   "stateRemoteUploadLimit": "主机拒绝了上传，请检查文件大小或稍后重试",
   "stateRemoteUploadUnsupported": "这台主机不支持文件上传，请更新主机上的 Remote 插件后重连",
   "stateRemoteUploadTooLarge": "文件超过远程上传协议的大小上限",
+  "remoteWebTitle": "DSH Web",
+  "remoteWebOpening": "正在打开 DSH Web…",
+  "remoteWebFailed": "没能打开 DSH Web",
+  "remoteWebRefresh": "刷新首页",
+  "remoteWebBusy": "人太多了，请稍后重试",
+  "remoteWebPairingRequired": "连接授权失效，请重新连接或配对主机。",
+  "remoteWebHostNotReady": "主机网页版尚未就绪。请启动 DSH Web，并将 Remote 插件更新到 0.6.6 或更新版本。",
+  "remoteWebReconnect": "连接已断开，请重新连接主机后再打开。",
+  "remoteWebUnsafeUrl": "网页地址无法验证，已停止打开。请检查主机配置。",
+  "remoteWebExchangeRejected": "访问验证没有通过，请重试。",
+  "remoteWebSessionExpired": "网页连接已过期，请重试。",
+  "remoteWebPlatformUnavailable": "当前平台暂不支持此网页入口。请使用原生远程界面。",
+  "remoteWebTryAgain": "暂时无法打开网页，请检查主机连接后重试。",
+  "remoteWebUnavailable": "暂时无法打开，请稍后重试",
   "riskDontShowAgain": "不再提示",
   "riskAskAi": "不确定？问 AI",
   "riskConfirmAlwaysAction": "始终免确认",
@@ -9805,11 +11529,14 @@
   "searchNeedsNativeUi": "原生界面可用",
   "searchNeedsEngineField": "当前主机提供时可用",
   "searchNeedsAnimations": "开启动画时可用",
+  "searchNeedsWorkshop": "这个版本没有带创意工坊",
   "searchNeedsChat": "打开对话时可用",
   "searchKwTheme": "外观,配色,颜色,主题色,强调色,图标",
+  "searchKwLook": "透明度,模糊,磨砂,玻璃,面板,字体颜色,文字颜色",
   "searchKwPets": "宠物,小鲸,桌宠,悬浮,鲸鱼",
   "searchKwPerformance": "省电,流畅,卡顿,发热,轻量,完整",
-  "searchKwVoice": "语音识别,麦克风,听写,说话,语音",
+  "searchKwVoice": "语音识别,麦克风,听写,说话,语音,朗读,语音通话,打电话,TTS,声音",
+  "searchKwVoiceReading": "朗读,朗读的声音,TTS,音色,海星,暗潮,声音",
   "searchKwNotifications": "提醒,推送,横幅,消息,铃声",
   "searchKwReplyPrefs": "偏好,关于我,自我介绍,回答风格,称呼,AGENTS.md",
   "searchKwSharedLinks": "分享链接,链接,公开链接,分享",
@@ -9858,11 +11585,13 @@
   "searchKwTileStyle": "图标风格,磁贴",
   "searchKwAppIcon": "启动图标,App 图标,图标",
   "searchKwPetSize": "宠物大小,宠物尺寸",
+  "searchKwPetOverlaySize": "悬浮窗大小,宠物悬浮窗大小",
   "searchKwPetQuiet": "安静,宠物安静",
   "searchKwPetOutside": "悬浮窗,桌面宠物,宠物悬浮",
   "searchKwPetDisplayWhen": "宠物显示,显示时机",
   "searchKwPetOverlayShows": "悬浮伙伴,小屋里的她,像素宠物,Live2D",
   "searchKwPetOverlayFraming": "取景,全身,半身",
+  "searchKwWorkshop": "工坊,下载宠物,下载伙伴,分享宠物,投稿",
   "searchKwBlur": "模糊,毛玻璃,玻璃",
   "searchKwAnimations": "动画,动效,减少动画",
   "searchKwFluidMotion": "灵动,弹性,回弹,光晕,丝滑",
@@ -9875,6 +11604,8 @@
   "searchKwNotifySystem": "声音,横幅,锁屏,系统通知",
   "searchKwPhoneConfirm": "别问我,免确认,每次都询问,始终免确认,确认",
   "searchKwPhoneAutoCollapse": "悬浮条,收起,悬浮球",
+  "searchKwPhoneEdgeGlow": "边缘光,光效,流光,特效,边框",
+  "searchKwPhoneSystemIsland": "灵动岛,超级岛,流体云,胶囊,实时活动,悬浮条",
   "searchKwPhoneReturn": "返回,完成后返回",
   "searchKwPhoneBackgroundGuide": "后台确认,返回 App",
   "searchKwAutoStart": "自动启动,开机启动,自启",
@@ -9972,6 +11703,79 @@
   },
   "selfUpdateEndWaiting": "结束本次等待",
   "selfUpdateEndWaitingNote": "只有确认系统已不在安装时才结束等待。清除本次记录不等于取消系统安装；不会自动重试或切换路线，仍需再次原生确认。",
+  "backupRecordFailed": "手机未能保存恢复记录。请记下上面的对话 ID 并检查目标主机，不要重复导入。",
+  "backupSearchKeywords": "备份,恢复,迁移,复制对话,同步,backup,restore",
+  "backupTitle": "对话备份",
+  "backupHint": "备份到手机后，可切换主机恢复到已有工作区。每次恢复会新建对话；不含附件、源码和跨对话关系。",
+  "backupCancelled": "已取消，已校验保存的备份仍可恢复。",
+  "backupUnknown": "结果待核对：请连接原目标主机查询，或先在目标端检查。不会自动重新导入。",
+  "backupFailed": "操作失败（{code}）。请检查连接或存储后重试。",
+  "@backupFailed": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "backupSaved": "已保存 {count} 条备份。",
+  "@backupSaved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "backupSavedCloseFailed": "已保存 {count} 条备份，源主机导出句柄未能关闭；断线或闲置后会自动释放。",
+  "@backupSavedCloseFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "backupRestoreConfirm": "将“{title}”恢复到“{workspace}”？会创建一条新对话，不合并或覆盖已有历史。",
+  "@backupRestoreConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
+  "backupRestored": "已恢复，新对话：{id}",
+  "@backupRestored": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "backupRestoredDetached": "历史已恢复，未加入工作区。对话 ID：{id}。请在目标端查找，不要重复导入。",
+  "@backupRestoredDetached": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "backupOriginalDevice": "请使用原 Remote 设备身份连接原目标主机，再查询提交结果。",
+  "backupStorageFailed": "无法读取备份。请检查应用存储和系统密钥；不会重置或覆盖已有备份。",
+  "backupConnectHost": "连接一台已配对的 Remote 主机，即可备份或恢复。",
+  "backupNoWorkspace": "等待主机工作区列表；没有工作区时请先在主机上创建。",
+  "backupWorkspace": "整个工作区",
+  "backupToPhone": "备份到手机",
+  "backupExportUnsupported": "此主机未提供对话导出能力，请更新主机 Remote 插件。",
+  "backupImportUnsupported": "此主机未提供对话恢复能力，请更新主机 Remote 插件。",
+  "backupPending": "待核对的恢复",
+  "backupCheck": "查询",
+  "backupAcknowledge": "已在目标端核对",
+  "backupAcknowledgeConfirm": "确认已在目标端核对？清除此待确认记录后，可手动再导入，但可能创建重复对话。",
+  "backupOnPhone": "手机上的备份",
+  "backupEmpty": "还没有备份。备份仅保存在本机，卸载 App 会丢失。",
+  "backupRestore": "恢复到当前工作区",
+  "backupDeleteConfirm": "删除手机上的这条备份及其恢复记录？不会删除主机上的对话。",
   "shellDeletePermanently": "永久删除",
   "shellDeleteNoUndo": "无法撤销，与归档不同",
   "shellDeleteChecking": "正在检查此主机是否支持永久删除…",
@@ -10653,6 +12457,142 @@
       }
     }
   },
+  "speechReadAloud": "朗读",
+  "speechReadAloudStop": "停止朗读",
+  "speechReadSection": "朗读",
+  "speechReadFooter": "回复下方的朗读键、伙伴小屋和语音通话都用这个声音。",
+  "speechVoiceTitle": "朗读的声音",
+  "speechVoiceHello": "你好，这是朗读的声音。",
+  "speechVoiceDeepseek": "DeepSeek",
+  "speechVoiceDeepseekHint": "登录的 DeepSeek 账号付费；没登录，或账号不能用于语音时，用设置里的 API Key。不用另外配置",
+  "speechVoiceDeepseekFooter": "按朗读的字数计费，价格见 DeepSeek 开放平台。读出前会去掉代码块、表格和链接地址。",
+  "speechVoiceStella": "海星（女声）",
+  "speechVoiceTide": "暗潮（男声）",
+  "speechVoiceStellaShort": "海星",
+  "speechVoiceTideShort": "暗潮",
+  "speechVoiceFollow": "跟朗读一样",
+  "speechVoiceFollowHint": "用设置 › 语音里朗读的声音",
+  "speechNotSetUp": "朗读的声音还没设置好，去设置 › 语音看看",
+  "speechNoCredential": "要先登录 DeepSeek 账号，或在设置里填 API Key",
+  "speechAccountUnusable": "已登录的账号在这里付不了 DeepSeek 语音：当前连接的 DSH 版本较旧（更新后就行），或正经 DSH Remote 中继连接。在设置里填 DeepSeek API Key 就能用",
+  "speechSignIn": "DeepSeek 账号用不了语音（可能登录过期，或语音只认 API Key）。重新登录，或在设置里填上 API Key",
+  "speechUnauthorized": "DeepSeek API Key 无效，请在设置里检查",
+  "speechBalance": "DeepSeek 余额不足",
+  "speechRateLimited": "请求太频繁，稍后再试",
+  "speechNothingToRead": "这条回复没有可以朗读的文字",
+  "speechNotHeard": "没听清，再说一次",
+  "speechTooLong": "录音太长了，分几段说吧",
+  "speechBusy": "语音服务正忙，稍后再试",
+  "speechNetwork": "连不上语音服务，请检查网络",
+  "speechReadFailed": "朗读失败",
+  "speechListenFailed": "识别失败",
+  "speechCloudNotice": "语音会发给 DeepSeek 识别。想在手机上识别，可以换成语音模型。",
+  "speechCloudNotSetUp": "还没设置云端识别服务",
+  "speechCallTile": "语音通话",
+  "speechCallSection": "语音通话",
+  "speechCallFooter": "通话时说完一句停一下，就会发出去；回答边写边读。",
+  "speechCallBargeIn": "插话打断",
+  "speechCallBargeInHint": "AI 说话时你一开口，它先轻下来；「嗯」「对」它接着说，说别的它就停下听你",
+  "speechCallSpoken": "口语回答",
+  "speechCallSpokenHint": "通话的第一条消息会请 AI 简短、口语化地回答",
+  "speechCallSpeaker": "默认免提",
+  "speechCallSpeakerHint": "接上耳机时总用耳机",
+  "speechCallHint": "（这是语音通话，我说的话由语音识别转成文字。请用简短、口语化的中文回答，不要用 Markdown、列表、表格和代码块。）",
+  "speechCallCutNote": "（你说到「{heard}」时我打断了你，后面的我没听到。）",
+  "@speechCallCutNote": {
+    "placeholders": {
+      "heard": {
+        "type": "String"
+      }
+    }
+  },
+  "speechCallCutEarly": "（你刚开口我就打断了你，这条回答我没听到。）",
+  "speechCallCue": "思考提示音",
+  "speechCallCueHint": "回答一时没出声时，轻响一声表示还在想",
+  "speechLiveSection": "实时字幕",
+  "speechLiveName": "流式识别模型",
+  "speechLiveSystemName": "系统识别（普通话）",
+  "speechLiveSystemReadyNote": "由鸿蒙系统提供，不用下载模型，通话时自动使用",
+  "speechLiveSystemBusy": "使用中",
+  "speechLiveSystemBusyNote": "语音输入或另一项识别正在用它，用完后点重试",
+  "speechLiveSystemFailedNote": "这台手机现在用不了系统识别：{reason}",
+  "@speechLiveSystemFailedNote": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "speechLiveSystemFooter": "字幕和插话判断由鸿蒙系统识别在手机上完成；发给 AI 的文字仍由上面选的识别方式给出，选了云端识别录音就会上传。",
+  "speechLiveAbsentNote": "下载后，通话时一边说一边出字，插话也停得更快。约 {mb}，在手机上运行",
+  "@speechLiveAbsentNote": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "speechLiveReadyNote": "已占用 {mb}，通话时自动使用",
+  "@speechLiveReadyNote": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "speechLiveBlocked": "已停用",
+  "speechLiveBlockedNote": "在这台手机上运行时出过问题，实时字幕已停用，通话照常。删除后重新下载可以再试。",
+  "speechLiveFooter": "字幕和插话判断在手机上完成；发给 AI 的文字仍由上面选的识别方式给出，选了云端识别录音就会上传。",
+  "speechLiveDeleteTitle": "删除流式识别模型？",
+  "speechLiveDeleteBody": "删除后通话不再显示实时字幕，随时可以重新下载。",
+  "speechCallStarting": "正在接通",
+  "speechCallListening": "在听",
+  "speechCallHearing": "你在说",
+  "speechCallThinking": "想一想",
+  "speechCallSpeaking": "正在说，轻点光球可以跳过",
+  "speechCallMuted": "已静音",
+  "speechCallEnded": "通话已结束",
+  "speechCallEndPermission": "没有麦克风权限",
+  "speechCallEndMicrophone": "麦克风被占用或打不开",
+  "speechCallEndNoRecognizerSignedIn": "通话要能识别录音。已登录的账号在这里付不了 DeepSeek 语音（当前连接的 DSH 版本较旧，或经 DSH Remote 中继）：在设置里填 DeepSeek API Key，或在设置 › 语音里下载语音模型",
+  "speechCallEndNoRecognizer": "通话需要能识别录音的方式：登录 DeepSeek 账号、填 API Key，或下载语音模型",
+  "speechCallEndBackground": "切到后台时通话会结束",
+  "speechCallEndFailed": "录音出错，通话已结束",
+  "speechCallSendFailed": "没发出去，再说一次",
+  "speechCallSkipHint": "跳过这段回答",
+  "speechCallTranscript": "字幕",
+  "speechCallTranscriptHint": "这次通话的全部字幕",
+  "speechCallTranscriptEmpty": "还没开口。你们说的话会一句句记在这里。",
+  "speechCallTranscriptCut": "你在这里插话",
+  "speechCallMute": "静音",
+  "speechCallUnmute": "取消静音",
+  "speechCallHangUp": "挂断",
+  "speechCallSpeakerOn": "免提",
+  "speechCallEarpiece": "听筒",
+  "speechBackdropTitle": "通话背景",
+  "speechCallSettings": "通话设置",
+  "speechCallPause": "停顿多久算说完",
+  "speechCallPauseQuick": "快",
+  "speechCallPauseNormal": "适中",
+  "speechCallPausePatient": "耐心",
+  "speechCallPauseHint": "说话爱停顿、常被她抢话，就选「耐心」；嫌她接得慢，选「快」。",
+  "speechCallSpeechSection": "声音和识别",
+  "speechCallVoice": "她的声音",
+  "speechCallSpeechHint": "改了从下一句开始生效。",
+  "speechBackdropSea": "深海",
+  "speechBackdropImage": "我的图片",
+  "speechBackdropImagePick": "选一张图",
+  "speechBackdropCompanion": "伙伴",
+  "speechBackdropHint": "图片会虚化、压暗，字幕看得清。选伙伴时，她会跟着声音说话。",
+  "speechBackdropHintChange": "再点一次「我的图片」可以换一张。选伙伴时，她会跟着声音说话。",
+  "speechBackdropNoCompanion": "先在伙伴小屋里请她住进来，才能把她放进通话里。",
+  "speechBackdropReplace": "换一张图",
+  "speechBackdropPickFailed": "这张图用不了，换一张试试",
+  "speechCallVisual": "光效",
+  "speechCallVisualRing": "光环",
+  "speechCallVisualMono": "细线",
+  "speechCallVisualGlass": "光球",
+  "speechInsecure": "这个云端服务的地址不是 https，Key 不能这样发出去",
   "starPromptTitle": "{hours, plural, =0{本鱼已经在 DSH Go 里陪你半个小时啦⁠~} =1{本鱼已经在 DSH Go 里陪你一个小时啦⁠~} other{本鱼已经在 DSH Go 里陪你 {hours} 个小时啦⁠~}}",
   "@starPromptTitle": {
     "description": "The star prompt's first line. hours is the whole hours of use so far, rounded down; 0 is half an hour (the first ask comes after 30 minutes). The word joiner keeps the ~ on the line of the word before it.",
@@ -10664,6 +12604,26 @@
   },
   "starPromptBody": "这是一个免费开源的项目，如果它让你的移动端体验更好了一点，拜托点个 Star 支持一下，这对本鱼是很大的鼓励！",
   "starPromptPlea": "拜托你啦~ 这真的很重要！！",
+  "starPromptBody2": "看来你挺喜欢这里嘛！点个 Star 只要几秒钟，却能让更多人发现 DSH Go，本鱼也会更有干劲！",
+  "@starPromptBody2": {
+    "description": "The star prompt's second ask (2 hours of use, after 下次再说), in place of starPromptBody."
+  },
+  "starPromptPlea2": "就差你这一颗星星啦~",
+  "starPromptBody3": "DSH Go 不收费、没有广告，全靠大家的 Star 让更多人看到。如果它帮到了你，就送本鱼一颗星星吧！",
+  "@starPromptBody3": {
+    "description": "The third ask (5 hours)."
+  },
+  "starPromptPlea3": "本鱼眼巴巴地等着呢~",
+  "starPromptBody4": "这么久了，本鱼一直都在。如果 DSH Go 已经成了你每天都会打开的 App，点个 Star 就是给作者最好的回礼。",
+  "@starPromptBody4": {
+    "description": "The fourth ask (10 hours)."
+  },
+  "starPromptPlea4": "求求你啦，就点一下下~",
+  "starPromptBody5": "这是本鱼最后一次问你啦。不管点不点，本鱼都会一直陪着你。要是愿意的话，点个 Star 让本鱼开心一下吧！",
+  "@starPromptBody5": {
+    "description": "The fifth and last ask (20 hours): it says so."
+  },
+  "starPromptPlea5": "最后一次，拜托啦！",
   "starPromptStar": "去 GitHub 点 Star",
   "starPromptDone": "已经点过啦",
   "starPromptLater": "下次再说",
@@ -10671,7 +12631,13 @@
   "hubStartPage": "起始页",
   "hubChatSuggestions": "聊天建议",
   "hubChatSuggestionsHint": "显示起始页的聊天建议",
+  "hubChatTips": "使用提示",
+  "hubChatTipsHint": "显示起始页底部的使用提示",
+  "hubPendant": "余额小鲸鱼",
+  "hubPendantHint": "在输入框上方显示余额挂件，可拖到另一侧",
+  "searchKwChatTips": "起始页,空白页,新对话,提示,使用提示,底部提示",
   "searchKwChatSuggestions": "起始页,空白页,新对话,聊天建议,建议卡片",
+  "searchKwPendant": "余额,余额挂件,小鲸鱼,充值,钱包,挂件",
   "phoneStartupFailureStopping": "启动失败，正在停止",
   "phoneStartupFailureStoppingDetail": "启动失败，正在停止。{reason}",
   "@phoneStartupFailureStoppingDetail": {
@@ -10724,6 +12690,7 @@
   "stateSizeSmall": "小",
   "stateSizeStandard": "标准",
   "stateSizeLarge": "大",
+  "stateSizeCustom": "自定义",
   "statePetDone": "做完了",
   "statePetFailed": "出错了",
   "statePhoneNotReady": "手机操控模块未就绪",
@@ -10962,7 +12929,7 @@
   "stateProviderConflict": "渠道刚被改过，返回后重试",
   "stateProviderUnsupported": "当前引擎版本不支持这个操作",
   "stateProviderKeyRejected": "API Key 无效或没有权限",
-  "stateProviderModelsMissing": "找不到模型列表，检查 Base URL",
+  "stateProviderModelsMissing": "找不到模型列表。检查 Base URL；有的服务不提供模型列表，可以手动添加模型",
   "stateProviderRateLimited": "请求太频繁，稍后再试",
   "stateProviderResponseTooLarge": "返回的内容过大",
   "stateProviderUnreachable": "连不上这个地址，检查 Base URL 和网络",
@@ -11469,10 +13436,85 @@
   },
   "stateProviderTokenCountInvalid": "填写数字，如 128K",
   "appSlogan": "随时随刻，想go就Go！",
+  "statePasteEmpty": "剪贴板中没有可粘贴的文本。",
+  "statePasteDenied": "系统未授予粘贴权限，请重新点击粘贴按钮。",
+  "statePasteBusy": "粘贴窗口尚未结束或仍在关闭，请完成或取消后重试。",
+  "statePasteFailed": "无法读取剪贴板，请重试或手动输入。",
+  "systemActionsTitle": "系统操作",
+  "systemActionsSubtitle": "让 AI 帮你打开应用和系统页面，随时可以关",
+  "systemActionsReady": "已开启",
+  "systemActionsWaitingEngine": "已开启，等本机引擎启动",
+  "systemActionsOffScreen": "已开启，回到 DSH Go 才能用",
+  "systemActionsConnecting": "正在连接",
+  "systemActionsUnavailable": "已开启，暂时连不上，正在重试",
+  "systemActionsUnsupported": "这个版本用不了",
+  "systemActionsToggleFailed": "没能保存，再试一次",
+  "systemActionsRemoteTitle": "当前连的是远程主机",
+  "systemActionsRemoteHint": "系统操作只在本机引擎的对话里有效",
+  "systemActionsOnScreenTitle": "只在 DSH Go 在屏幕上时有效",
+  "systemActionsOnScreenBody": "系统不让后台应用做这些。AI 打开别的应用后，要等你回到 DSH Go 才能接着做。",
+  "systemActionsCanTitle": "能做的",
+  "systemActionsCanOpen": "打开应用或链接",
+  "systemActionsCanOpenHint": "应用要写包名，不能按名字找",
+  "systemActionsCanPages": "日历、拨号、分享、导航",
+  "systemActionsCanPagesHint": "打开系统界面，最后一步由你确认",
+  "systemActionsCanSettings": "部分系统设置页",
+  "systemActionsCanSettingsHint": "移动网络、显示、声音、NFC 和本应用的通知",
+  "systemActionsCanNotify": "发通知",
+  "systemActionsCanNotifyHint": "发出去不代表你已经看到",
+  "systemActionsCanClipboard": "写剪贴板",
+  "systemActionsCanClipboardHint": "只写不读",
+  "systemActionsCanHandoff": "交还给你",
+  "systemActionsCanHandoffHint": "登录、验证码这类步骤你来做，做完点继续",
+  "systemActionsCannotTitle": "做不到的",
+  "systemActionsCannotScreen": "看屏幕、点按其他应用",
+  "systemActionsCannotScreenHint": "系统不允许",
+  "systemActionsCannotOther": "读剪贴板、按名字找应用、短信",
+  "systemActionsCannotOtherHint": "没有可靠的公开接口，AI 会直接告诉你不支持",
+  "systemActionsConfirmTitle": "确认方式",
+  "systemActionsConfirmValue": "跟随权限",
+  "systemActionsConfirmHint": "按对话的权限来：一般每次先问你，完全权限时不问",
+  "systemActionsPermissionNote": "系统操作也按这里的权限询问：完全权限时不问，其他情况每次先问你。",
+  "systemActionsLogHint": "只记做了什么和结果，不记内容",
+  "systemActionsLogEmptyHint": "AI 用过的系统操作都会记在这里",
+  "systemActionsOpenedUi": "已打开界面",
+  "systemActionsResultUnknown": "结果未知",
+  "systemActionsNotSupported": "不支持",
+  "systemActionsNotRun": "没有执行",
+  "systemActionsDisclosureTitle": "开启系统操作前",
+  "systemActionsDisclosureIntro": "开启后，AI 可以在对话里替你打开应用和系统页面。先了解这几点：",
+  "systemActionsDisclosureWhatTitle": "能做什么",
+  "systemActionsDisclosureWhatBody": "打开应用或链接，打开日历、拨号、分享、导航界面，发通知，写剪贴板，把步骤交还给你。这个版本开通了系统提醒时，还能设闹钟和计时器。",
+  "systemActionsDisclosureWhenTitle": "什么时候做",
+  "systemActionsDisclosureWhenBody": "只在对话用到、DSH Go 在屏幕上时。默认每次先问你，选了完全权限的对话不问。",
+  "systemActionsDisclosureWhoTitle": "发给谁",
+  "systemActionsDisclosureWhoBody": "动作的结果会回到对话，发给你选的模型。",
+  "systemActionsDisclosureNeverTitle": "不会做什么",
+  "systemActionsDisclosureNeverBody": "不看屏幕，不点按其他应用，不读剪贴板。打电话、分享、建日程的最后一步由你确认。",
+  "systemActionsDisclosureStopTitle": "怎么停",
+  "systemActionsDisclosureStopBody": "随时在这里关掉。交还提示可以点停止。",
+  "systemActionsHandoffTitle": "轮到你来操作",
+  "systemActionsHandoffNote": "做完回到 DSH Go 点继续。继续只表示你确认了，AI 看不到其他应用里发生了什么。",
+  "systemActionsHandoffFailed": "这次没算上，提示如果还在可以再点一次",
+  "systemActionsResultOpened": "已打开界面，还没确认里面的事办完。",
+  "systemActionsResultContinued": "你点了继续。这只说明你确认了，不代表其他应用里的操作完成了。",
+  "systemActionsResultNotified": "通知已发出，不确定你有没有看到。",
+  "systemActionsResultReminder": "已交给系统提醒，到点由系统响。引擎不会因此运行。",
+  "systemActionsResultClipboard": "文字已写入剪贴板。",
+  "systemActionsResultUnknownDetail": "系统调用可能已经发出，结果未知。不会自动重试，请自己看一下实际状态。",
+  "systemActionsResultUnsupported": "鸿蒙版不支持这个动作，没有执行。",
+  "systemActionsResultOffScreen": "DSH Go 不在屏幕上，没有执行。",
+  "systemActionsResultUnavailable": "系统操作没开或暂时连不上，没有执行。到「设置 → 系统操作」看看。",
+  "systemActionsResultStopped": "已停止。",
+  "systemActionsResultTimeout": "等待超时，没有结果。",
+  "systemActionsResultNotRun": "没有执行。",
+  "catalogSystemActions": "系统操作",
+  "catalogSystemActionsSummary": "打开应用和系统页面",
+  "searchKwSystemActions": "手机操控,操作手机,代操作,打开应用,打开链接,日历,拨号,分享,导航,发通知,写剪贴板,交还,闹钟,计时器",
   "tavernTitle": "酒馆",
   "tavernImport": "导入",
   "tavernEmptyTitle": "还没有角色",
-  "tavernEmptyMessage": "导入一张角色卡：PNG、JSON 或 CHARX",
+  "tavernEmptyMessage": "接回 DeepSeek 里的对话，或导入一张角色卡",
   "tavernContinue": "继续",
   "tavernCharacters": "角色",
   "tavernImported": "已导入「{name}」",
@@ -11532,21 +13574,21 @@
   },
   "tavernReplying": "正在回复…",
   "tavernReady": "就绪",
-  "tavernPreviewStatus": "预览 · 回复是示例，还没接上模型",
+  "tavernPreviewStatus": "预览 · 示例回复",
   "tavernRegenerate": "重新生成",
   "tavernContinueReply": "接着写",
   "tavernDeleteFrom": "删除这条及以后",
   "tavernPrevious": "上一个回答",
   "tavernNext": "下一个回答",
   "tavernErrorNoKey": "先在设置里填 DeepSeek API Key",
-  "tavernKeyMissing": "还没填 DeepSeek API Key，填好就能开始。",
+  "tavernKeyMissing": "还没填 DeepSeek API Key",
   "tavernKeyMissingAction": "去填写",
   "tavernErrorBadKey": "API Key 不对，去设置里检查一下",
   "tavernErrorBusy": "模型现在有点忙，稍后再试",
   "tavernErrorNetwork": "连不上，检查网络后重试",
   "tavernErrorTooLong": "对话太长了，超出了模型的上下文",
-  "tavernCutShort": "回复写到回复上限，在这里断开了。可以接着写，或在酒馆设置 › 生成里把回复上限调高。",
-  "tavernFiltered": "这条回复被模型的内容过滤拦下了一部分。",
+  "tavernCutShort": "回复到了回复上限。可以接着写，或调高这段对话所用预设的回复上限。",
+  "tavernFiltered": "回复有一部分被内容过滤拦下了。",
   "tavernErrorBalance": "DeepSeek 账户余额不足，充值后再试",
   "tavernErrorParameters": "模型不接受这次请求的参数",
   "tavernErrorParametersDetail": "模型不接受这次请求的参数：{detail}",
@@ -11635,7 +13677,6 @@
     }
   },
   "tavernPresetNotText": "这个文件不是文本",
-  "tavernPresetsEmpty": "还没有预设",
   "tavernPresetsEmptyMessage": "SillyTavern 导出的预设 JSON 和 dsh-preset-enhance 的分享包都能导入。",
   "tavernPresetEnvelope": "分享包",
   "tavernPresetCount": "{count} 个",
@@ -11672,7 +13713,7 @@
   },
   "tavernRegexIncompatible": "这里运行不了，已跳过",
   "tavernRegexEmpty": "还没有全局正则",
-  "tavernRegexEmptyMessage": "SillyTavern 导出的正则 JSON（一条或一组）都能导入。全局正则对所有对话生效；卡和预设自带的正则跟着它们走。",
+  "tavernRegexEmptyMessage": "可以导入 SillyTavern 导出的正则 JSON，一条或一组",
   "tavernRegexUnnamed": "未命名",
   "tavernRegexCount": "{count} 条",
   "@tavernRegexCount": {
@@ -11710,7 +13751,7 @@
     }
   },
   "tavernLorebooksEmpty": "还没有独立世界书",
-  "tavernLorebooksEmptyMessage": "SillyTavern 导出的世界书 JSON 都能导入。设为全局后对所有对话生效；卡自带的世界书跟着卡走。",
+  "tavernLorebooksEmptyMessage": "可以导入 SillyTavern 导出的世界书 JSON",
   "tavernLorebookCount": "{count} 本",
   "@tavernLorebookCount": {
     "placeholders": {
@@ -11826,7 +13867,7 @@
   "tavernPersonaNew": "新建人设",
   "tavernPersonasEmpty": "还没有人设",
   "tavernPersonasEmptyMessage": "人设是你在对话里扮演的人：一个名字和一段介绍，角色就知道你是谁。",
-  "tavernPersonasNote": "长按设为默认或删除。没有单独选人设的对话用默认的。",
+  "tavernPersonasNote": "长按可设为默认或删除",
   "tavernPersonaUnsetDefault": "不再作为默认",
   "tavernPersonaSetDefault": "设为默认人设",
   "tavernPersonaDeleteTitle": "删除「{name}」？",
@@ -11843,9 +13884,9 @@
   "tavernPersonaRemoveAvatar": "去掉头像",
   "tavernPersonaAvatarFailed": "没能用上这张图片",
   "tavernPersonaNameHint": "角色怎么称呼你",
-  "tavernPersonaDescriptionHelp": "模型会读到这段：你是谁、什么样子、和角色是什么关系。",
+  "tavernPersonaDescriptionHelp": "你是谁、什么样子、和角色的关系",
   "tavernPersonaDescriptionHint": "比如：镇上新来的医生，话不多，总拎着一个旧皮箱。",
-  "tavernPersonaDefaultSubtitle": "新对话和没有单独选人设的对话都用它",
+  "tavernPersonaDefaultSubtitle": "没单独选人设的对话都用它",
   "tavernPersonaDelete": "删除人设",
   "tavernPersonaNone": "没有人设",
   "tavernPersonaAs": "以「{name}」的身份",
@@ -11862,11 +13903,12 @@
   "tavernSettingsYou": "你",
   "tavernDefaultPersona": "默认人设",
   "tavernPersonaNotSet": "未设置",
+  "tavernLibraryNone": "无",
   "tavernFieldName": "名字",
   "tavernOpenFailed": "酒馆没能打开",
   "tavernOpenFailedMessage": "存角色和对话的数据没能打开。重试一下；还不行的话，重启 App 再试。",
   "tavernExportPng": "导出角色卡（PNG）",
-  "tavernExportPngSubtitle": "设定藏在图片里，SillyTavern 等酒馆都能导入",
+  "tavernExportPngSubtitle": "SillyTavern 等酒馆都能导入",
   "tavernExportJson": "导出为 JSON",
   "tavernExportFailed": "没能导出这张卡",
   "tavernInspectTitle": "这一回合发了什么",
@@ -11917,6 +13959,9 @@
       }
     }
   },
+  "tavernInspectCost": "估算费用",
+  "tavernInspectCostPeak": "按 DeepSeek 官方价，高峰时段",
+  "tavernInspectCostOffPeak": "按 DeepSeek 官方价，低谷时段（半价）",
   "tavernInspectSegments": "发出去的 {count} 段",
   "@tavernInspectSegments": {
     "placeholders": {
@@ -11993,7 +14038,7 @@
   "tavernExportChat": "导出聊天记录",
   "tavernExportChatFailed": "没能导出这段对话",
   "tavernLorebook": "世界书",
-  "tavernLorebookSubtitle": "这张卡自带的设定条目",
+  "tavernLorebookSubtitle": "卡里自带的条目",
   "tavernLorebookEntries": "{count} 条",
   "@tavernLorebookEntries": {
     "placeholders": {
@@ -12015,9 +14060,9 @@
   "tavernLorebookOff": "已关",
   "tavernLorebookEmpty": "这张卡没有世界书",
   "tavernImportFromFile": "从文件导入",
-  "tavernImportFromFileSubtitle": "角色卡、预设、世界书、正则、快速回复或聊天记录，会自己认出来",
+  "tavernImportFromFileSubtitle": "角色卡、预设、世界书等，自动识别",
   "tavernImportFromLink": "从链接导入",
-  "tavernImportFromLinkSubtitle": "Chub、RisuRealm 的角色页，或卡文件的直链",
+  "tavernImportFromLinkSubtitle": "Chub、RisuRealm 或卡文件的链接",
   "tavernLinkInvalid": "这不是一个网址",
   "tavernLinkFailed": "下载失败，检查网络或链接",
   "tavernLinkStatus": "下载失败（HTTP {status}）",
@@ -12103,7 +14148,7 @@
     }
   },
   "tavernStorybookWhole": "整本",
-  "tavernStorybookWholeNote": "一共 {count} 句，隐藏的消息不放进去。EPUB 能用微信读书、Apple 图书等打开。",
+  "tavernStorybookWholeNote": "一共 {count} 句，隐藏的消息不放进去",
   "@tavernStorybookWholeNote": {
     "placeholders": {
       "count": {
@@ -12154,7 +14199,7 @@
   "tavernStorybookSaved": "已存到相册",
   "tavernStorybookFailed": "没能导出，再试一次",
   "tavernLive2d": "Live2D 形象",
-  "tavernLive2dSubtitle": "视觉小说排版里用它代替卡面，会动、说话时会张嘴",
+  "tavernLive2dSubtitle": "视觉小说排版里代替卡面",
   "tavernLive2dNone": "未导入",
   "tavernLive2dSet": "已导入",
   "tavernLive2dImported": "导入好了，切到视觉小说排版就能看到她。",
@@ -12188,13 +14233,31 @@
   "tavernSessionUsing": "正在用",
   "tavernSessionLook": "外观",
   "tavernSessionMore": "更多",
+  "tavernAudio": "音乐和音效",
+  "tavernAudioBgm": "背景音乐",
+  "tavernAudioAmbient": "音效",
+  "tavernAudioNothing": "没在放",
+  "tavernAudioPlay": "播放",
+  "tavernAudioPause": "暂停",
+  "tavernAudioMode": "播放方式",
+  "tavernAudioModeOne": "单曲",
+  "tavernAudioModeAll": "列表",
+  "tavernAudioModeShuffle": "随机",
+  "tavernAudioModeOnce": "放一首",
+  "tavernAudioVolume": "音量",
+  "tavernAudioAllow": "让角色卡播放",
+  "tavernAudioAdd": "加一首背景音乐",
+  "tavernAudioAddTitle": "背景音乐的链接",
+  "tavernAudioAddNote": "填音频文件的网址（mp3、ogg 等），加进这段对话的背景音乐列表，和卡放的放在一起。",
+  "tavernAudioAddConfirm": "加入",
+  "tavernAudioAddInvalid": "要以 http:// 或 https:// 开头",
   "tavernStageState": "状态",
   "tavernStageDirector": "导演",
   "tavernStageTurn": "本回合",
   "tavernStageStateEmpty": "这张卡还没有状态",
-  "tavernStageStateNote": "卡里定义了状态以后，好感、属性、背包、时间地点都会在这里，每回合变了什么会标出来（「+5」），你也能直接改。没定义的老卡会在这里列出它的变量。",
+  "tavernStageStateNote": "卡里定义了状态，好感、属性、背包等就会显示在这里。",
   "tavernStageDirectorEmpty": "导演还没上场",
-  "tavernStageDirectorNote": "打开导演后，它会在每回合之后在后台读剧情：给下一回合留一条看不见的提示，记下自己的笔记（默认藏着，怕剧透），再在输入框上方给你三个建议回复。它不替你说话，也不写正文。",
+  "tavernStageDirectorNote": "导演会读剧情，给下一回合留提示，并在输入框上方给出三条建议。",
   "tavernStageTurnNone": "还没有可看的回合",
   "tavernStageTokensIn": "提示词",
   "tavernStageCache": "缓存命中",
@@ -12223,7 +14286,7 @@
       }
     }
   },
-  "tavernLorebookChatNote": "只在这段对话里用。标着「全局」的本来就对所有对话生效。",
+  "tavernLorebookChatNote": "只对这段对话。「全局」的对所有对话都生效。",
   "tavernLorebookCharacterNote": "这个角色的每段对话都会用，卡自带的世界书照常一起用。",
   "tavernLorebookPersonaNote": "你用这个人设时，每段对话都会用。",
   "tavernLorebookPickEmpty": "资源库里还没有世界书",
@@ -12241,7 +14304,7 @@
   "tavernPrefillTarget": "放在",
   "tavernPrefillContent": "正文",
   "tavernPrefillReasoning": "思考",
-  "tavernPrefillNote": "开着时，这段文字作为回复的开头发给模型，模型从这里接着写。放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。",
+  "tavernPrefillNote": "放在「思考」只在开了思考时生效，没开就放进正文。「接着写」的回合不用它。",
   "tavernPresetPromptEmpty": "空着",
   "tavernThinkingSeconds": "{seconds} 秒",
   "@tavernThinkingSeconds": {
@@ -12261,8 +14324,8 @@
   },
   "tavernDeleteFromUndoable": "从这条到最新一条，连同它们的备选回复和分支。删完几秒内可以撤销。",
   "tavernUndoFailed": "没能撤销",
-  "tavernShowUsage": "每条回复下显示用量",
-  "tavernShowUsageSubtitle": "模型报告的输入、输出 token 数；不估算费用",
+  "tavernShowUsage": "每条回复下显示用量和费用",
+  "tavernShowUsageSubtitle": "模型报告的输入、输出 token 数；DeepSeek 的模型另按官方价估个费用，分高峰和低谷时段",
   "tavernUsageLine": "输入 {input} · 输出 {output}",
   "@tavernUsageLine": {
     "placeholders": {
@@ -12290,6 +14353,36 @@
       "output": {
         "type": "int",
         "format": "decimalPattern"
+      }
+    }
+  },
+  "tavernUsageCost": "约 {usd}",
+  "@tavernUsageCost": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernUsageCostUnder": "不到 {usd}",
+  "@tavernUsageCostUnder": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernCostAlert": "单回合费用提醒",
+  "tavernCostAlertSubtitle": "一个回合按 DeepSeek 官方价估的费用超过这条线时，在输入框上方说一声；别的模型不估",
+  "tavernCostAlertOff": "关",
+  "tavernCostAlertNotice": "这一回合{cost}，超过了提醒线 {line}",
+  "@tavernCostAlertNotice": {
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      },
+      "line": {
+        "type": "String"
       }
     }
   },
@@ -12346,12 +14439,10 @@
   "tavernNarrator": "旁白",
   "tavernSendOptions": "换种方式发",
   "tavernSendOnly": "只发，不回复",
-  "tavernSendOnlySubtitle": "这句放进故事，她先不接话",
   "tavernNarrate": "以旁白身份发",
-  "tavernNarrateSubtitle": "作为叙述插进故事，不算你说的话",
   "tavernSendFailed": "没能发出去",
   "tavernStateVariables": "变量",
-  "tavernStateVariablesNote": "卡和对话里 {{setvar}} 这类宏记下的变量，到当前这条为止。点一项看全部，也能直接改。",
+  "tavernStateVariablesNote": "宏（如 {{setvar}}）记下的变量，到当前这条为止。点一项可查看或修改。",
   "tavernData": "数据",
   "tavernBackup": "备份整个酒馆",
   "tavernBackupSubtitle": "角色卡、对话、预设、世界书、人设和设置，打成一个 zip",
@@ -12618,11 +14709,13 @@
   "tavernIslandsSubtitle": "卡在消息里写的 HTML 和样式（状态栏、面板），单独放进一个网页里显示；关掉就按文字显示",
   "tavernSettingsSafety": "安全",
   "tavernIslandNoScripts": "网页里不运行卡的脚本",
+  "tavernSPresetExternal": "让预设自己加载 SPreset",
+  "tavernSPresetExternalSubtitle": "默认用内置的 SPreset，不从预设作者的网站加载脚本；打开后改用预设自己加载的",
   "tavernIslandNoScriptsSubtitle": "卡自带的 JavaScript 不运行；要靠脚本动起来的状态栏会停住",
   "tavernIslandOffline": "网页不联网",
   "tavernIslandOfflineSubtitle": "只用卡里自带的图片和字体，不从网上加载任何东西",
   "tavernSessionUsage": "本局用量",
-  "tavernSessionUsageNote": "当前这条线上 {count} 条回复的合计；换掉的备选不算",
+  "tavernSessionUsageNote": "当前分支 {count} 条回复的合计，换掉的备选不算",
   "@tavernSessionUsageNote": {
     "placeholders": {
       "count": {
@@ -12631,9 +14724,33 @@
     }
   },
   "tavernSessionUsageNone": "还没有模型报告过用量",
+  "tavernSessionUsageCost": "约 {usd}，按 DeepSeek 官方价，分高峰和低谷时段算；法定节假日全天是低谷价，那几天这里会算高一点",
+  "@tavernSessionUsageCost": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernStageCost": "约 {usd}，按 DeepSeek 官方价估算",
+  "@tavernStageCost": {
+    "placeholders": {
+      "usd": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernSessionUsageUnpriced": "{count} 条回复用的模型不在价目表里，没算进费用",
+  "@tavernSessionUsageUnpriced": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tavernComposerNoKey": "填好 Key 就能开始",
   "tavernWriteOwn": "自己写一个角色",
-  "tavernWriteOwnSubtitle": "从一张空白卡开始，名字、设定和开场白都自己填",
+  "tavernWriteOwnSubtitle": "从一张空白卡开始",
   "tavernNewCharacterName": "新角色",
   "tavernSearchGoTo": "到对话里这一条",
   "tavernBookmarks": "书签",
@@ -12645,7 +14762,7 @@
   "tavernBookmarksEmptyMessage": "长按一条消息，选「加书签」",
   "tavernBookmarkGone": "那一条已经不在了，书签去掉了",
   "tavernUsageStats": "用量统计",
-  "tavernUsageStatsSubtitle": "每段对话用了多少 token",
+  "tavernUsageStatsSubtitle": "每段对话用了多少 token、约多少钱",
   "tavernUsageAllNote": "所有对话当前线上的回复合计；换掉的备选不算",
   "tavernUsageChatReplies": "{count} 条回复 · 回复 {completion}",
   "@tavernUsageChatReplies": {
@@ -12683,8 +14800,8 @@
       }
     }
   },
-  "tavernStateNote": "卡定义的状态，到当前这条消息为止。这回合变了的标着「+5」这样的记号；点一项看全部，也能直接改，改动记在这条消息上，换回答、切分支会跟着回退。",
-  "tavernStatePreview": "还没开始记，下面是卡给的初始值。",
+  "tavernStateNote": "到当前这条消息为止。点一项可查看或修改，改动随这条消息回退。",
+  "tavernStatePreview": "还没有记录，下面是初始值。",
   "tavernStateChanged": "变了",
   "tavernStateHidden": "剧透 · 点开看",
   "tavernStateWhole": "整体",
@@ -12703,14 +14820,14 @@
     }
   },
   "tavernDirectorAuto": "自动导演",
-  "tavernDirectorAutoNote": "只对这段对话。开了以后每隔几个回合，在回复写完后多问一次模型：下一拍往哪走、给你三条可以做的事。每次都会多用一些额度。",
+  "tavernDirectorAutoNote": "只对这段对话。每隔几个回合多请求一次模型，会多用一些额度。",
   "tavernDirectorRun": "让导演想一想",
   "tavernDirectorRunning": "导演在想…",
   "tavernDirectorBeat": "下一拍",
   "tavernDirectorSuggestions": "你可以…",
-  "tavernDirectorSuggestionsNote": "点一条放进输入框，改不改、发不发由你。",
+  "tavernDirectorSuggestionsNote": "点一条放进输入框",
   "tavernDirectorNotes": "导演笔记",
-  "tavernDirectorStale": "这是之前的情况下想的，现在不一定合适，只供参考。",
+  "tavernDirectorStale": "基于之前的剧情，仅供参考。",
   "tavernDirectorFailed": "上次没想成：{reason}",
   "@tavernDirectorFailed": {
     "placeholders": {
@@ -12793,7 +14910,9 @@
   },
   "tavernStThemeNote": "配色选「ST」时，引号里的话和 *动作* 用它的颜色；太浅或太深看不清的，会调到看得清。",
   "tavernStThemeImport": "导入 ST 主题",
-  "tavernStThemeImportNote": "从 SillyTavern 导出的主题文件里取引号和斜体的颜色。",
+  "tavernStThemeImportNote": "从 SillyTavern 导出的主题文件里取引号和斜体的颜色，和它的自定义 CSS。",
+  "tavernStThemeCss": "用它的自定义 CSS",
+  "tavernStThemeCssSubtitle": "配色选「ST」时加进整页画布，和在 ST 里一样盖过默认样式。版面乱了就关掉，颜色照用。",
   "tavernStThemeRemove": "移除",
   "tavernStThemeImported": "换成了 ST 主题「{name}」的配色",
   "@tavernStThemeImported": {
@@ -12803,7 +14922,7 @@
       }
     }
   },
-  "tavernStThemeNoColors": "「{name}」里没有能用的引号或斜体颜色",
+  "tavernStThemeNoColors": "「{name}」里没有能用的引号、斜体颜色或自定义 CSS",
   "@tavernStThemeNoColors": {
     "placeholders": {
       "name": {
@@ -12907,9 +15026,19 @@
   "tavernRollSuccess": "成功",
   "tavernRollFailure": "失败",
   "tavernGameHere": "这里有一个小游戏，现在还不能在这里玩",
+  "tavernCanvasReplied": "{name}回复了",
+  "@tavernCanvasReplied": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernMvuIssues": "这张卡的变量更新有问题",
+  "tavernMvuUnfinished": "这一层的变量没有更新完，正文已经保留",
   "tavernRegexEdit": "编辑规则",
   "tavernRegexFieldName": "名字",
-  "tavernRegexFieldFindHelp": "SillyTavern 的写法：/规则/标志，比如 /(早安|晚安)/gi",
+  "tavernRegexFieldFindHelp": "写法 /规则/标志，如 /(早安|晚安)/gi",
   "tavernRegexFieldReplaceHelp": "$1 是第一组，{{match}} 是整段匹配",
   "tavernRegexFieldTrim": "先去掉的字",
   "tavernRegexFieldTrimHelp": "每行一个；替换之前先从匹配到的字里删掉",
@@ -12924,7 +15053,7 @@
   "tavernRegexPhaseDisplay": "只改显示",
   "tavernRegexPhasePrompt": "只改发出",
   "tavernRegexPhaseBoth": "显示和发出",
-  "tavernRegexPhaseNote": "原文：直接改写存下来的消息。只改显示：存档不变，只是看起来不同。只改发出：只改发给模型的那一份。",
+  "tavernRegexPhaseNote": "原文：改写存下的消息；只改显示：存档不变；只改发出：只改发给模型的那份",
   "tavernRegexMinDepth": "最浅",
   "tavernRegexMaxDepth": "最深",
   "tavernRegexDepthHelp": "空着就是不限；0 是最新一条",
@@ -12940,8 +15069,924 @@
   "tavernRegexTryDraft": "用现在填的试一下",
   "tavernRegexDepthAny": "不限",
   "tavernCanvas": "整页画布（试用）",
-  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。视觉小说不用它；卡里的脚本暂时还不跑。",
+  "tavernCardScriptsHint": "{count} 个卡片脚本要在整页画布里运行",
+  "@tavernCardScriptsHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernCardScriptsHintAction": "打开",
+  "tavernRender": "显示方式",
+  "tavernRenderSubtitle": "只管这个角色的单人对话。状态栏、美化要选网页或画布，脚本只在画布里运行",
+  "tavernRenderText": "文字",
+  "tavernRenderIslands": "消息网页",
+  "tavernRenderCanvas": "整页画布",
+  "tavernCanvasSubtitle": "整段对话放进一张网页，按 SillyTavern 的结构排，卡写给 ST 的样式能跨消息生效。卡里的脚本会运行，不想让它跑就打开「网页里不运行卡的脚本」。视觉小说不用它。",
   "tavernCanvasReloaded": "画面重新加载了",
+  "tavernLowPower": "省电渲染",
+  "tavernLowPowerSubtitle": "去掉卡片网页里的模糊和循环动画，手机更流畅",
+  "tavernGroupSpeaking": "{name} 在说",
+  "@tavernGroupSpeaking": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupThen": "接着是 {names}",
+  "@tavernGroupThen": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupNoSpeakers": "这一轮没人接话。点上面的名字，让谁来说。",
+  "tavernGroupSpeakNext": "让大家接着说",
+  "tavernGroupNew": "新建群聊",
+  "tavernGroupMembers": "谁在里面",
+  "tavernGroupMembersNote": "按点选的顺序排，第一个是主持",
+  "tavernGroupHost": "主持",
+  "tavernGroupTitle": "群名",
+  "tavernGroupActivation": "怎么轮流说",
+  "tavernGroupNatural": "自然",
+  "tavernGroupListOrder": "按顺序",
+  "tavernGroupRandom": "随机",
+  "tavernGroupManual": "手动",
+  "tavernGroupDirector": "导演",
+  "tavernGroupNaturalNote": "像 SillyTavern：被点到名的先说，其余看各自的话多话少",
+  "tavernGroupListOrderNote": "每轮按名单从头轮一遍（静音的跳过）。",
+  "tavernGroupRandomNote": "每轮随机挑一个这轮还没说过的人。",
+  "tavernGroupManualNote": "谁也不自己开口；点输入框上面的名字，让谁说谁说。",
+  "tavernGroupDirectorNote": "由导演按剧情点名下一位。",
+  "tavernGroupPickTwo": "至少选两个角色",
+  "tavernGroupCreate": "建群（{count} 人）",
+  "@tavernGroupCreate": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernGroupCreateFailed": "没能建群：{reason}",
+  "@tavernGroupCreateFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupTag": "群",
+  "tavernGroupMemberCount": "{count} 人",
+  "@tavernGroupMemberCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernGroupSettings": "群聊设置",
+  "tavernGroupMaxSpeakers": "每轮最多几人",
+  "tavernGroupSelfResponses": "可以接着自己说",
+  "tavernGroupSelfResponsesNote": "刚说完的人这一轮还能再说",
+  "tavernGroupHostNote": "主持是「{name}」，故事共用的状态记在它的卡上",
+  "@tavernGroupHostNote": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupMuted": "静音",
+  "tavernGroupMutedNote": "不会自己开口；点名时照样说。",
+  "tavernGroupTalkativeness": "话多话少",
+  "tavernGroupTalkativenessNote": "「自然」轮流时，越高越容易开口。",
+  "tavernGroupHelperModel": "用辅助模型",
+  "tavernGroupHelperModelNote": "用辅助模型说（自动时 DeepSeek 用 flash 且不思考，其他渠道用主模型），适合配角。",
+  "tavernGroupMoveUp": "往前挪",
+  "tavernGroupMoveDown": "往后挪",
+  "tavernGroupRemove": "移出群聊",
+  "tavernGroupAdd": "加一个角色",
+  "tavernGroupNoOthers": "书架上的角色都在群里了",
+  "tavernGroupUnavailable": "角色卡不在了",
+  "tavernGroupSaveFailed": "没能保存：{reason}",
+  "@tavernGroupSaveFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernGroupErrorNotGroup": "这已经不是群聊了",
+  "tavernGroupErrorCharacterNotFound": "这个角色的卡不在了",
+  "tavernGroupErrorMemberExists": "这个角色已经在群里了",
+  "tavernGroupErrorMemberNotFound": "这个角色已经不在群里了",
+  "tavernGroupErrorInvalidMembers": "成员不能重复，群里至少要有一个角色",
+  "tavernGroupErrorInvalidTalkativeness": "话多程度要在 0 到 1 之间",
+  "tavernGroupErrorInvalidLimit": "每轮至少要有一个人说话",
+  "tavernGroupErrorInvalidOrder": "排的顺序和群里的成员对不上，请重新打开再排",
+  "tavernGroupErrorHostInUse": "这个角色是一个群聊的群主，先删掉那个群聊",
+  "tavernGroupErrorInvalidTitle": "群聊的名字不能只有空白",
+  "tavernToolRollUnsettled": "🎲 {dice}：结果还没确认",
+  "@tavernToolRollUnsettled": {
+    "placeholders": {
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernToolRollNotDone": "🎲 {dice}：没有掷",
+  "@tavernToolRollNotDone": {
+    "placeholders": {
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernToolRollPass": "目标 {target}，成功",
+  "@tavernToolRollPass": {
+    "placeholders": {
+      "target": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernToolRollFail": "目标 {target}，没过",
+  "@tavernToolRollFail": {
+    "placeholders": {
+      "target": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernToolMemory": "想记住：「{text}」",
+  "@tavernToolMemory": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernToolMemoryAccept": "记住",
+  "tavernToolMemoryReject": "不用",
+  "tavernToolMemoryStaged": "等这一回合写完再定",
+  "tavernToolMemoryIneligible": "现在不能确认：{reason}",
+  "@tavernToolMemoryIneligible": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernToolMemoryAccepted": "已记住",
+  "tavernToolMemoryAuto": "已按自动设置记住",
+  "tavernToolMemoryRejected": "没有记",
+  "tavernToolMemoryInactive": "这一回合没有正常写完，没有记",
+  "tavernToolMemoryWaiting": "上次的决定还没确认上",
+  "tavernToolMemoryNotApplied": "没记上：{reason}",
+  "@tavernToolMemoryNotApplied": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernToolMemoryFailed": "没确认上：{detail}",
+  "@tavernToolMemoryFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernToolReasonRevision": "它已经变了，刷新后再定",
+  "tavernToolReasonResolved": "已经定过了",
+  "tavernToolReasonContext": "对话已经变了",
+  "tavernToolReasonDeleted": "那条回复被删了",
+  "tavernToolReasonChanged": "那条回复改过了",
+  "tavernToolReasonBranch": "不在现在这条线上",
+  "tavernToolReasonInactive": "已经失效",
+  "tavernToolReasonUnknown": "原因不明",
+  "tavernToolPolicy": "工具",
+  "tavernToolPolicyRoll": "让角色掷骰",
+  "tavernToolPolicyRollSubtitle": "回复里要掷骰时，由酒馆来掷，点数记下来",
+  "tavernToolPolicyRemember": "让角色记事",
+  "tavernToolPolicyRememberSubtitle": "角色觉得值得记住的事，按下面的方式记进记忆",
+  "tavernToolPolicyMode": "记事方式",
+  "tavernToolPolicyModeAsk": "先问我",
+  "tavernToolPolicyModeAuto": "自动",
+  "tavernToolPolicyDiagnostics": "设置里有一部分读不懂，对应的工具先关着",
+  "tavernToolPolicyNote": "只在用 DeepSeek、不开思考时，回复里才会用上这些；改了从下一回合起生效，角色卡也可以关掉它们",
+  "tavernToolPolicyFailed": "没改成：{detail}",
+  "@tavernToolPolicyFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernChatTools": "这局的工具",
+  "tavernChatToolFollow": "跟设置",
+  "tavernChatToolOn": "开",
+  "tavernChatToolOff": "关",
+  "tavernChatToolNow": "这局实际：掷骰{roll}，记事{remember}",
+  "@tavernChatToolNow": {
+    "placeholders": {
+      "roll": {
+        "type": "String"
+      },
+      "remember": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernChatToolHeld": "酒馆设置里关着的，这里打开也不算",
+  "tavernInspectRequests": "{count} 次请求",
+  "@tavernInspectRequests": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernInspectUsageTotals": "输入 {prompt}（缓存 {hit}）· 输出 {completion}",
+  "@tavernInspectUsageTotals": {
+    "placeholders": {
+      "prompt": {
+        "type": "String"
+      },
+      "hit": {
+        "type": "String"
+      },
+      "completion": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernReqUsagePrompt": "输入",
+  "tavernReqUsageCache": "缓存",
+  "tavernReqUsageCompletion": "输出",
+  "tavernReqUsageLine": "{field}：{parts}",
+  "@tavernReqUsageLine": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "parts": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernReqUsageJoin": "，",
+  "tavernReqUsageKnown": "已明确 {known}",
+  "@tavernReqUsageKnown": {
+    "placeholders": {
+      "known": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernReqUsageUnknown": "{count} 个请求未知",
+  "@tavernReqUsageUnknown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernReqUsageMissing": "{count} 个请求没报告",
+  "@tavernReqUsageMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernReqUsageInvalid": "{count} 个请求报告的数不对",
+  "@tavernReqUsageInvalid": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernToolFailBudget": "这一回合用工具的次数用完了，停在这里；之前已经掷的骰子照样算数",
+  "tavernToolFailBatch": "模型一次要用的工具太多，这一批没有执行",
+  "tavernToolFailProtocol": "模型给的工具调用格式不对，没有执行",
+  "tavernToolFailSnapshot": "这个模型的回复没法接着用工具，停在这里",
+  "tavernToolFailReceipt": "工具的结果没能存好，稍后看看这一回合",
+  "tavernToolFailAnchor": "对话在这一回合中途变了，没有接着写",
+  "tavernToolFail": "用工具时出错了",
+  "tavernToolFailDetail": "用工具时出错了：{detail}",
+  "@tavernToolFailDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDiceUnsettled": "结果还没确认，可以再查一次",
+  "tavernDicePending": "上次那次掷骰还没确认",
+  "tavernDiceRecheck": "再查一次",
+  "tavernDiceForget": "放弃这次",
+  "tavernDiceBusy": "现在正忙，等这一回合写完再掷",
+  "tavernDiceOff": "酒馆设置里关了掷骰",
+  "tavernDiceFailed": "没掷成：{detail}",
+  "@tavernDiceFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDiceNotSaved": "没确认上：{detail}",
+  "@tavernDiceNotSaved": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernChannel": "渠道",
+  "tavernChannelDeepSeek": "DeepSeek 官方",
+  "tavernChannelDeepSeekNote": "用 App 里填的 DeepSeek Key",
+  "tavernChannelAdd": "添加渠道",
+  "tavernChannelEdit": "编辑渠道",
+  "tavernChannelsNote": "兼容 OpenAI 接口的服务都能加：中转站、OpenRouter、自己电脑上跑的模型。Key 只存在这台手机的安全存储里。费用估算只认 DeepSeek 官方的价格，其他渠道只显示 token 数。",
+  "tavernChannelName": "名称",
+  "tavernChannelNameHint": "不填就用网址",
+  "tavernChannelBaseUrlInvalid": "要以 http:// 或 https:// 开头",
+  "tavernChannelKeyOptional": "本地服务不需要 Key 可以不填",
+  "tavernChannelKeyKept": "已存了 Key，不填就保持原样",
+  "tavernChannelFetchModels": "获取列表",
+  "tavernChannelFetching": "获取中…",
+  "tavernChannelFetchFailed": "没拿到模型列表（{detail}），直接填模型名也行",
+  "@tavernChannelFetchFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernChannelNoModels": "这个服务没列出模型，直接填模型名就行",
+  "tavernChannelModelHint": "服务商给的模型名",
+  "tavernChannelModelMissing": "填一个模型名",
+  "tavernChannelPickModel": "选模型",
+  "tavernChannelSearchModels": "搜索模型",
+  "tavernChannelDeepSeekApi": "按 DeepSeek 接口发送",
+  "tavernChannelDeepSeekApiNote": "用 DeepSeek 的续写方式和思考开关。只在 DeepSeek 官方或原样转发它的中转上打开。",
+  "tavernChannelDelete": "删除渠道",
+  "tavernChannelDeleteTitle": "删除「{name}」？",
+  "@tavernChannelDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernChannelDeleteMessage": "它的 Key 也会一起删掉。正在用它的话，换回 DeepSeek 官方。",
+  "tavernChannelCopyFromApp": "从 App 的渠道复制",
+  "tavernModelName": "模型名",
+  "tavernNumberCustom": "自定义",
+  "tavernNumberType": "输入数值",
+  "tavernNumberRange": "填 {min} 到 {max} 之间的数",
+  "@tavernNumberRange": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernNumberRangeWhole": "填 {min} 到 {max} 之间的整数",
+  "@tavernNumberRangeWhole": {
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernTopP": "Top P",
+  "tavernPresencePenalty": "存在惩罚",
+  "tavernFrequencyPenalty": "频率惩罚",
+  "tavernPresetSampling": "采样",
+  "tavernChannelHeaders": "请求头（可选）",
+  "tavernChannelHeadersNote": "每行一个，写成「名称: 值」。和 Key 一样存在这台手机的安全存储里。",
+  "tavernChannelHeadersInvalid": "每行写成「名称: 值」",
+  "tavernAuxiliary": "辅助模型",
+  "tavernAuxiliaryNote": "导演、群聊选人、秘密这些后台请求用它",
+  "tavernAuxiliaryAuto": "自动",
+  "tavernAuxiliaryAutoNote": "跟着主渠道：DeepSeek 用 Flash，其他渠道用同一个模型",
+  "tavernAuxiliaryDeepSeek": "DeepSeek Flash",
+  "tavernChannelKeyClear": "清除",
+  "tavernChannelKeyCleared": "Key 会在保存时清除",
+  "tavernDrafts": "草稿",
+  "tavernDraftsSubtitle": "改动先放在草稿里，挑好再应用到真的卡上",
+  "tavernDraftsForCard": "用 AI 改这张卡",
+  "tavernDraftsEmpty": "还没有草稿",
+  "tavernDraftsEmptyOwn": "新建一份草稿，告诉 AI 想怎么改这张卡。",
+  "tavernDraftsEmptyAll": "从角色页开一份草稿，或者从文件起稿：文件先当草稿，不会直接导入。",
+  "tavernDraftNew": "新草稿",
+  "tavernDraftFromFile": "从文件起稿",
+  "tavernDraftSeedUnsupported": "{name} 不是角色卡或世界书，没法起稿",
+  "@tavernDraftSeedUnsupported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraft": "草稿",
+  "tavernDraftSubtitle": "草稿里的改动还没用到真的卡上",
+  "tavernDraftGone": "这份草稿已经不在了",
+  "tavernDraftKindCharacter": "角色卡",
+  "tavernDraftKindPreset": "预设",
+  "tavernDraftNewSource": "{name}（还没存）",
+  "@tavernDraftNewSource": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraftGreetings": "备选开场白",
+  "tavernDraftEntry": "第 {n} 条",
+  "@tavernDraftEntry": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftNoChanges": "还没有改动",
+  "tavernDraftNoChangesHint": "在下面告诉 AI 想怎么改",
+  "tavernDraftBefore": "原来",
+  "tavernDraftAfter": "改成",
+  "tavernDraftAbsent": "（没有）",
+  "tavernDraftRemoved": "删掉",
+  "tavernDraftAppliedChange": "已应用",
+  "tavernDraftDependsOn": "要和它前面的 {n} 处改动一起用",
+  "@tavernDraftDependsOn": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftRemoveChange": "从草稿里去掉这处",
+  "tavernDraftApply": "应用 {n} 处",
+  "@tavernDraftApply": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftSaveNew": "另存为新的",
+  "tavernDraftSavedNew": "已另存为新的",
+  "tavernDraftChecked": "检查过，没发现问题",
+  "tavernDraftCannotApply": "正则和预设的草稿暂时只能预览，不能应用",
+  "tavernDraftApplied": "已应用到「{name}」",
+  "@tavernDraftApplied": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraftNoChange": "和现在的一样，没有要改的",
+  "tavernDraftNotApplied": "没有应用：{reason}",
+  "@tavernDraftNotApplied": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraftUnconfirmed": "写入结果还没确认。先别重复点，过一会儿看历史版本里有没有。",
+  "tavernDraftApplyUnknown": "没收到结果（{reason}），再点一次会接着同一次操作",
+  "@tavernDraftApplyUnknown": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraftBehind": "「{name}」在起草之后改过了（也可能是刚应用过）。按现在的版本继续，再看一遍改动。",
+  "@tavernDraftBehind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraftCatchUp": "按现在的版本继续",
+  "tavernDraftChangedMeanwhile": "草稿刚被改过，已刷新",
+  "tavernDraftPending": "上一次写入还没确认，暂时不能再应用",
+  "tavernDraftDelete": "删除草稿",
+  "tavernDraftDeleteTitle": "删除这份草稿？",
+  "tavernDraftDeleteBody": "只删草稿，已经应用到卡上的不受影响。",
+  "tavernDraftAskHint": "想怎么改？比如：开场白冷淡一点",
+  "tavernDraftAiSend": "让 AI 改",
+  "tavernDraftAiStop": "停下",
+  "tavernDraftAiTitle": "AI",
+  "tavernDraftAiRunning": "正在改…",
+  "tavernDraftAiDone": "改好了，改动在上面，挑好再应用",
+  "tavernDraftAiStopped": "已停下",
+  "tavernDraftAiConflict": "草稿在这期间被改过，AI 停下了",
+  "tavernDraftAiBudget": "四次请求用完了，先停在这里",
+  "tavernDraftAiFailed": "出错了",
+  "tavernDraftAiInterrupted": "中断了（App 关过）",
+  "tavernDraftEarlier": "之前问过的",
+  "tavernDraftRunReceipts": "改了 {changes} 次 · {requests} 次请求",
+  "@tavernDraftRunReceipts": {
+    "placeholders": {
+      "changes": {
+        "type": "int"
+      },
+      "requests": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftHistory": "历史版本",
+  "tavernDraftHistoryEmpty": "还没有记下的版本",
+  "tavernDraftHistoryNote": "回到某一版会另存成新的一版，之后的版本都还在；图片和对话不受影响。",
+  "tavernDraftVersion": "第 {n} 版",
+  "@tavernDraftVersion": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftVersionCurrent": "现在",
+  "tavernDraftRestore": "回到这一版",
+  "tavernDraftRestoreTitle": "回到第 {n} 版？",
+  "@tavernDraftRestoreTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftRestoreBody": "会另存成新的一版。",
+  "tavernDraftRestored": "已回到第 {n} 版",
+  "@tavernDraftRestored": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftRestoreMoved": "这期间又改过了，刷新后再试",
+  "tavernDraftPrompt": "用草稿看提示词",
+  "tavernDraftPromptSubtitle": "把勾选的改动放进去，看下一轮会发什么；什么都不发送",
+  "tavernDraftPromptFrom": "接着哪段对话",
+  "tavernDraftPromptFirst": "新对话的第一句",
+  "tavernDraftPromptText": "下一句（可不填）",
+  "tavernDraftPromptTextHint": "你会说的话",
+  "tavernDraftPromptShow": "看提示词",
+  "tavernDraftPromptComplete": "提示词",
+  "tavernDraftPromptUnsupported": "这张卡有些内容在预览里没法照实拼出来",
+  "tavernDraftPromptNote": "卡里的脚本在预览里不运行。",
+  "tavernDraftUsagePartial": "已报告：输入 {prompt} · 输出 {completion}（有请求没报告用量）",
+  "@tavernDraftUsagePartial": {
+    "placeholders": {
+      "prompt": {
+        "type": "String"
+      },
+      "completion": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernDraftTrial": "试玩",
+  "tavernDraftTrialSubtitle": "用草稿在一段临时对话里聊几句，真实对话不受影响",
+  "tavernDraftTrialNote": "会真的请求模型，按实际用量计费；最多四句。",
+  "tavernDraftTrialLine": "第 {n} 句",
+  "@tavernDraftTrialLine": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDraftTrialMore": "再加一句",
+  "tavernDraftTrialPlay": "开始试玩",
+  "tavernDraftTrialRunning": "正在试…",
+  "tavernDraftTrialDone": "试完了",
+  "tavernDraftTrialUnsupported": "这份草稿暂时没法试玩",
+  "tavernImportFromDeepSeek": "从 DeepSeek 接回来",
+  "tavernImportFromDeepSeekSubtitle": "选 DeepSeek 设置里导出的 ZIP",
+  "tavernDeepSeekTitle": "接回 DeepSeek 的对话",
+  "tavernDeepSeekFound": "找到 {count} 段对话，勾上要接回来的",
+  "@tavernDeepSeekFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDeepSeekMessages": "{count} 条",
+  "@tavernDeepSeekMessages": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDeepSeekUntitled": "没有标题的对话",
+  "tavernDeepSeekAlready": "已经接回来了，点开继续",
+  "tavernDeepSeekMore": "显示更多（还有 {count} 段）",
+  "@tavernDeepSeekMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDeepSeekTake": "接回来（{count}）",
+  "@tavernDeepSeekTake": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernDeepSeekTaking": "正在接回…",
+  "tavernDeepSeekNotExport": "这不是 DeepSeek 导出的对话",
+  "tavernDeepSeekNotExportMessage": "要选在 DeepSeek 里导出全部历史对话后得到的那个 ZIP",
+  "tavernDeepSeekFailed": "没接回来，再试一次",
+  "tavernDeepSeekTaken": "接回了 {count} 段，其余的在对话列表里",
+  "@tavernDeepSeekTaken": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernIslandStoryWaiting": "正在读取本条消息的数据…",
+  "tavernIslandStoryFailed": "本条消息的数据读取失败：{reason}",
+  "@tavernIslandStoryFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPacks": "玩法包",
+  "tavernPacksSubtitle": "装上后要在全局、角色或对话里加上才生效",
+  "tavernPacksEmpty": "还没有玩法包",
+  "tavernPacksEmptyNote": "导入 .dshpack 文件。导入只是保存，不会启用，也不会建角色。",
+  "tavernPackImport": "导入玩法包",
+  "tavernPackInstalled": "已导入「{title}」{version}",
+  "@tavernPackInstalled": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackAlreadyInstalled": "「{title}」{version} 已经装过，内容一样",
+  "@tavernPackAlreadyInstalled": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackVersionCount": "{n} 个版本",
+  "@tavernPackVersionCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernPackWithdrawnShort": "{version}（已撤下）",
+  "@tavernPackWithdrawnShort": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackWithdrawnLabel": "已撤下",
+  "tavernPackShowWithdrawn": "显示已撤下的版本",
+  "tavernPackScopeGlobal": "全局启用",
+  "tavernPackScopeCharacter": "这个角色的玩法包",
+  "tavernPackScopeChat": "这段对话的玩法包",
+  "tavernPackForCardSubtitle": "这张卡的所有对话都用",
+  "tavernPackBindingsSubtitle": "改完点保存才生效；先预览可以看组合结果",
+  "tavernPackOrderNote": "按从上到下的顺序组合，同一个字段谁生效以预览为准。点一行可以换版本、调顺序、关联角色。",
+  "tavernPackAdd": "添加玩法包",
+  "tavernPackUnsaved": "未保存",
+  "tavernPackResetPending": "保存时重置一次性状态",
+  "tavernPackCastMappedCount": "关联了 {n} 个角色",
+  "@tavernPackCastMappedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernPackRemovedBindings": "已移除",
+  "tavernPackPickVersion": "换版本",
+  "tavernPackMoveUp": "上移",
+  "tavernPackMoveDown": "下移",
+  "tavernPackResetOnce": "重置一次性状态",
+  "tavernPackRestore": "恢复",
+  "tavernPackRemoveBinding": "移除",
+  "tavernPackSaved": "已保存",
+  "tavernPackUnanswered": "没收到结果：{reason}。再点保存会按同一次操作重试",
+  "@tavernPackUnanswered": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackVersion": "版本",
+  "tavernPackAddGlobal": "加到全局",
+  "tavernPackAddNote": "只给某个角色或对话：在角色页或舞台面板里加",
+  "tavernPackCast": "角色",
+  "tavernPackCastNote": "导入会新建角色，不改原来的卡",
+  "tavernPackCastFromCard": "完整角色卡",
+  "tavernPackCastImportAction": "导入为角色",
+  "tavernPackCastImportTitle": "把「{name}」导入为新角色？",
+  "@tavernPackCastImportTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackCastImportNote": "会在角色库里新建一个角色。之后改这个玩法包的版本，不会替换它。",
+  "tavernPackCastImported": "已导入「{name}」",
+  "@tavernPackCastImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackCastNotAdopted": "这次没有建成角色",
+  "tavernPackCastUnknown": "结果还没确认（{state}），稍后到角色库看看",
+  "@tavernPackCastUnknown": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackCastMapping": "关联角色",
+  "tavernPackCastMapped": "已关联",
+  "tavernPackResources": "资源",
+  "tavernPackIssueCount": "{n} 条提示",
+  "@tavernPackIssueCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernPackDeclaration": "声明检查",
+  "tavernPackDeclarationNote": "导入时的检查结果。装上了不等于每一块都能执行；标着 conditional 或 opaque 的部分要看具体情况。",
+  "tavernPackNothingNoted": "没有提示",
+  "tavernPackExportOriginal": "导出原文件",
+  "tavernPackWithdraw": "撤下这个版本",
+  "tavernPackWithdrawTitle": "撤下 {version}？",
+  "@tavernPackWithdrawTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernPackWithdrawNote": "撤下后不能再新选这个版本；已经在用它的地方保持不变。原文件和记录都保留，还能导出。",
+  "tavernPackPreview": "预览组合",
+  "tavernPackPreviewSubtitle": "按现在的改动组合一遍，不保存、不运行",
+  "tavernPackPreviewSources": "来源",
+  "tavernPackPreviewDefinitions": "定义",
+  "tavernPackPreviewConflicts": "组合冲突",
+  "tavernPackPreviewFields": "字段来源",
+  "tavernPackPreviewState": "当前的值",
+  "tavernPackPreviewNote": "预览只读：不保存绑定、不初始化变量、不发模型请求。",
+  "tavernPackStateUnavailable": "当前对话还没有状态可查",
+  "tavernPackStateNotValidated": "这次没有验证当前的值，请看定义和组合诊断",
+  "tavernPackStateValid": "当前的值符合组合后的定义",
+  "tavernPackStateInvalid": "当前的值和组合后的定义对不上",
+  "tavernPackStateMissing": "当前对话里没有这个值",
+  "tavernPackCardExport": "导出（带玩法包）",
+  "tavernPackCardExportMenuSubtitle": "把选中的玩法包资源并进卡里",
+  "tavernPackCardExportSubtitle": "先预览，确认没有阻断再导出",
+  "tavernPackExportFormat": "格式",
+  "tavernPackExportCopyMedia": "带上卡里的图片",
+  "tavernPackExportFlattenNote": "资源并进单张卡后，作用域、排序、预算和计时可能和在这里玩时不同",
+  "tavernPackExportNoResources": "这张卡启用的玩法包里没有能并进卡的资源",
+  "tavernPackExportFindings": "预览结果",
+  "tavernPackExportMappings": "改写 {ids} 个标识、{resources} 个资源",
+  "@tavernPackExportMappings": {
+    "placeholders": {
+      "ids": {
+        "type": "int"
+      },
+      "resources": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernPackExportGo": "导出",
+  "tavernPackExportPreviewFirst": "先预览",
+  "tavernPackExportBlocked": "有阻断项，不能导出",
+  "tavernPackDraftExport": "导出为玩法包",
+  "tavernPackDraftExportSubtitle": "用这份草稿的角色定义和全部 {n} 处改动做一个新的 .dshpack",
+  "@tavernPackDraftExportSubtitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernPackDraftId": "包标识",
+  "tavernPackDraftRoots": "要带上的状态路径",
+  "tavernPackDraftRootsHint": "如 /hp /items，空着就带整份",
+  "tavernPackInstallMade": "装到本机",
+  "tavernPackCommitted": "修改已生效，但后续通知失败了",
+  "tavernPackVersionConflict": "同一包标识和版本名已经有不同的内容，请换一个新版本名",
+  "tavernPackRevisionConflict": "配置在别处变了，已刷新，请重新确认这次修改",
+  "tavernPackOperationConflict": "这次操作和之前的一次重名了，请重新做一遍",
+  "tavernPackVersionNotFound": "找不到这个版本",
+  "tavernPackVersionRemoved": "这个版本已经撤下，不能新选",
+  "tavernPackTimerConflict": "这次升级改了粘滞或冷却的设置：请同时重置一次性状态，或者新加一个实例",
+  "tavernPackTargetGone": "要改的角色、对话或绑定已经不在了",
+  "tavernPackAuthorityConflict": "角色来源变了，请刷新后再确认",
+  "tavernPackCastUnproven": "确认不了这个角色是从这个包导入的",
+  "tavernPackCastOtherVersion": "关联的角色来自这个包的另一个版本",
+  "tavernPackExportChanged": "导出的来源或选项变了，请重新预览",
+  "tavernScripts": "脚本库",
+  "tavernScriptsEmpty": "还没有全局脚本",
+  "tavernScriptsEmptyMessage": "可以导入酒馆助手导出的脚本 JSON，打开的在整页画布里运行",
+  "tavernScriptsImport": "导入脚本",
+  "tavernScriptsImported": "{count} 个脚本加入了脚本库",
+  "@tavernScriptsImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernScriptsExportAll": "导出全部",
+  "tavernScriptsOrder": "调整顺序",
+  "tavernScriptsOrderNote": "从上到下依次运行，拖动右边的把手调整。",
+  "tavernScriptCount": "{count} 个",
+  "@tavernScriptCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tavernScriptUnnamed": "未命名脚本",
+  "tavernScriptOpenFolder": "打开文件夹",
+  "tavernScriptExport": "导出",
+  "tavernScriptDelete": "删除",
+  "tavernScriptDeleteTitle": "删除「{name}」？",
+  "@tavernScriptDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tavernScriptDeleteMessage": "它的变量和按钮会一起删除，找不回来。",
+  "tavernChatScripts": "脚本",
+  "tavernChatScriptsNote": "按运行顺序",
+  "tavernScriptSourceGlobal": "全局",
+  "tavernScriptSourcePreset": "预设",
+  "tavernScriptSourceCard": "卡",
+  "tavernChatScriptsSkipped": "{count} 个脚本没有运行",
+  "@tavernChatScriptsSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "updateCheck": "检查更新",
   "updateAutoCheck": "自动检查更新",
   "updateAutoCheckDaily": "每天检查一次",
@@ -13108,11 +16153,14 @@
   },
   "usageStatsTitle": "发送匿名使用统计",
   "usageStatsSection": "改进 DSH Go",
-  "usageStatsFooter": "这个开关只控制 dsh-go 自身的使用次数、版本、手机品牌和型号、系统版本统计，不含对话、文件和账号；它不控制 Google ML Kit SDK 的统计。",
+  "usageStatsFooter": "这个开关只控制 dsh-go 自身的统计：各功能使用次数（含酒馆消息、伙伴小屋、语音通话）、模型回复报告的 token 数、版本、手机品牌和型号、系统版本，不含对话、角色卡、文件和账号；它不控制 Google ML Kit SDK 的统计。",
   "usageNoticeBody": "不含对话和个人信息，可随时关闭",
   "usageUpgradeNotice": "新增匿名使用统计，帮助改进 DSH Go。\n不含对话和个人信息",
+  "usageV4Welcome": "按日汇总使用和模型用量，不含对话。可随时关闭。",
+  "usageV4Notice": "匿名统计按日汇总功能结果、模型用量和异常退出，不含对话。",
   "usageUpgradeLearn": "了解",
   "usageUpgradeOff": "关闭",
+  "usageStatsAndroidFooter": "这个开关只控制 dsh-go 自身的统计：各功能使用次数（含酒馆消息、伙伴小屋、语音通话）、模型回复报告的 token 数、版本、手机品牌和型号、系统版本，不含对话、角色卡、文件和账号；它不控制 Google ML Kit SDK 的统计。 Android 还按日汇总前台及首次参与统计、启动和远程连接结果与耗时区间，以及模型用量、插件执行、引导和系统确认的异常退出。关闭会清空未上报的数据。",
   "viewArtifactSaved": "已存到 {value}",
   "@viewArtifactSaved": {
     "placeholders": {
@@ -14498,11 +17546,11 @@
   "viewUiDialectKindOther": "这部分",
   "viewUiDialectInvalid": "这块内容在网页版查看",
   "viewUiDialectNote": "在网页版查看",
-  "voiceSettingsTitle": "语音输入",
+  "voiceSettingsTitle": "语音",
   "voiceModeAuto": "自动",
   "voiceModeSystem": "系统",
   "voiceModeEngine": "语音模型",
-  "voiceModeAutoHint": "有语音模型时用它，否则用系统识别",
+  "voiceModeAutoHint": "有 DeepSeek 账号或 API Key 时用 DeepSeek，否则用语音模型或系统识别",
   "voiceModeSystemHint": "使用手机设置中的识别服务",
   "voiceModeEngineHint": "用引擎里的语音模型识别",
   "voiceFallbackStarted": "已改用语音模型，请再说一次",
@@ -14637,6 +17685,14 @@
   },
   "voiceModelNoticePreparing": "正在校验语音模型",
   "voiceModelNoticeFailed": "语音模型下载失败，打开 App 重试",
+  "voiceModeDeepseek": "DeepSeek",
+  "voiceModeDeepseekHint": "用 DeepSeek 的语音识别，登录的账号或 API Key 付费",
+  "voiceModeCloud": "其他云端服务",
+  "voiceModeCloudHint": "OpenAI 兼容的语音转写接口，例如 Whisper、硅基流动",
+  "voiceCloudSection": "云端识别服务",
+  "voiceCloudFooter": "录音会发给这个服务识别。Key 只存在这台手机上。",
+  "voiceCloudBaseHelper": "填到 /v1 为止，App 会请求 …/audio/transcriptions",
+  "voiceCloudModelHelper": "例如 whisper-1、FunAudioLLM/SenseVoiceSmall",
   "voiceScribeReadFailed": "没能读取语音设置，请重试。",
   "voiceScribeSavedReadFailed": "已保存，刷新后可查看最新设置。",
   "voiceScribeSaveUnconfirmed": "没能确认保存，请刷新或重试。",
@@ -14663,18 +17719,46 @@
   "wallpaperTitle": "壁纸",
   "wallpaperDefault": "默认",
   "wallpaperCustom": "自定义",
+  "wallpaperVideo": "循环动态壁纸",
+  "wallpaperJson": ".json 动态壁纸",
   "wallpaperFrame": "调整位置",
   "wallpaperBlur": "模糊",
   "wallpaperLighten": "提亮",
   "wallpaperDim": "压暗",
+  "wallpaperGuard": "自动保证文字清晰",
+  "wallpaperGuardHint": "关闭后完全按上面的滑块，调到 0 就是原图",
+  "wallpaperGuardMotionHint": "播放动图时只调文字颜色，画面不加遮罩",
+  "wallpaperPlay": "播放动图",
+  "wallpaperPlayHint": "减少动效时只显示第一帧",
   "wallpaperReplace": "更换图片",
+  "wallpaperVideoReplace": "更换视频",
+  "wallpaperVideoChoose": "选择视频",
+  "wallpaperVideoScale": "显示方式",
+  "wallpaperVideoFill": "填满",
+  "wallpaperVideoCenter": "居中",
+  "wallpaperVideoFrame": "调整显示位置",
+  "wallpaperJsonReplace": "更换 .json 壁纸",
+  "wallpaperJsonTime": "跟随系统时间",
+  "wallpaperJsonTimeHint": "白天、黄昏、晚上各一套动画",
+  "wallpaperJsonSample": "示例场景",
+  "wallpaperJsonPackage": "场景包",
   "wallpaperPreview": "预览",
-  "wallpaperFooter": "用于首页、对话和抽屉。提亮在浅色模式、压暗在深色模式下各自生效，文字始终清晰。PNG、JPEG、WebP，15 MB 以内",
+  "wallpaperFooter": "用于首页、对话和抽屉。提亮在浅色模式、压暗在深色模式下各自生效。PNG、JPEG、WebP、GIF，15 MB 以内；循环动态壁纸支持 MP4、WebM，300 MB 以内；.json 壁纸开发文档见 docs\\json-wallpaper.md。",
   "wallpaperChanged": "壁纸已更换",
   "wallpaperTooLarge": "图片超过 15 MB",
   "wallpaperUnsupported": "支持 PNG、JPEG 和 WebP",
   "wallpaperUnreadable": "无法读取这张图片",
   "wallpaperUnavailable": "无法打开相册",
+  "wallpaperVideoTooLarge": "视频超过 300 MB",
+  "wallpaperVideoUnsupported": "支持 MP4 和 WebM 视频",
+  "wallpaperVideoUnreadable": "无法读取这段视频",
+  "wallpaperJsonTooLarge": ".json 文件超过 20 MB",
+  "wallpaperJsonPackageTooLarge": "场景包超过 300 MB",
+  "wallpaperJsonUnreadable": "无法读取这个 .json 文件",
+  "wallpaperJsonInvalid": "这个 .json 壁纸有问题",
+  "wallpaperPeriodDay": "白天",
+  "wallpaperPeriodDusk": "黄昏",
+  "wallpaperPeriodNight": "晚上",
   "wallpaperBroken": "无法读取",
   "wallpaperEditorHint": "拖动、双指缩放",
   "wallpaperEditorReset": "复原",
@@ -14684,7 +17768,7 @@
   "wallpaperSampleAnswer": "适合。周六午后晴，风力 2 级，浪高不到半米，是这周最好的一天。",
   "wallpaperSampleNote": "傍晚降温明显，带一件薄外套。",
   "wallpaperSampleTool": "查了 3 个天气来源",
-  "searchKwWallpaper": "背景,背景图,聊天背景,自定义背景,换背景,模糊,壁纸图片",
+  "searchKwWallpaper": "背景,背景图,聊天背景,自定义背景,换背景,模糊,壁纸图片,动图,动态壁纸,GIF,视频壁纸,json 壁纸",
   "webTitle": "DSH 网页版",
   "webSshAppOnly": "经 SSH 隧道的地址只能在 App 内打开",
   "webRelayUnavailable": "经 DSH Remote 中转时打不开网页版，请在那台电脑上打开",
@@ -14851,25 +17935,64 @@
   "workshopErrorReadersBusy": "她正在用着，先离开伙伴小屋或关掉悬浮窗再试。",
   "workshopErrorInstallRecord": "本机的安装记录对不上，没有动它。",
   "workshopErrorOtherOrigin": "这是从别的工坊装的。",
-  "workshopErrorSignIn": "需要先登录论坛账号。",
+  "workshopErrorSignIn": "需要先登录 GitHub 账号。",
   "workshopErrorConsent": "需要先同意把登录凭据交给工坊核对身份。",
-  "workshopErrorForumMismatch": "登录的论坛和工坊认的不是同一个，请重新登录。",
-  "workshopErrorForumDown": "论坛暂时联系不上，稍后再试。",
+  "workshopErrorAccountMismatch": "登录的账号来源和工坊认的不一致，请重新登录。",
+  "workshopErrorAccountDown": "暂时没能向 GitHub 核对身份，稍后再试。",
   "workshopErrorPreferences": "没能保存本机的记录，这一步没有继续。",
   "workshopErrorBusy": "上一步还没结束，稍等。",
   "workshopErrorCancelled": "已取消。",
   "workshopErrorUnknownResult": "不确定有没有成功。先刷新看看，别急着重试。",
   "workshopErrorGeneric": "没有成功，稍后再试。",
-  "workshopDisclosureTitle": "让工坊核对你的论坛身份",
-  "workshopDisclosureLead": "投稿、管理自己的投稿和举报，工坊都要先知道你是谁。办法是把你的论坛登录凭据（User API Key）发给下面这个工坊服务，由它去问论坛你是哪个账号。",
+  "workshopErrorWithCode": "没有成功，稍后再试。（{code}）",
+  "@workshopErrorWithCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopErrorPackage": "包里有文件不符合要求，没法上传（{code}）。",
+  "@workshopErrorPackage": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopDisclosureTitle": "让工坊核对你的 GitHub 身份",
+  "workshopDisclosureLead": "投稿、管理自己的投稿和举报，工坊都要先知道你是谁。办法是把你的 GitHub 登录凭据发给下面这个工坊服务，由它去问 GitHub 你是哪个账号。",
   "workshopDisclosureWorker": "收到凭据的工坊",
-  "workshopDisclosureForum": "核对身份的论坛",
-  "workshopDisclosureUse": "投稿、查看或撤回自己的投稿、举报时都会带上它。工坊只拿它向论坛确认身份，不保存。",
-  "workshopDisclosureKept": "本机只记下你同意过这两个地址，不另存凭据；换了其中一个会再问。",
+  "workshopDisclosureAccount": "核对身份的账号服务",
+  "workshopDisclosureUse": "投稿、查看或撤回自己的投稿、举报时都会带上它。工坊只拿它向 GitHub 确认身份，不保存。",
+  "workshopDisclosureKept": "凭据只存在这台手机上，本机另外记下你同意过这两个地址；换了其中一个会再问。",
   "workshopDisclosureStale": "地址刚刚有变化，请按现在显示的重新确认。",
   "workshopDisclosureAccept": "同意并继续",
   "workshopDisclosureDecline": "暂不",
   "workshopDisclosureUnsaved": "这次同意已经生效，但没能记在本机，下次可能再问一遍。",
+  "workshopSignInTitle": "用 GitHub 登录",
+  "workshopSignInLead": "工坊用 GitHub 账号认人。这次授权只能读你的公开资料（用户名和账号编号），不能动你的仓库。",
+  "workshopSignInPreparing": "正在向 GitHub 要验证码…",
+  "workshopSignInSteps": "在 GitHub 验证页输入验证码并授权，再回到这里。",
+  "workshopSignInOpen": "复制并打开 GitHub",
+  "workshopSignInCopied": "验证码已复制",
+  "workshopSignInWaiting": "等你在 GitHub 上授权…",
+  "workshopSignInExpired": "验证码过期了。",
+  "workshopSignInDenied": "你在 GitHub 上取消了授权。",
+  "workshopSignInNetwork": "连不上 GitHub，检查网络后再试。",
+  "workshopSignInUnconfigured": "这个工坊还没开通 GitHub 登录。",
+  "workshopSignInAgain": "重新获取验证码",
+  "workshopAccountLine": "GitHub 账号 {login}",
+  "@workshopAccountLine": {
+    "placeholders": {
+      "login": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopAccountSignOut": "退出登录",
+  "workshopAccountSignedOut": "已退出。要彻底收回授权，去 GitHub 设置里的 Applications 页撤销。",
+  "workshopAccountSignOutFailed": "没能退出，稍后再试。",
   "workshopInstalledEmptyTitle": "还没有从工坊装过东西",
   "workshopInstalledEmptyMessage": "在「发现」里装上的宠物和伙伴会列在这里。",
   "workshopInstalledEmptyAction": "去发现",
@@ -14926,12 +18049,13 @@
   "workshopInstalledRemoveNoReinstall": "工坊里现在找不到它，卸载后可能装不回来。",
   "workshopInstalledRemovedRefreshIssue": "已卸载，但列表没能刷新，下拉刷新一下。",
   "workshopInstalledRemovedLocalIssue": "已卸载，但有些地方没能跟着更新，重新打开 App 就好。",
+  "workshopInstalledDismissFailure": "知道了",
   "workshopMinePublish": "投稿",
   "workshopMinePublishHint": "审核通过后出现在「发现」里",
-  "workshopMineSignInTitle": "投稿记在论坛账号上",
+  "workshopMineSignInTitle": "投稿记在 GitHub 账号上",
   "workshopMineSignInMessage": "登录后就能看到自己发过的作品。",
   "workshopMineConsentTitle": "还差一步确认",
-  "workshopMineConsentMessage": "工坊要用你的论坛登录凭据核对身份，同意后才能看到自己的投稿。",
+  "workshopMineConsentMessage": "工坊要用你的 GitHub 登录凭据核对身份，同意后才能看到自己的投稿。",
   "workshopMineConsentAction": "查看说明",
   "workshopMineEmptyTitle": "还没有投稿",
   "workshopMineEmptyMessage": "做了宠物或伙伴的话，可以发上来给大家用。",
@@ -15004,9 +18128,9 @@
   "workshopReportSubmit": "提交举报",
   "workshopReportSending": "正在提交…",
   "workshopReportDone": "举报已送达，审核员会查看。",
-  "workshopReportSignInTitle": "举报需要论坛账号",
+  "workshopReportSignInTitle": "举报需要 GitHub 账号",
   "workshopReportSignInMessage": "登录后才能提交举报。",
-  "workshopReportConsentMessage": "工坊要用你的论坛登录凭据核对身份，同意后才能举报。",
+  "workshopReportConsentMessage": "工坊要用你的 GitHub 登录凭据核对身份，同意后才能举报。",
   "workshopReportUnknownTitle": "不确定有没有送达",
   "workshopReportUnknownMessage": "上一次举报可能已经收到，也可能没有，现在查不到结果。再发一次可能变成重复举报。",
   "workshopReportUnknownOther": "那一次举报的是 {id} {version}。",
@@ -15024,9 +18148,9 @@
   "workshopPublishTitle": "投稿",
   "workshopPublishClosedTitle": "工坊暂时不接收投稿",
   "workshopPublishClosedMessage": "已经交上去的仍然可以在「我的投稿」里看。",
-  "workshopPublishSignInTitle": "先登录论坛账号",
-  "workshopPublishSignInMessage": "工坊靠论坛账号确认投稿的人是谁。",
-  "workshopPublishProfileTitle": "还没读到论坛账号资料",
+  "workshopPublishSignInTitle": "先登录 GitHub 账号",
+  "workshopPublishSignInMessage": "工坊靠 GitHub 账号确认投稿的人是谁。",
+  "workshopPublishProfileTitle": "还没读到 GitHub 账号资料",
   "workshopPublishProfileMessage": "要先知道你是哪个账号，才能投稿。",
   "workshopPublishCheckFailedTitle": "没能读出上一次投稿的记录",
   "workshopPublishCheckLocked": "为了不重复投稿，读出来之前不能开始新的。",
@@ -15034,7 +18158,12 @@
   "workshopPublishChooseTitle": "选一个要投稿的",
   "workshopPublishCompanionCurrent": "现在的伙伴",
   "workshopPublishSourcesEmptyTitle": "还没有可以投稿的",
-  "workshopPublishSourcesEmptyMessage": "自己导入的像素宠物和现在的伙伴可以投稿。",
+  "workshopPublishSourcesEmptyMessage": "自己导入的像素宠物和现在的伙伴可以投稿，也可以直接从文件选一个。",
+  "workshopPublishFromFile": "从文件选择",
+  "workshopPublishFromFileHint": "宠物或伙伴的 zip，不用先导入",
+  "workshopPublishTitleEnHelper": "选填，留空就用中文名称",
+  "workshopPublishAuthorHelper": "选填，留空就用你的 GitHub 用户名",
+  "workshopPublishLicenseHelper": "选填，不选就是「作者授权」",
   "workshopPublishSourcesIssue": "没能读出本机可以投稿的内容。",
   "workshopPublishPetsIssue": "没能读出本机的像素宠物。",
   "workshopPublishCompanionIssue": "没能读出本机的伙伴。",
@@ -15046,11 +18175,11 @@
   "workshopPublishTitleEn": "英文名称",
   "workshopPublishSectionInfo": "作品信息",
   "workshopPublishId": "作品 ID",
-  "workshopPublishIdHelper": "小写字母、数字和短横线",
+  "workshopPublishIdHelper": "选填，留空按名称自动生成；小写字母、数字和短横线",
   "workshopPublishAuthor": "作者",
   "workshopPublishLicenseAuthor": "作者授权",
   "workshopPublishSourceLink": "来源链接",
-  "workshopPublishSourceHelper": "作品主页或出处，以 https:// 开头",
+  "workshopPublishSourceHelper": "选填，留空就用你的 GitHub 主页；以 https:// 开头",
   "workshopPublishSectionAbout": "介绍（选填）",
   "workshopPublishTags": "标签",
   "workshopPublishTagsHelper": "用逗号分开，最多 8 个",
@@ -15110,6 +18239,50 @@
   "workshopPublishErrorMetadata": "资料没有通过工坊的检查，改一改再试。",
   "workshopPublishErrorNotReady": "还没准备好，稍等再试。",
   "workshopPublishErrorAgain": "现在还不能重新投稿。",
+  "workshopPublishSectionPreview": "预览图",
+  "workshopPublishPreviewSwitch": "在工坊里显示预览图",
+  "workshopPublishPreviewIdle": "用待机动画的第一帧",
+  "workshopPublishSectionCover": "封面（选填）",
+  "workshopPublishCoverPick": "选一张封面",
+  "workshopPublishCoverHelper": "支持 JPEG、PNG、WebP 等，上传前自动缩小。不选就显示名字的第一个字。",
+  "workshopPublishCoverGenerating": "正在生成封面，也可以自己选。",
+  "workshopPublishCoverChosen": "投稿封面",
+  "workshopPublishCoverReplace": "换一张",
+  "workshopPublishCoverRemove": "移除",
+  "workshopPublishCoverBadSize": "图片为空或超过 32 MB，换一张试试。",
+  "workshopPublishCoverBadPng": "图片损坏或格式不支持，换一张试试。",
+  "workshopPublishCoverBadDimensions": "图片分辨率过高，缩小后再选。",
+  "workshopPublishCoverUnreadable": "没能读出这张图，换一张试试。",
+  "workshopPublishReviewPreviewIdle": "待机动画第一帧",
+  "workshopPublishReviewPreviewNone": "不带预览图",
+  "workshopPublishErrorPreviewPet": "这只宠物的画面超过 512 像素，做不了预览图。关掉预览图可以照常投稿。",
+  "workshopPublishErrorPreviewConflict": "伙伴的包里已经有一个 preview.png，封面放不进去。移除封面可以照常投稿。",
+  "workshopPublishErrorPreviewMissing": "没找到要用的预览图。重新选一次，或者去掉预览图再投稿。",
+  "workshopPublishErrorPreviewUnsupported": "这个工坊现在不收预览图。去掉预览图可以照常投稿。",
+  "workshopPublishLetGo": "放下这条记录",
+  "workshopPublishLetGoTitle": "放下本机的这条记录？",
+  "workshopPublishLetGoAccount": "只删除这台手机上，这个 GitHub 账号在工坊 {worker} 的这条未完成记录。",
+  "@workshopPublishLetGoAccount": {
+    "placeholders": {
+      "worker": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopPublishLetGoAll": "这台手机上的投稿记录整体读不出来了。放下会清掉本机所有账号的未完成投稿记录，不只是这个 GitHub 账号在工坊 {worker} 的这一条。",
+  "@workshopPublishLetGoAll": {
+    "placeholders": {
+      "worker": {
+        "type": "String"
+      }
+    }
+  },
+  "workshopPublishLetGoFacts": "工坊不会收到取消：它要是已经收到这份投稿，投稿还在那里，会出现在「我的投稿」。要是没收到，就得重新投稿；万一其实收到了，会多出一份。",
+  "workshopPublishLetGoFactsKnown": "工坊不会收到取消，那边的结果不变，这份投稿仍在「我的投稿」里。",
+  "workshopPublishLetGoConfirm": "放下记录",
+  "workshopPublishLetGoDone": "已放下本机的记录",
+  "workshopPublishLetGoStale": "记录刚刚有变化，再点一次重新确认。",
+  "workshopPublishLetGoUnsupported": "这个版本没法在这里放下记录。",
   "workspaceRecoveryTitle": "工作区索引救援",
   "workspaceRecoveryEnable": "启用工作区索引救援",
   "workspaceRecoveryDisable": "恢复使用原索引",

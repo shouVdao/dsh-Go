@@ -117,6 +117,66 @@ class LayerPackaging(unittest.TestCase):
             return json.loads((out / 'manifest.json').read_text())
         return result
 
+    def test_typescript_source_pruning_keeps_runtime_files_and_licenses(self):
+        dropped = {'openai/src/client.ts', '@anthropic-ai/sdk/src/client.ts', '@js-temporal/polyfill/lib/instant.ts',
+                   'minisearch/src/MiniSearch.ts', 'openai/index.d.mts.map',
+                   'openai/internal/auth/x509-transport-state.d.cts.map', 'koffi/src/koffi/src/call.cc',
+                   'koffi/lib/native/base/base.hh', 'koffi/vendor/node-addon-api/napi.h'}
+        kept = {
+            'openai/index.js', '@anthropic-ai/sdk/index.mjs', '@js-temporal/polyfill/dist/index.cjs',
+            'openai/src/internal/auth/x509-transport-state.cts',
+            'openai/src/internal/qs/LICENSE.md', 'openai/plain.mts.map', 'openai/plain.cts.map',
+            'zod/src/index.ts', 'minisearch/dist/es/index.js',
+            'koffi/src/koffi/src/static.js', 'koffi/LICENSE.txt', 'other/src/call.cc',
+        }
+        for relative in dropped | kept:
+            path = self.root / 'dsh/node_modules' / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(relative)
+        for kind in ('esm', 'cjs'):
+            prefix = f'gaxios/build/{kind}'
+            test_file = prefix + '/test/test.getch.js'
+            dropped.add(test_file)
+            kept |= {prefix + '/src/index.js', 'gaxios/LICENSE'}
+            for relative in (test_file, prefix + '/src/index.js', 'gaxios/LICENSE'):
+                path = self.root / 'dsh/node_modules' / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(relative)
+        before, _ = self.build('ts-source-unpruned')
+        after, command = self.command('ts-source-pruned')
+        result = subprocess.run(command + ['--prune-dev-metadata'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        original = members(before / 'engine-arm64-v8a.tar.gz')
+        candidate = members(after / 'engine-arm64-v8a.tar.gz')
+        removed = {'opt/dsh/node_modules/' + relative for relative in dropped}
+        self.assertTrue({'opt/dsh/node_modules/' + relative for relative in dropped | kept} <= original.keys())
+        self.assertEqual(candidate, {path: value for path, value in original.items() if path not in removed})
+        self.assertEqual((before / 'base-arm64-v8a.tar.gz').read_bytes(),
+                         (after / 'base-arm64-v8a.tar.gz').read_bytes())
+
+    def test_assembly_without_file_digest_keeps_archives_and_report(self):
+        # Simulate the missing Python 3.11 API, not a different interpreter.
+        runner = ('import hashlib, runpy, sys; '
+                  'hashlib.__dict__.pop("file_digest", None); '
+                  'sys.argv = sys.argv[1:]; '
+                  'runpy.run_path(sys.argv[0], run_name="__main__")')
+        for name, layered in (('legacy', False), ('layers', True)):
+            with self.subTest(layered=layered):
+                baseline, report = self.build(name + '-baseline', layered=layered)
+                out, command = self.command(name + '-without-file-digest', layered=layered)
+                if layered:
+                    # Exercise a fresh base build, rather than reusing the baseline archive.
+                    command[command.index('--base-cache') + 1] = str(out / 'cache')
+                result = subprocess.run(command[:2] + ['-c', runner] + command[2:],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads((out / 'report.json').read_text()), report)
+                expected = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                            for p in baseline.glob('*.tar.gz')}
+                actual = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                          for p in out.glob('*.tar.gz')}
+                self.assertEqual(actual, expected)
+
     def test_layers_reconstruct_legacy_tree_and_manifest_contract(self):
         old_dir, old_report = self.build('legacy', layered=False)
         out, report = self.build('layers')

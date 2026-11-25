@@ -1,4 +1,6 @@
-// Portions derived from PiPilot (https://github.com/CikeSeven/pi_pilot), MIT, Copyright (c) 2026 CikeSeven. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 
 import 'package:dsh_client/dsh_client.dart';
 import 'package:flutter/material.dart';
@@ -146,8 +148,9 @@ class _QuestionCardState extends State<QuestionCard> {
       dimension: 16,
       child: CircularProgressIndicator(strokeWidth: 2, color: color),
     );
+    final complete = _complete;
     final submit = FilledButton(
-      onPressed: _complete && !_sending ? _submit : null,
+      onPressed: complete && !_sending ? _submit : null,
       style: FilledButton.styleFrom(minimumSize: button, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
       child: AnimatedSwitcher(
         duration: AppMotion.of(context, AppMotion.quick),
@@ -184,7 +187,7 @@ class _QuestionCardState extends State<QuestionCard> {
                     _saveDraft();
                   },
                   onTextChanged: () {
-                    setState(() {});
+                    if (complete != _complete) setState(() {});
                     _saveDraft();
                   },
                 ),

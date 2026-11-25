@@ -1,19 +1,27 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'companion/companion_initiative_owner.dart' show companionInitiativeProvider;
+import 'companion/companion_always_on.dart' show companionAlwaysOnOwnerProvider;
+import 'companion/companion_residency.dart' show companionResidencyProvider;
+import 'pets/pet_overlay_bridge.dart' show petOverlayBridgeProvider;
 import 'l10n/l10n.dart';
 import 'performance/performance_state.dart';
 import 'performance/refresh_rate.dart';
 import 'state/app_info.dart';
 import 'state/appearance_state.dart';
 import 'state/locale_state.dart';
+import 'state/notify_state.dart' show notifyChannelProvider;
 import 'state/star_prompt.dart' show starPromptGateProvider, starPromptProvider;
 import 'state/tile_style_state.dart';
 import 'ui/chat/dsh_ui/dsh_ui_model.dart' show DshUiAppAccent;
+import 'ui/chat/run_info.dart' show runActivityProvider;
+import 'ui/common/keyboard_motion.dart';
 import 'ui/common/side_insets.dart';
 import 'ui/launch/launch_overlay.dart';
 import 'ui/shell/root_gate.dart';
@@ -39,6 +47,11 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   bool? _glassBlur;
   bool? _instantPages;
   bool? _fluid;
+  /// The material sliders and text ink as of the last build (record equality
+  /// covers the null "follow the theme" ink).
+  (double, double, int?)? _look;
+  ThemePack? _themePack;
+  Map<String, String> _loadedFonts = const {};
   late ThemeData _light;
   late ThemeData _dark;
 
@@ -49,6 +62,17 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   /// The stored palette arrives a moment after launch; that first switch
   /// lands without a cross-fade, later ones fade (切换配色).
   bool _settled = false;
+
+  /// Reduced motion as of the last build. Switching it changes the theme's page transitions,
+  /// and that lands at once rather than half a cross-fade later (减少动画).
+  bool? _reducedBefore;
+
+  /// MaterialApp builds Theme for AnimationStyle.noAnimation and AnimatedTheme for anything else,
+  /// so the cross-fade coming on or off replaces everything above the builder. The navigator has a
+  /// global key to survive that; what the builder holds needs one too, or the launch screen and
+  /// the theme reveal start again from nothing, and a launch screen waiting for its motion to end
+  /// never leaves.
+  final _layers = GlobalKey(debugLabel: 'app layers');
 
   @override
   void initState() {
@@ -79,7 +103,10 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   /// 跟随系统: the system language changed while the app was open.
   @override
   void didChangeLocales(List<Locale>? locales) {
-    if (ref.read(appLanguageProvider) == AppLanguage.system) setState(() {});
+    if (ref.read(appLanguageProvider) != AppLanguage.system) return;
+    setState(() {});
+    // Android re-registers the notification channels under the new language.
+    unawaited(ref.read(notifyChannelProvider).status());
   }
 
   /// The system's remove-animations setting changed while the app was open: page
@@ -87,12 +114,27 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
   @override
   void didChangeAccessibilityFeatures() => setState(() {});
 
-  void _themesFor(AppAccent accent, bool english, bool glassBlur, bool instantPages, bool fluid) {
+  void _themesFor(
+    AppAccent accent,
+    bool english,
+    bool glassBlur,
+    bool instantPages,
+    bool fluid,
+    double glassOpacity,
+    double glassBlurAmount,
+    int? fontColor,
+    ThemePack? themePack,
+    Map<String, String> loadedFonts,
+  ) {
+    final look = (glassOpacity, glassBlurAmount, fontColor);
     if (accent == _accent &&
         english == _english &&
         glassBlur == _glassBlur &&
         instantPages == _instantPages &&
-        fluid == _fluid) {
+        fluid == _fluid &&
+        look == _look &&
+        themePack == _themePack &&
+        mapEquals(loadedFonts, _loadedFonts)) {
       return;
     }
     _accent = accent;
@@ -100,23 +142,37 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
     _glassBlur = glassBlur;
     _instantPages = instantPages;
     _fluid = fluid;
+    _look = look;
+    _themePack = themePack;
+    _loadedFonts = loadedFonts;
     // Plugin views that ask for `accent: "app"` follow the palette.
     DshUiAppAccent.set(accent.seed.toARGB32());
     // English UI still shows Chinese content: keep its glyphs Chinese.
     final glyphs = english ? AppLocale.zhCN : null;
+    final ink = fontColor == null ? null : Color(fontColor);
     _light = buildLightTheme(
       accent: accent,
       glyphLocale: glyphs,
       glassBlur: glassBlur,
+      glassOpacity: glassOpacity,
+      glassBlurAmount: glassBlurAmount,
+      fontColor: ink,
       instantPages: instantPages,
       fluid: fluid,
+      themePack: themePack,
+      loadedFonts: loadedFonts,
     );
     _dark = buildDarkTheme(
       accent: accent,
       glyphLocale: glyphs,
       glassBlur: glassBlur,
+      glassOpacity: glassOpacity,
+      glassBlurAmount: glassBlurAmount,
+      fontColor: ink,
       instantPages: instantPages,
       fluid: fluid,
+      themePack: themePack,
+      loadedFonts: loadedFonts,
     );
   }
 
@@ -129,7 +185,15 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
       final first = _shown == null;
       _shown = locale;
       AppLocale.use(locale);
-      if (!first) WidgetsBinding.instance.addPostFrameCallback((_) => _rebuildAll());
+      if (!first) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          // Providers refresh before this build switches appL10n: redo the
+          // activity titles in the new language.
+          ref.invalidate(runActivityProvider);
+          _rebuildAll();
+        });
+      }
     }
     return locale;
   }
@@ -145,25 +209,42 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(companionAlwaysOnOwnerProvider);
+    if (ref.watch(companionResidencyProvider).enabled) ref.watch(petOverlayBridgeProvider);
     // 刷新率设置改动时告诉原生;setMode 对同一个值不做任何事。
-    unawaited(
-      RefreshRateService.instance.setMode(ref.watch(performancePrefsProvider.select((p) => p.refreshRate))),
-    );
+    unawaited(RefreshRateService.instance.setMode(ref.watch(performancePrefsProvider.select((p) => p.refreshRate))));
     final themeMode = ref.watch(uiThemeModeProvider.select((s) => s.value));
     final appearance = ref.watch(appearanceProvider);
     final waiting =
         !appearance.loaded ||
         (appearance.source == AccentSource.wallpaper && ref.watch(wallpaperAccentProvider).isLoading);
     final locale = _resolveLocale();
-    final performance = ref.watch(performanceDefaultsProvider);
+    final performance = ref.watch(
+      performanceDefaultsProvider.select(
+        (p) => (blur: p.blur, reduceMotion: p.reduceMotion, fluidMotion: p.fluidMotion),
+      ),
+    );
     final reduced =
         performance.reduceMotion || WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
     final fluid = performance.fluidMotion && !reduced;
     FrameClock.instance.enabled = fluid;
-    _themesFor(ref.watch(accentProvider), locale.languageCode == 'en', performance.blur, reduced, fluid);
+    _themesFor(
+      ref.watch(accentProvider),
+      locale.languageCode == 'en',
+      performance.blur,
+      reduced,
+      fluid,
+      appearance.glassOpacity,
+      appearance.glassBlur,
+      appearance.fontColor,
+      ref.watch(activeThemePackProvider),
+      ref.watch(activeThemeFontsProvider),
+    );
     if (!waiting && !_settled) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _settled = true);
     }
+    final reducedChanged = _reducedBefore != null && _reducedBefore != reduced;
+    _reducedBefore = reduced;
     return MaterialApp(
       title: AppInfo.name,
       debugShowCheckedModeBanner: false,
@@ -172,9 +253,11 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
       themeMode: themeMode,
       // Palette and light / dark changes cross-fade the whole app (AppMotion).
       // A reveal from the finger brings the new colours in itself.
-      themeAnimationStyle: _settled && !reduced && !ThemeRevealHost.active
+      // Never AnimationStyle.noAnimation: MaterialApp then swaps AnimatedTheme for Theme, and
+      // everything under builder (the launch screen mid-motion too) is built anew.
+      themeAnimationStyle: _settled && !reduced && !reducedChanged && !ThemeRevealHost.active
           ? AnimationStyle(duration: AppMotion.standard, curve: AppMotion.std)
-          : AnimationStyle.noAnimation,
+          : AnimationStyle(duration: Duration.zero),
       // zh_CN, not bare zh: otherwise CJK falls back to Japanese glyph shapes
       // on non-Chinese system locales. English keeps Chinese glyphs through
       // the theme's text locale (_themesFor).
@@ -186,6 +269,7 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
       builder: (context, child) {
         final media = MediaQuery.of(context);
         return MediaQuery(
+          key: _layers,
           data: media.copyWith(disableAnimations: media.disableAnimations || performance.reduceMotion),
           child: AppMotionScope(
             fluid: fluid,
@@ -193,7 +277,11 @@ class _DshAppState extends ConsumerState<DshApp> with WidgetsBindingObserver {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  MirroredSideInsets(child: child!),
+                  LaunchUnder(
+                    child: Platform.operatingSystem == 'ohos'
+                        ? EasedKeyboardInset(child: MirroredSideInsets(child: child!))
+                        : MirroredSideInsets(child: child!),
+                  ),
                   const LaunchLayer(),
                 ],
               ),

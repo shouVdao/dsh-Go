@@ -9,6 +9,7 @@ import 'package:dsh_app/pets/pet_pack.dart';
 import 'package:dsh_app/pets/pet_prefs.dart';
 import 'package:dsh_app/pets/pet_signals.dart';
 import 'package:dsh_app/pets/pet_state.dart' show noPetId;
+import 'package:dsh_app/ui/pets/live2d_convert_page.dart';
 import 'package:dsh_app/ui/pets/pet_menu.dart';
 import 'package:dsh_app/ui/pets/pet_picker.dart';
 import 'package:dsh_app/ui/pets/pet_settings_page.dart';
@@ -125,6 +126,14 @@ void main() {
     return ProviderScope.containerOf(tester.element(find.byType(PetSettingsPage)));
   }
 
+  testWidgets('转换 Live2D 模型: the entry opens the converter', (tester) async {
+    await open(tester, () => null);
+    expect(find.text('转换 Live2D 模型'), findsOneWidget);
+    await tester.tap(find.text('转换 Live2D 模型'));
+    await settle(tester, () => false);
+    expect(find.byType(Live2dConvertPage), findsOneWidget);
+  });
+
   testWidgets('导入: your pet joins the picker, chosen, and says who made it', (tester) async {
     final file = zip({'cat/pack.json': utf8.encode(jsonEncode(packJson())), 'cat/idle.png': png(32, 16)});
     final overlay = _Overlay();
@@ -138,7 +147,9 @@ void main() {
     expect(find.text('小猫'), findsOneWidget);
     expect(container.read(petPrefsProvider).packId, 'user-cat');
     expect(find.textContaining('阿周 · CC0'), findsOneWidget);
-    // The picked copy is tidied away.
+    // Success is visible before the asynchronous picked-copy cleanup ends.
+    // Keep the deletion oracle; the original bounded helper waits for the file.
+    await settle(tester, () => !file.existsSync());
     expect(file.existsSync(), isFalse);
     // The overlay reads it from disk, not from what it had under that id.
     expect(overlay.reloaded, ['user-cat']);

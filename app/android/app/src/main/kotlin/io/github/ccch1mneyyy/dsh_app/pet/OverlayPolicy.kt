@@ -93,9 +93,26 @@ data class PetHost(val ref: String, val label: String, val current: Boolean)
 
 /** The long-press menu's rows (docs/design/pets.md §2.7): shortcuts only where they apply. */
 enum class PetMenuItem {
-    ASK, NEW_CHAT, SCREENSHOT, STOP, SWITCH_HOST, SNOOZE, SETTINGS;
+    ASK, NEW_CHAT, SCREENSHOT, STOP, SWITCH_HOST, SNOOZE, SETTINGS,
+
+    /** Hers in 「一直在」: her room, stop looking at the screen, tuck to the edge, away for an hour. */
+    ROOM, UNWATCH, TUCK, HIDE_HOUR;
 
     companion object {
+        /**
+         * While she is resident the floating body is her, so the menu is hers: a word, her room,
+         * what she is doing for you right now, and ways out of the way. [watching]: screen
+         * watching is on; [tuck]: her own float is out (the pixel fallback has nothing to tuck).
+         */
+        fun companion(push: PetPush?, watching: Boolean, tuck: Boolean): List<PetMenuItem> = buildList {
+            add(ASK)
+            add(ROOM)
+            if (watching) add(UNWATCH)
+            if (push?.canStop == true) add(STOP)
+            if (tuck) add(TUCK)
+            add(HIDE_HOUR)
+        }
+
         /** [screenshots]: whether this Android can take one (the accessibility screenshot, Android 11+). */
         fun of(push: PetPush?, screenshots: Boolean): List<PetMenuItem> = buildList {
             add(ASK)
@@ -199,7 +216,13 @@ data class PetPush(
                 host = ((target?.get("host") ?: m["host"]) as? String)?.takeIf { it.length <= 2_000 },
                 // Older senders without `active`: busy states and a bubble count.
                 active = activeRaw ?: (state in BUSY || bubble != null),
-                size = (m["size"] as? String)?.takeIf { it == "small" || it == "medium" || it == "large" } ?: "medium",
+                size = when (val name = m["size"] as? String) {
+                    "small", "medium", "large" -> name
+                    // 自定义: its height rides along; the key changes with it, so the sprite reloads.
+                    "custom" -> (m["bodyHeight"] as? Number)?.toFloat()?.takeIf { it.isFinite() }
+                        ?.let { "custom:${Math.round(it.coerceIn(PetSize.CUSTOM_MIN, PetSize.CUSTOM_MAX) * 10) / 10f}" } ?: "medium"
+                    else -> "medium"
+                },
                 quiet = m["quiet"] == true,
                 reduceMotion = m["reduceMotion"] == true,
                 canStop = m["canStop"] == true,

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/l10n.dart';
 import '../performance/performance_state.dart';
+import '../secrets/secure_storage.dart';
+import 'pendant_options.dart';
 import 'provider_keys.dart';
 import 'read_list_epoch.dart';
 
@@ -18,9 +19,19 @@ class AppSettings {
     this.autoStartLocal = true,
     this.autoStartLocalExplicit = true,
     this.autoApproveCommands = false,
+    this.automaticDiagnostics = false,
     this.phoneStorage = false,
     this.webPhoneLayout = true,
     this.chatSuggestions = true,
+    this.chatTips = true,
+    this.pendant = true,
+    this.pendantArt = pendantArtHead,
+    this.pendantArtPath = '',
+    this.pendantSound = pendantSoundDuck,
+    this.pendantSoundPath = '',
+    this.pendantLines = '',
+    this.pendantX = 0.04,
+    this.pendantY = 0,
     this.hardwareEnterSends = false,
     this.chatTextScale = 1.0,
     this.foldCompletedTurns = true,
@@ -42,6 +53,9 @@ class AppSettings {
   /// Off by default: there is no sandbox on Android, so each command escalation asks first.
   final bool autoApproveCommands;
 
+  /// Explicit opt-in to sending content-free local failure facts to the model.
+  final bool automaticDiagnostics;
+
   /// Mount the phone's shared storage at /sdcard in the Linux environment.
   final bool phoneStorage;
 
@@ -51,6 +65,39 @@ class AppSettings {
 
   /// Show the fixed suggestion cards on the native chat's start page.
   final bool chatSuggestions;
+
+  /// Show the one-at-a-time usage tips on the start page (gestures and entry
+  /// points the app really has).
+  final bool chatTips;
+
+  /// Show the balance whale above the composer (Settings > Appearance >
+  /// Balance whale).
+  final bool pendant;
+
+  /// The character art: [pendantArtHead] or [pendantArtCustom] with
+  /// [pendantArtPath].
+  final String pendantArt;
+
+  /// A picked image copied into the app's own folder, used when [pendantArt]
+  /// is [pendantArtCustom]. Empty when there is none.
+  final String pendantArtPath;
+
+  /// The sound pair a press and release play: [pendantSoundDuck] (Ya1/Ya2),
+  /// [pendantSoundFx1] (D1/D2), [pendantSoundOff], or [pendantSoundCustom] with
+  /// [pendantSoundPath].
+  final String pendantSound;
+
+  /// A picked audio file played on press when [pendantSound] is custom. Empty
+  /// when there is none.
+  final String pendantSoundPath;
+
+  /// The bubble's own lines, one per line; empty means [pendantDefaultLines].
+  final String pendantLines;
+
+  /// Where the whale sits in the strip above the composer, as fractions of that
+  /// strip: 0 is the left edge, 0 the bottom. Dragging stores it.
+  final double pendantX;
+  final double pendantY;
 
   /// Hardware Enter sends; Shift+Enter and the software keyboard still insert newlines.
   final bool hardwareEnterSends;
@@ -85,9 +132,19 @@ class AppSettings {
     bool? autoStartLocal,
     bool? autoStartLocalExplicit,
     bool? autoApproveCommands,
+    bool? automaticDiagnostics,
     bool? phoneStorage,
     bool? webPhoneLayout,
     bool? chatSuggestions,
+    bool? chatTips,
+    bool? pendant,
+    String? pendantArt,
+    String? pendantArtPath,
+    String? pendantSound,
+    String? pendantSoundPath,
+    String? pendantLines,
+    double? pendantX,
+    double? pendantY,
     bool? hardwareEnterSends,
     double? chatTextScale,
     bool? foldCompletedTurns,
@@ -100,9 +157,19 @@ class AppSettings {
     autoStartLocal: autoStartLocal ?? this.autoStartLocal,
     autoStartLocalExplicit: autoStartLocalExplicit ?? this.autoStartLocalExplicit,
     autoApproveCommands: autoApproveCommands ?? this.autoApproveCommands,
+    automaticDiagnostics: automaticDiagnostics ?? this.automaticDiagnostics,
     phoneStorage: phoneStorage ?? this.phoneStorage,
     webPhoneLayout: webPhoneLayout ?? this.webPhoneLayout,
     chatSuggestions: chatSuggestions ?? this.chatSuggestions,
+    chatTips: chatTips ?? this.chatTips,
+    pendant: pendant ?? this.pendant,
+    pendantArt: pendantArt ?? this.pendantArt,
+    pendantArtPath: pendantArtPath ?? this.pendantArtPath,
+    pendantSound: pendantSound ?? this.pendantSound,
+    pendantSoundPath: pendantSoundPath ?? this.pendantSoundPath,
+    pendantLines: pendantLines ?? this.pendantLines,
+    pendantX: pendantX ?? this.pendantX,
+    pendantY: pendantY ?? this.pendantY,
     hardwareEnterSends: hardwareEnterSends ?? this.hardwareEnterSends,
     chatTextScale: chatTextScale ?? this.chatTextScale,
     foldCompletedTurns: foldCompletedTurns ?? this.foldCompletedTurns,
@@ -125,14 +192,24 @@ class SettingsController extends Notifier<AppSettings> {
   static const _themeKey = 'theme_mode';
   static const _autoStartKey = 'auto_start_local';
   static const _autoApproveKey = 'auto_approve_commands';
+  static const _automaticDiagnosticsKey = 'automatic_diagnostics';
   static const _phoneStorageKey = 'phone_storage';
   static const _webPhoneLayoutKey = 'web_phone_layout';
   static const _chatSuggestionsKey = 'chat_suggestions';
+  static const _chatTipsKey = 'chat_tips';
+  static const _pendantKey = 'pendant_widget';
+  static const _pendantArtKey = 'pendant_art';
+  static const _pendantArtPathKey = 'pendant_art_path';
+  static const _pendantSoundKey = 'pendant_sound';
+  static const _pendantSoundPathKey = 'pendant_sound_path';
+  static const _pendantLinesKey = 'pendant_lines';
+  static const _pendantXKey = 'pendant_x';
+  static const _pendantYKey = 'pendant_y';
   static const _hardwareEnterKey = 'hardware_enter_sends';
   static const _chatTextScaleKey = 'chat_text_scale';
   static const _foldTurnsKey = 'fold_completed_turns';
   static const _visualRepliesKey = 'visual_replies';
-  static const _secure = FlutterSecureStorage();
+  static const _secure = AppSecureStorage();
   late Future<void> _loaded;
 
   @override
@@ -172,9 +249,19 @@ class SettingsController extends Notifier<AppSettings> {
       autoStartLocal: prefs.getBool(_autoStartKey) ?? ref.read(performanceDefaultsProvider).autoStartLocal,
       autoStartLocalExplicit: prefs.containsKey(_autoStartKey),
       autoApproveCommands: prefs.getBool(_autoApproveKey) ?? false,
+      automaticDiagnostics: prefs.getBool(_automaticDiagnosticsKey) ?? false,
       phoneStorage: prefs.getBool(_phoneStorageKey) ?? false,
       webPhoneLayout: prefs.getBool(_webPhoneLayoutKey) ?? true,
       chatSuggestions: prefs.getBool(_chatSuggestionsKey) ?? true,
+      chatTips: prefs.getBool(_chatTipsKey) ?? true,
+      pendant: prefs.getBool(_pendantKey) ?? true,
+      pendantArt: prefs.getString(_pendantArtKey) ?? pendantArtHead,
+      pendantArtPath: prefs.getString(_pendantArtPathKey) ?? '',
+      pendantSound: prefs.getString(_pendantSoundKey) ?? pendantSoundDuck,
+      pendantSoundPath: prefs.getString(_pendantSoundPathKey) ?? '',
+      pendantLines: prefs.getString(_pendantLinesKey) ?? '',
+      pendantX: (prefs.getDouble(_pendantXKey) ?? 0.04).clamp(0.0, 1.0),
+      pendantY: (prefs.getDouble(_pendantYKey) ?? 0.0).clamp(0.0, 1.0),
       hardwareEnterSends: prefs.getBool(_hardwareEnterKey) ?? false,
       chatTextScale: _knownScale(prefs.getDouble(_chatTextScaleKey)),
       foldCompletedTurns: prefs.getBool(_foldTurnsKey) ?? true,
@@ -182,6 +269,24 @@ class SettingsController extends Notifier<AppSettings> {
       customProviderIds: providerIds,
       loaded: true,
     );
+  }
+
+  /// Takes the keys in again once the saved credentials were cleared
+  /// (credential_recovery.dart). Only the keys: invalidating this provider would
+  /// drop [AppSettings.loaded] and the whole app back to the splash.
+  Future<void> reloadCredentials() async {
+    await _loaded;
+    if (!ref.mounted) return;
+    var apiKey = '';
+    var providerIds = const <String>{};
+    try {
+      apiKey = await _secure.read(key: _apiKeyKey) ?? '';
+      providerIds = (await ref.read(providerKeyVaultProvider).readAll()).keys.toSet();
+    } catch (_) {
+      // As in [_load]: the user can re-enter them.
+    }
+    if (!ref.mounted) return;
+    state = state.copyWith(apiKey: apiKey, customProviderIds: providerIds);
   }
 
   /// Keeps [key] for the local engine's custom provider [id] (see
@@ -219,6 +324,24 @@ class SettingsController extends Notifier<AppSettings> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_autoApproveKey, value);
     state = state.copyWith(autoApproveCommands: value);
+  }
+
+  Future<void> setAutomaticDiagnostics(bool value) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    // Revocation is immediate; enabling must not start a paid request before
+    // its opt-in is durably saved. Storage exceptions fail closed too.
+    if (!value) state = state.copyWith(automaticDiagnostics: false);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setBool(_automaticDiagnosticsKey, value)) {
+        throw StateError('automatic_diagnostics_store_failed');
+      }
+      if (ref.mounted && value) state = state.copyWith(automaticDiagnostics: true);
+    } catch (_) {
+      if (ref.mounted) state = state.copyWith(automaticDiagnostics: false);
+      rethrow;
+    }
   }
 
   Future<void> setPhoneStorage(bool value) async {
@@ -269,6 +392,61 @@ class SettingsController extends Notifier<AppSettings> {
     state = state.copyWith(chatSuggestions: value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_chatSuggestionsKey, value);
+  }
+
+  Future<void> setChatTips(bool value) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = state.copyWith(chatTips: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_chatTipsKey, value);
+  }
+
+  Future<void> setPendant(bool value) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = state.copyWith(pendant: value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_pendantKey, value);
+  }
+
+  /// The character art; [path] is only kept for [pendantArtCustom].
+  Future<void> setPendantArt(String art, {String path = ''}) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = state.copyWith(pendantArt: art, pendantArtPath: path);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendantArtKey, art);
+    await prefs.setString(_pendantArtPathKey, path);
+  }
+
+  /// The press/release sound pair; [path] is only kept for [pendantSoundCustom].
+  Future<void> setPendantSound(String sound, {String path = ''}) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = state.copyWith(pendantSound: sound, pendantSoundPath: path);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendantSoundKey, sound);
+    await prefs.setString(_pendantSoundPathKey, path);
+  }
+
+  /// The bubble's lines, one per line; empty restores the built-in set.
+  Future<void> setPendantLines(String lines) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = state.copyWith(pendantLines: lines);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendantLinesKey, lines);
+  }
+
+  /// Where the whale sits above the composer, as fractions of that strip.
+  Future<void> setPendantPlace(double x, double y) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = state.copyWith(pendantX: x, pendantY: y);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_pendantXKey, x);
+    await prefs.setDouble(_pendantYKey, y);
   }
 
   Future<void> setAutoStartLocal(bool value) async {

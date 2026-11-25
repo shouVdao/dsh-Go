@@ -56,7 +56,7 @@ Future<void> shareConversation(BuildContext context, String sessionId) =>
 
 /// The title of [sessionId] from the session list, when it is loaded (no
 /// live subscription; never starts loading it).
-String? _sessionTitle(ProviderContainer container, String sessionId) => container.exists(sessionsProvider)
+String? _sessionTitle(ProviderContainer container, String sessionId) => container.read(sessionsProvider.exists)
     ? container.read(sessionsProvider).value?.where((s) => s.sessionId == sessionId).firstOrNull?.projections.title
     : null;
 
@@ -102,7 +102,9 @@ Future<ShareContent?> _artifactExtras(
   try {
     switch (artifact.kind) {
       case ArtifactKind.image:
-        final image = await files.thumbnail(sessionId, artifact.path).timeout(const Duration(seconds: 20));
+        final image = await files
+            .thumbnail(sessionId, artifact.path, turn: artifact.snapshotImage ? artifact.turn : null)
+            .timeout(const Duration(seconds: 20));
         return image == null ? null : content(image: image);
       case ArtifactKind.markdown || ArtifactKind.text:
         if ((artifact.bytes ?? 0) > 2 * 1024 * 1024) return null;

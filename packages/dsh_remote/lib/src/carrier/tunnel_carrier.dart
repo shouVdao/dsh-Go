@@ -1,4 +1,6 @@
-// Portions derived from ds-harness-remote (https://github.com/liguobao/ds-harness-remote), MIT, Copyright (c) 2026 DSH Remote contributors. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 DSH Remote contributors
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 // dsh_client carrier over an authenticated ds-harness-remote connection: maps
 // DshRpc / DshMux onto the Typert Remote tunnel RPCs (`harness.remote.call`,
 // `harness.remote.stream.open|close`, `harness.remote.transfer.*`) and events
@@ -7,6 +9,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:dsh_client/dsh_client.dart';
@@ -180,9 +183,10 @@ typedef RemoteSessionOpener = Future<RemoteHostSession> Function(RemoteFailure? 
 
 /// [DshCarrier] over ds-harness-remote. Unary calls become
 /// `harness.remote.call`; each [DshMux] link is one secure connection whose
-/// logical streams map to `harness.remote.stream.*`. A dropped connection
-/// is reported as link loss, so [DshMux] reconnects (new connection, new
-/// `$events` generation, streams reopened) with its usual backoff.
+/// logical streams map to `harness.remote.stream.*`. A lost data plane or
+/// refused recovery is reported as link loss, so [DshMux] reconnects (new
+/// connection, new `$events` generation, streams reopened) with its backoff.
+/// Lease-backed Control recovery keeps this link and its existing streams.
 ///
 /// Differences from the local carrier that callers see:
 /// * only [harnessRemoteAllowlist] endpoints (others: `METHOD_NOT_ALLOWED`;
@@ -399,6 +403,7 @@ class RemoteTunnelCarrier extends DshCarrier implements WorkspaceUploadCarrier {
   Future<bool> probe({Duration? timeout}) {
     final session = _session;
     if (session == null) return Future.value(true);
+    session.rpc.channel.checkControlHealth();
     return _probing ??= _check(session, timeout ?? healthTimeout).whenComplete(() => _probing = null);
   }
 
@@ -599,8 +604,10 @@ class RemoteTunnelCarrier extends DshCarrier implements WorkspaceUploadCarrier {
         }
         out.add(bytes);
       }
-      final text = utf8.decode(out.takeBytes());
-      final decoded = tryDecodeJson(text);
+      final bytes = out.takeBytes();
+      final decoded = bytes.length > _decodeTransferInBackgroundBytes
+          ? await _decodeLargeTransfer(bytes, tryDecodeJson)
+          : tryDecodeJson(utf8.decode(bytes));
       if (decoded == null) throw DshProtocolException('$endpoint: remote transfer is not JSON');
       return decoded;
     } finally {
@@ -883,7 +890,12 @@ class _TunnelLink implements DshMuxLink {
         }
         out.add(decoded);
       }
-      final frame = asMap(jsonDecode(utf8.decode(out.takeBytes())));
+      final payload = out.takeBytes();
+      final frame = asMap(
+        payload.length > _decodeTransferInBackgroundBytes
+            ? await _decodeLargeTransfer(payload, jsonDecode)
+            : jsonDecode(utf8.decode(payload)),
+      );
       if (frame == null ||
           frame['streamId'] != streamId ||
           frame['hasValue'] != true ||
@@ -1008,9 +1020,17 @@ class _TunnelLink implements DshMuxLink {
   Future<void> close(int code, String reason) async {
     if (_closed) return;
     _closed = true;
-    await _events?.cancel();
     // A link the mux abandons (ready timeout, $events closed, reconnect(),
     // client close) takes its connection with it; the next link is fresh.
-    await _carrier._closeSession(_session);
+    // Detach the session before the first await so an immediate reconnect
+    // cannot pick up this closing one.
+    final closing = _carrier._closeSession(_session);
+    await _events?.cancel();
+    await closing;
   }
 }
+
+const _decodeTransferInBackgroundBytes = 256 * 1024;
+
+Future<T> _decodeLargeTransfer<T>(Uint8List bytes, T Function(String) decode) =>
+    Isolate.run(() => decode(utf8.decode(bytes)), debugName: 'dsh-transfer-json');

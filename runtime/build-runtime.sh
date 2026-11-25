@@ -22,6 +22,7 @@
 #   runtime/out/<abi>/assets/runtime/licenses/...
 #   runtime/out/<abi>/jniLibs/<abi>/lib{proot,proot-loader,talloc,android-shmem}.so
 #   runtime/out/<abi>/build-report.json                  (ELF audit, pruned files, warnings)
+#   runtime/out/<abi>/debug/<runtimeVersion>/...         (Node/ORT with DWARF; not packaged)
 #   runtime/out/manifest.json                            (index of all built ABIs)
 #
 # Idempotent: downloads are cached in runtime/.cache and verified on every run; the npm
@@ -48,7 +49,7 @@ PNPM_VERSION="${PNPM_VERSION:-11.28.5}"
 # dist.integrity of pnpm-$PNPM_VERSION.tgz, identical on registry.npmjs.org and npmmirror
 PNPM_INTEGRITY="${PNPM_INTEGRITY:-sha512-SEVj0wtMKtJ8tIqpT/KzAtvOvI/2vyiBbCWJiG4UbOf3bzVPO8GkOOb16XaMMCqgpvet2CMpA81M+BQmy8FNng==}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-24.04.5}"
-PROOT_VERSION="5.1.107.98"
+PROOT_VERSION="5.1.107.102"
 TALLOC_VERSION="2.5.0"
 SHMEM_VERSION="0.7"
 UBUNTU_EXTRA="${UBUNTU_EXTRA:-tzdata ca-certificates git}"   # extra noble debs (+ dependency closure)
@@ -77,8 +78,8 @@ declare -A PIN=(
   [ubuntu-base-24.04.5-base-amd64.tar.gz]=e77b6f10c2590cef872b33ee9f635a0e3fd1f57fb074c0e52b5c7f56147a0c86
   [node-v24.22.1-linux-arm64.tar.xz]=dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e
   [node-v24.22.1-linux-x64.tar.xz]=6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
-  [proot_5.1.107.98_aarch64.deb]=29de40efea4daa2a6168b617915206511c63e8d46bf5f4b07d48723441ef7f3b
-  [proot_5.1.107.98_x86_64.deb]=1c31ad7e1046f4d418fef19b6dfaa9a14801d2047ade6ad0375b3f5501e3e227
+  [proot_5.1.107.102_aarch64.deb]=10a394b585c2fc2b2c8502544f4e5f1be581dc8bfff79e8ba62f16207423e030
+  [proot_5.1.107.102_x86_64.deb]=2497064226c15971be8131c7facead94a06c225347796326a383c832dca57758
   [libtalloc_2.5.0_aarch64.deb]=556591f43bb773ad8777e1a29522640866a55f95dab71914418b94a8c58ad5a7
   [libtalloc_2.5.0_x86_64.deb]=b8c6d95f20075dc1f9ec6573575b2444e8d526e48e0d8d6d5cf4e071e6e06530
   [libandroid-shmem_0.7_aarch64.deb]=0da3a24d558b93c92bcf8d611e0826a99ff96e396b148e6cdf33b47c47c57ff6
@@ -86,7 +87,7 @@ declare -A PIN=(
   [cpython-3.12.15+20261021-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz]=b4567aa5a11f51b540c4dfd9e082ebf23e554f8ac17b85caa6cea23e83693394
   [cpython-3.12.15+20261021-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz]=6d7521138fd33afddc1ccd08abb007d9a2829e38117c2576f9efdc0ec73ce772
   # GPL-2.0 source of the proot binary (same archive Termux's build recipe pins); used for COPYING.
-  [proot-v5.1.107.98.zip]=9de61bddd6f5016d065e2755b72ff4747290e5f992562f031785b107b51d02ba
+  [proot-v5.1.107.102.zip]=30d12a6e2cc4147123756ff58edea262d3083bbc238c12d0ab9b39e3d1c40852
 )
 
 log() { printf '\033[1;34m[runtime %s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
@@ -318,11 +319,25 @@ install_dsh() {  # $1 = npm cpu, $2 = prefix dir
       PATH="$bin:$PATH" npm install "${npm_flags[@]}" --save-exact "@deepseek-ai/dsh@$DSH_VERSION" "${hoist[@]}"
     fi
     mkdir -p "$lockdir"
-    cp "$prefix/package.json" "$prefix/package-lock.json" "$lockdir/"
+    cp "$prefix/package.json" "$lockdir/"
+    cp "$prefix/package-lock.json" "$lockdir/package-lock.json.tmp"
+    mv "$lockdir/package-lock.json.tmp" "$lockdir/package-lock.json"
   fi
   local got; got="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
     "$prefix/node_modules/@deepseek-ai/dsh/package.json")"
   [[ "$got" == "$DSH_VERSION" ]] || die "installed dsh $got != $DSH_VERSION"
+}
+
+# The bridge has a separate exact lock; optional native canvas is never installed.
+install_bridge() {  # $1 = npm cpu, $2 = private npm prefix, $3 = staged bridge
+  local cpu="$1" prefix="$2" output="$3" bin; bin="$(host_npm)"
+  local source="$HERE/bridge/dsh-go-bridge"
+  rm -rf "$prefix" "$output"; mkdir -p "$prefix"
+  cp "$source/package.json" "$source/package-lock.json" "$prefix/"
+  local -a npm_flags=(); npm_prefix_flags "$cpu" "$prefix"
+  warm_npm_cache "$bin" "$source/package-lock.json"
+  PATH="$bin:$PATH" npm ci "${npm_flags[@]}" --omit=optional
+  python3 -I "$HERE/lib/bridge_dependencies.py" --prefix "$prefix" --out "$output"
 }
 
 # pnpm for the guest (zero dependencies, plain JS). Same lock-then-`npm ci` scheme as DSH; the
@@ -341,7 +356,9 @@ install_pnpm() {  # $1 = npm cpu, $2 = prefix dir
     log "npm install pnpm@$PNPM_VERSION — first run, will pin the lock"
     PATH="$bin:$PATH" npm install "${npm_flags[@]}" --save-exact "pnpm@$PNPM_VERSION"
     mkdir -p "$lockdir"
-    cp "$prefix/package.json" "$prefix/package-lock.json" "$lockdir/"
+    cp "$prefix/package.json" "$lockdir/"
+    cp "$prefix/package-lock.json" "$lockdir/package-lock.json.tmp"
+    mv "$lockdir/package-lock.json.tmp" "$lockdir/package-lock.json"
   fi
   python3 -I - "$prefix" "$PNPM_VERSION" "$PNPM_INTEGRITY" <<'PYEOF' || die "pnpm lock/install does not match the pins"
 import json, os, sys
@@ -444,9 +461,10 @@ PYEOF
   local prefix="$work/dsh-prefix"
   install_dsh "$npm_cpu" "$prefix"
   log "patching DSH (runtime/patches, pinned for $DSH_VERSION)"
-  "${PY[@]}" patch-dsh --prefix "$prefix" --dsh-version "$DSH_VERSION" --patches "$HERE/patches" \
-    --out "$work/dsh-patches.json" >&2
-  local bridge="$HERE/bridge/dsh-go-bridge"
+  "${PY[@]}" patch-dsh --prefix "$prefix" --dsh-version "$DSH_VERSION" --target android --patches "$HERE/patches" \
+    --out "$work/dsh-patches.json" --target-report "$work/dsh-patch-target.json" >&2
+  local bridge="$work/dsh-go-bridge"
+  install_bridge "$npm_cpu" "$work/bridge-prefix" "$bridge"
   local bridge_version
   bridge_version="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$bridge/package.json")"
   local pnpm_prefix="$work/pnpm-prefix"
@@ -460,8 +478,9 @@ PYEOF
       echo "$RUNTIME_REVISION $abi $DSH_VERSION $NODE_VERSION $PNPM_VERSION $UBUNTU_VERSION $COMPRESS $XZ_PRESET $XZ_THREADS $PRUNE_DEV_METADATA $SOURCE_DATE_EPOCH $RUNTIME_LAYERS"
       sha256 "$base"; sha256 "$node"; sha256 "$python"; sha256sum "${extra_debs[@]}" | cut -d' ' -f1
       sha256 "$proot_deb"; sha256 "$talloc_deb"; sha256 "$shmem_deb"
-      sha256 "$lockfile"; sha256 "$pnpm_lockfile"; sha256 "$HERE/build-runtime.sh"; sha256 "$HERE/lib/rtbuild.py"
-      (cd "$HERE" && find patches bridge boot direct session-deletion -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum)
+      sha256 "$lockfile"; sha256 "$pnpm_lockfile"; sha256 "$HERE/lib/bridge_dependencies.py"
+      # Preserve the reviewed pre-OHOS Android identity; changed Android inputs still invalidate it.
+      python3 -I "$HERE/lib/android_recipe.py" --dsh-version "$DSH_VERSION"
     } | sha256sum | cut -c1-12 )"
   local runtime_version="${RUNTIME_REVISION}-dsh${DSH_VERSION}-node${NODE_VERSION}-ubuntu${UBUNTU_VERSION}-${inputs_sha}"
   local runtime_info

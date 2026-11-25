@@ -98,7 +98,12 @@ void main() {
         await tester.tap(_choice(appL10n.pluginsCustomColor));
         await tester.pumpAndSettle();
         expect(container.read(appearanceProvider).source, AccentSource.custom);
-        expect(find.byType(HueSlider), findsOneWidget);
+        // The custom palette's hue slider is laid out (the ink slider sits
+        // further down the page).
+        expect(
+          find.descendant(of: find.byType(CustomAccentPanel), matching: find.byType(HueSlider)),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
         _rings(tester, custom: true);
       });

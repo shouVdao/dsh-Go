@@ -123,14 +123,17 @@ void main() {
 
   testWidgets('custom: the hue panel opens; picks are guarded before they are used', (tester) async {
     final container = await _pumpApp(tester);
-    expect(find.byType(HueSlider), findsNothing);
+    // The ink hue slider sits further down the page; only the palette one counts here.
+    final track = find.descendant(of: find.byType(CustomAccentPanel), matching: find.byType(HueSlider));
+    expect(track, findsNothing);
 
     await tester.tap(find.bySemanticsLabel('配色：自定义'));
     await tester.pumpAndSettle();
-    expect(find.byType(HueSlider), findsOneWidget);
+    expect(track, findsOneWidget);
     expect(container.read(appearanceProvider).source, AccentSource.custom);
 
-    await tester.tap(find.bySemanticsLabel('湖蓝'));
+    // The ink row below offers the same suggestions, so stay inside the palette.
+    await tester.tap(find.descendant(of: find.byType(CustomAccentPanel), matching: find.bySemanticsLabel('湖蓝')));
     await tester.pumpAndSettle();
     final pick = AppAccent.hueColor(215, chroma: 0.09);
     expect(container.read(appearanceProvider).customColor, pick.toARGB32());
@@ -139,8 +142,8 @@ void main() {
     expect(contrastRatio(Colors.white, primary), greaterThanOrEqualTo(4.5));
 
     // Dragging the hue track lands on the hue under the finger.
-    final track = tester.getRect(find.byType(HueSlider));
-    await tester.tapAt(Offset(track.left + HueSlider.knob / 2 + (track.width - HueSlider.knob) * 0.5, track.center.dy));
+    final box = tester.getRect(track);
+    await tester.tapAt(Offset(box.left + HueSlider.knob / 2 + (box.width - HueSlider.knob) * 0.5, box.center.dy));
     await tester.pumpAndSettle();
     final hue = Oklch.fromColor(Color(container.read(appearanceProvider).customColor)).h;
     expect(hue, closeTo(180, 2));
@@ -148,7 +151,7 @@ void main() {
     // Back to a preset: the panel folds away, the custom colour is kept.
     await tester.tap(find.bySemanticsLabel('配色：雾蓝'));
     await tester.pumpAndSettle();
-    expect(find.byType(HueSlider), findsNothing);
+    expect(track, findsNothing);
     expect(container.read(appearanceProvider).customColor, isNot(AppearanceSettings.defaultCustom));
   });
 
@@ -183,6 +186,18 @@ void main() {
     await tester.tap(find.bySemanticsLabel('跟随系统'));
     await tester.pumpAndSettle();
     expect(container.read(settingsProvider).themeMode, ThemeMode.system);
+  });
+
+  testWidgets('a screen reader can pick the mode and the colour (#157)', (tester) async {
+    final container = await _pumpApp(tester);
+    final semantics = tester.ensureSemantics();
+    tester.semantics.tap(find.semantics.byLabel('深色'));
+    await tester.pumpAndSettle();
+    expect(container.read(settingsProvider).themeMode, ThemeMode.dark);
+    tester.semantics.tap(find.semantics.byLabel('配色：琥珀'));
+    await tester.pumpAndSettle();
+    expect(container.read(accentProvider), AppAccent.amber);
+    semantics.dispose();
   });
 
   testWidgets('every picker sits on one grid: 16 from the card, 12 apart, columns aligned', (tester) async {
@@ -276,7 +291,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.byType(HueSlider), findsOneWidget);
+    // The custom palette is open: its hue slider is laid out, not the ink one.
+    expect(find.descendant(of: find.byType(CustomAccentPanel), matching: find.byType(HueSlider)), findsOneWidget);
   });
 
   // ── Goldens ────────────────────────────────────────────────────────────

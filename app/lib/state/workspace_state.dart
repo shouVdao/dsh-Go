@@ -73,12 +73,12 @@ final workspaceSourceProvider = Provider.autoDispose.family<WorkspaceSource?, St
 final workspaceRootProvider = Provider.autoDispose.family<String?, String>((ref, sessionId) {
   // Only what the app already has is asked: starting the conversation list
   // or a chat here would open the Host's streams.
-  final listed = ref.exists(sessionsProvider)
+  final listed = ref.read(sessionsProvider.exists)
       ? ref.watch(sessionsProvider.select((s) => s.value?.where((x) => x.sessionId == sessionId).firstOrNull?.cwd))
       : null;
   if (listed != null && listed.isNotEmpty) return _trimSlash(listed);
   final chat = chatProvider(sessionId);
-  final header = ref.exists(chat) ? ref.read(chat.notifier).header?.cwd : null;
+  final header = ref.read(chat.exists) ? ref.read(chat.notifier).header?.cwd : null;
   return header == null || header.isEmpty ? null : _trimSlash(header);
 });
 

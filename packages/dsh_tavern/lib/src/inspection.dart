@@ -21,6 +21,7 @@ class TavernTurnInspection {
     TavernUsage? reportedUsage,
     TavernFailure? failure,
     String? detail,
+    String? logicalTurnId,
   }) => TavernTurnInspection._(
     chatId,
     nodeId,
@@ -36,6 +37,7 @@ class TavernTurnInspection {
     reportedUsage,
     failure,
     detail,
+    logicalTurnId,
   );
 
   const TavernTurnInspection._(
@@ -53,6 +55,7 @@ class TavernTurnInspection {
     this.reportedUsage,
     this.failure,
     this.detail,
+    this.logicalTurnId,
   );
 
   factory TavernTurnInspection.fromJson(Map<String, Object?> json) {
@@ -75,10 +78,12 @@ class TavernTurnInspection {
       usage == null ? null : _readUsage(_object(usage, 'reportedUsage')),
       failure == null ? null : _enumValue(TavernFailure.values, failure, 'failure'),
       _optionalText(json['detail'], 'detail'),
+      _optionalText(json['logicalTurnId'], 'logicalTurnId'),
     );
   }
 
   final String chatId;
+  final String? logicalTurnId;
 
   /// Null for ephemeral impersonation or an attempt that stored no output.
   final String? nodeId;
@@ -131,8 +136,10 @@ class TavernTurnInspection {
     Map<String, Object?>? state,
     Map<String, Object?>? director,
     TavernUsage? reportedUsage,
+    bool clearReportedUsage = false,
     TavernFailure? failure,
     String? detail,
+    String? logicalTurnId,
   }) => TavernTurnInspection._(
     chatId,
     clearNodeId ? null : nodeId ?? this.nodeId,
@@ -145,14 +152,16 @@ class TavernTurnInspection {
     worldInfo == null ? this.worldInfo : _freezeMap(worldInfo),
     state == null ? this.state : _freezeMap(state),
     director == null ? this.director : _freezeMap(director),
-    reportedUsage ?? this.reportedUsage,
+    clearReportedUsage ? null : reportedUsage ?? this.reportedUsage,
     failure ?? this.failure,
     detail ?? this.detail,
+    logicalTurnId ?? this.logicalTurnId,
   );
 
   Map<String, Object?> toJson() => {
     'version': 1,
     'chatId': chatId,
+    if (logicalTurnId != null) 'logicalTurnId': logicalTurnId,
     'nodeId': nodeId,
     'contextNodeId': contextNodeId,
     'generationType': generationType,
@@ -185,7 +194,38 @@ PromptAssembly _readAssembly(Map<String, Object?> json) => PromptAssembly(
   remainingBudget: _integer(json['remainingBudget'], 'remainingBudget'),
   counterName: _text(json['counter'], 'counter'),
   exactTokenCounts: _boolean(json['exactTokenCounts'], 'exactTokenCounts'),
+  historyWindow: json['historyWindow'] == null ? null : _readHistoryWindow(json['historyWindow']),
 );
+
+PromptHistoryWindow _readHistoryWindow(Object? value) {
+  final item = _object(value, 'historyWindow');
+  final examples = <({String kind, String id, int block})>[];
+  for (final value in _list(item['admittedExamples'], 'historyWindow.admittedExamples')) {
+    final example = _object(value, 'historyWindow.example');
+    examples.add((
+      kind: _text(example['kind'], 'historyWindow.example.kind'),
+      id: _text(example['id'], 'historyWindow.example.id'),
+      block: _integer(example['block'], 'historyWindow.example.block'),
+    ));
+  }
+  final sources = <({String kind, String id})>[];
+  for (final value in _list(item['excludedOptionalSources'], 'historyWindow.excludedOptionalSources')) {
+    final source = _object(value, 'historyWindow.source');
+    sources.add((
+      kind: _text(source['kind'], 'historyWindow.source.kind'),
+      id: _text(source['id'], 'historyWindow.source.id'),
+    ));
+  }
+  return PromptHistoryWindow(
+    firstNodeId: _text(item['firstNodeId'], 'historyWindow.firstNodeId'),
+    admittedExamples: examples,
+    excludedOptionalSources: sources,
+    excludedInjections: [
+      for (final value in _list(item['excludedInjections'], 'historyWindow.excludedInjections'))
+        _text(value, 'historyWindow.excludedInjection'),
+    ],
+  );
+}
 
 List<PromptSegment> _segments(Object? value) =>
     List.unmodifiable([for (final item in _list(value, 'segments')) _readSegment(item)]);

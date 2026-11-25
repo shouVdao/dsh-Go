@@ -26,21 +26,33 @@ class _QuietFloatController extends CompanionFloatController {
   final CompanionFloatState initial;
   int retries = 0;
 
-  @override CompanionFloatState build() => initial;
+  @override
+  CompanionFloatState build() => initial;
 
   @override
   Future<void> retry() async => retries++;
 }
 
-Future<void> _pump(WidgetTester tester, {Brightness brightness = Brightness.light, double height = 520,
-  String? companionProblem = 'companion_runtime_missing', _QuietFloatController? float}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  Brightness brightness = Brightness.light,
+  double height = 520,
+  String? companionProblem = 'companion_runtime_missing',
+  _QuietFloatController? float,
+}) async {
   tester.view.devicePixelRatio = 2;
   tester.view.physicalSize = Size(390, height) * 2;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(goldenApp(home: _page(), brightness: brightness, overrides: [
-    companionFloatAvailabilityProvider.overrideWith((ref) => Stream.value(companionProblem)),
-    companionFloatProvider.overrideWith(() => float ?? _QuietFloatController()),
-  ]));
+  await tester.pumpWidget(
+    goldenApp(
+      home: _page(),
+      brightness: brightness,
+      overrides: [
+        companionFloatAvailabilityProvider.overrideWith((ref) => Stream.value(companionProblem)),
+        companionFloatProvider.overrideWith(() => float ?? _QuietFloatController()),
+      ],
+    ),
+  );
   await settlePhone(tester);
 }
 
@@ -48,8 +60,7 @@ Future<void> _pump(WidgetTester tester, {Brightness brightness = Brightness.ligh
 final _renderer = find.byType(SettingsSegmentTile<PetOverlayRenderer>);
 final _framing = find.byType(SettingsSegmentTile<PetOverlayFraming>);
 
-PetPrefs _prefs(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(_renderer)).read(petPrefsProvider);
+PetPrefs _prefs(WidgetTester tester) => ProviderScope.containerOf(tester.element(_renderer)).read(petPrefsProvider);
 
 /// She was picked before this visit.
 void _companionChosen() => SharedPreferences.setMockInitialValues({PetPrefsController.keys.renderer: 'companion'});
@@ -124,6 +135,13 @@ void main() {
     expect(_framing, findsNothing);
   });
 
+  testWidgets('iOS PiP does not offer the unimplemented WebView companion renderer', (tester) async {
+    FakeOverlayNative(platform: 'ios', permission: 'granted', enabled: true).install();
+    await _pump(tester, companionProblem: null);
+    expect(find.text('App 外显示'), findsOneWidget);
+    expect(_renderer, findsNothing);
+  });
+
   testWidgets('the name she was given in her room is the one on the choice', (tester) async {
     SharedPreferences.setMockInitialValues({'companion_name': '小蓝'});
     FakeOverlayNative(permission: 'granted', enabled: true).install();
@@ -153,9 +171,7 @@ void main() {
     });
   }
 
-  testWidgets('a native side that fails: this phone cannot show her, and the choice can be taken back', (
-    tester,
-  ) async {
+  testWidgets('a native side that fails: this phone cannot show her, and the choice can be taken back', (tester) async {
     _companionChosen();
     FakeOverlayNative(permission: 'granted', enabled: true).install();
     await _pump(
@@ -202,7 +218,11 @@ void main() {
   testWidgets('重试 is only there after a fallback', (tester) async {
     _companionChosen();
     FakeOverlayNative(permission: 'granted', enabled: true).install();
-    await _pump(tester, companionProblem: null, float: _QuietFloatController(const CompanionFloatState(configured: true)));
+    await _pump(
+      tester,
+      companionProblem: null,
+      float: _QuietFloatController(const CompanionFloatState(configured: true)),
+    );
     expect(find.text('点一下和她互动，连点两下打开对话。比像素宠物更耗电，熄屏和隐藏时会停下来'), findsOneWidget);
     expect(find.descendant(of: _renderer, matching: find.byType(TextButton)), findsNothing);
   });
@@ -264,6 +284,44 @@ void main() {
     expect(find.textContaining('先去「悬浮窗」设置里点一次 DSH Go 的开关'), findsOneWidget);
     expect(find.text('回到「悬浮窗」设置，打开 DSH Go。'), findsOneWidget);
     expect(find.text('去开悬浮窗'), findsOneWidget);
+  });
+
+  testWidgets('failed accessibility overlay offers permission and recovers', (tester) async {
+    final native = FakeOverlayNative(permission: 'accessibility', enabled: true, sdk: 32)..install();
+    await _pump(tester);
+    // A normally hidden window (the fake reports showing=false) still has permission.
+    expect(_switchOn(tester), isTrue);
+    expect(find.text('未授权'), findsNothing);
+
+    native.permission = 'denied';
+    await native.emitStatus();
+    await settlePhone(tester);
+    await tester.pumpAndSettle();
+    expect(_switchOn(tester), isFalse);
+    expect(find.text('未授权'), findsOneWidget);
+    expect(native.enabled, isTrue);
+    expect(native.methods, isNot(contains('requestPermission')));
+
+    // The existing cooldown ending or a service reconnect clears the refusal.
+    native.permission = 'accessibility';
+    await native.emitStatus();
+    await settlePhone(tester);
+    await tester.pumpAndSettle();
+    expect(_switchOn(tester), isTrue);
+    expect(find.text('未授权'), findsNothing);
+
+    native.permission = 'denied';
+    await native.emitStatus();
+    await settlePhone(tester);
+    await tester.pumpAndSettle();
+    await _turnOnThroughNotice(tester);
+    expect(native.methods, contains('requestPermission'));
+    expect(native.methods, isNot(contains('openAppDetails')));
+    native.permission = 'granted';
+    await leaveAndResume(tester);
+    await tester.pumpAndSettle();
+    expect(_switchOn(tester), isTrue);
+    expect(find.text('未授权'), findsNothing);
   });
 
   testWidgets('no restricted-settings row before Android 13 or for a vendor block', (tester) async {

@@ -5,8 +5,10 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:dsh_app/companion/companion_pack.dart';
+import 'package:dsh_app/pets/pet_library.dart';
 import 'package:dsh_app/workshop/workshop_receipt.dart';
-import 'package:dsh_app/workshop/workshop_repository.dart' show workshopLocalError;
+import 'package:dsh_app/workshop/workshop_repository.dart'
+    show LocalWorkshopPackages, WorkshopInstalled, workshopLocalError;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../workshop/support.dart';
@@ -345,6 +347,21 @@ void main() {
     expect(json.toString(), isNot(contains('PRIVATE_PERSONA')));
   });
 
+  test('a Live2D-sized texture and a motion saved with a BOM still export', () async {
+    // Only the header is read: 4096 a side is far past a pet sheet's limit.
+    final header = BytesBuilder()
+      ..add([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13])
+      ..add(ascii.encode('IHDR'))
+      ..add([0, 0, 16, 0, 0, 0, 16, 0, 8, 6, 0, 0, 0, 0, 0, 0, 0]);
+    final texture = header.takeBytes();
+    final files = workshopCharacter();
+    files['character/texture.png'] = texture;
+    files['character/idle.motion3.json'] = [0xef, 0xbb, 0xbf, ...files['character/idle.motion3.json']!];
+    await store.install(workshopZip(temp, {...workshopRuntime(), ...files}).path);
+    final exported = await store.exportZip(File('${temp.path}/large-texture.zip'));
+    expect(workshopUnzip(exported)['character/texture.png'], texture);
+  });
+
   test('export refuses new files inside its managed root and existing external files', () async {
     await seed();
     final managed = File('${store.pack.path}/character/new-export.zip');
@@ -474,13 +491,26 @@ void main() {
   test('workshop replacement and stale removal are checked inside the store queue', () async {
     await seed();
     final zip = workshopZip(temp, workshopCharacter());
-    await expectLater(store.install(zip.path, workshop: receipt()), workshopError('workshop_install_conflict'));
-    await store.install(zip.path, workshop: receipt(), replaceExisting: true);
+    // Another character comes in without asking: the one here waits on the shelf.
+    await store.install(zip.path, workshop: receipt());
+    expect([for (final entry in await store.roster()) entry.active], [true, false]);
     final next = receipt(version: '1.1.0', hash: 'b' * 64);
     await store.install(zip.path, workshop: next);
     await expectLater(store.remove(expectedWorkshop: receipt()), workshopError('workshop_install_conflict'));
     expect((await store.workshopReceipt())!.version, '1.1.0');
     await store.install(zip.path);
     expect(await store.workshopReceipt(), isNull);
+  });
+
+  test('companions waiting on the shelf are installed in the Workshop and can be removed there', () async {
+    final packages = LocalWorkshopPackages(pets: PetLibrary(() async => Directory('${temp.path}/pets')), companion: store);
+    await seed();
+    final zip = workshopZip(temp, workshopCharacter());
+    await packages.install(zip, receipt(), replaceExisting: false);
+    await packages.install(zip, receipt(id: 'dog'), replaceExisting: false);
+    final installed = (await packages.installed()).whereType<WorkshopInstalled>().toList();
+    expect([for (final item in installed) item.receipt.id], unorderedEquals(['dog', 'cat']));
+    await packages.remove(installed.singleWhere((item) => item.receipt.id == 'cat'));
+    expect([for (final entry in await store.roster()) entry.workshop?.id], ['dog', null]);
   });
 }

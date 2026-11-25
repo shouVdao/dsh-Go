@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/l10n.dart';
+import '../themes/theme_library.dart';
+import '../themes/theme_pack.dart';
 import '../ui/theme/accent.dart';
 
 /// 配色从哪来。
@@ -27,6 +29,10 @@ class AppearanceSettings {
     this.source = AccentSource.preset,
     this.presetId = 'mist',
     this.customColor = defaultCustom,
+    this.glassOpacity = 1,
+    this.glassBlur = 1,
+    this.fontColor,
+    this.themePackId,
     this.loaded = false,
   });
 
@@ -37,25 +43,60 @@ class AppearanceSettings {
 
   /// 自定义色(ARGB),守卫之前的原色。
   final int customColor;
+
+  /// 玻璃面板与卡片的不透明度(0.2–1):1 是主题原本的填充。只改材质,
+  /// 文字与内容不跟着变淡。
+  final double glassOpacity;
+
+  /// 玻璃的模糊量(0–1):1 是主题原本的 σ,0 不模糊(面板仍然半透)。
+  final double glassBlur;
+
+  /// 正文的墨色(ARGB);null = 跟随主题。只带色相与彩度,明度按明暗
+  /// 另算(见 `textInkFor`),所以换明暗不会读不清。
+  final int? fontColor;
+
+  /// 当前启用的主题包 ID(内置如 `paper` 或已安装如 `user-xxx`);null 表示默认玻璃主题。
+  final String? themePackId;
   final bool loaded;
 
   /// 自定义色的初值:一抹灰调的苔绿(色相 140°),第一次打开时和六套预设
   /// 都不撞。
   static const defaultCustom = 0xFF5F7A55;
 
-  AppearanceSettings copyWith({AccentSource? source, String? presetId, int? customColor, bool? loaded}) =>
-      AppearanceSettings(
-        source: source ?? this.source,
-        presetId: presetId ?? this.presetId,
-        customColor: customColor ?? this.customColor,
-        loaded: loaded ?? this.loaded,
-      );
+  /// 不透明度滑杆的下限:再低就分不清面板和内容了。
+  static const minOpacity = 0.2;
+
+  AppearanceSettings copyWith({
+    AccentSource? source,
+    String? presetId,
+    int? customColor,
+    double? glassOpacity,
+    double? glassBlur,
+    int? fontColor,
+    bool clearFontColor = false,
+    String? themePackId,
+    bool clearThemePack = false,
+    bool? loaded,
+  }) => AppearanceSettings(
+    source: source ?? this.source,
+    presetId: presetId ?? this.presetId,
+    customColor: customColor ?? this.customColor,
+    glassOpacity: glassOpacity ?? this.glassOpacity,
+    glassBlur: glassBlur ?? this.glassBlur,
+    fontColor: clearFontColor ? null : (fontColor ?? this.fontColor),
+    themePackId: clearThemePack ? null : (themePackId ?? this.themePackId),
+    loaded: loaded ?? this.loaded,
+  );
 }
 
 class AppearanceController extends Notifier<AppearanceSettings> {
   static const _sourceKey = 'appearance.accent_source';
   static const _presetKey = 'appearance.preset';
   static const _customKey = 'appearance.custom_color';
+  static const _glassOpacityKey = 'appearance.glass_opacity';
+  static const _glassBlurKey = 'appearance.glass_blur';
+  static const _fontColorKey = 'appearance.font_color';
+  static const _themePackKey = 'appearance.theme_pack';
 
   /// 当前配色的浅色主色(ARGB),给原生通知的强调色读
   /// (`DynamicColorPlugin.kt` 的 `ThemeAccent`)。
@@ -77,6 +118,10 @@ class AppearanceController extends Notifier<AppearanceSettings> {
         source: source,
         presetId: AppAccent.preset(prefs.getString(_presetKey)).id,
         customColor: prefs.getInt(_customKey) ?? AppearanceSettings.defaultCustom,
+        glassOpacity: (prefs.getDouble(_glassOpacityKey) ?? 1).clamp(AppearanceSettings.minOpacity, 1.0),
+        glassBlur: (prefs.getDouble(_glassBlurKey) ?? 1).clamp(0.0, 1.0),
+        fontColor: prefs.getInt(_fontColorKey),
+        themePackId: prefs.getString(_themePackKey),
         loaded: true,
       );
     } catch (_) {
@@ -96,25 +141,65 @@ class AppearanceController extends Notifier<AppearanceSettings> {
     }
   }
 
-  Future<void> selectPreset(String id) => _save(state.copyWith(source: AccentSource.preset, presetId: id), (p) async {
-    await p.setString(_sourceKey, AccentSource.preset.name);
-    await p.setString(_presetKey, id);
-  });
+  Future<void> selectPreset(String id) =>
+      _save(state.copyWith(source: AccentSource.preset, presetId: id, clearThemePack: true), (p) async {
+        await p.setString(_sourceKey, AccentSource.preset.name);
+        await p.setString(_presetKey, id);
+        await p.remove(_themePackKey);
+      });
 
   /// 选中自定义;[color] 给了就同时换颜色(色相条、推荐色)。
   Future<void> selectCustom([int? color]) =>
-      _save(state.copyWith(source: AccentSource.custom, customColor: color), (p) async {
+      _save(state.copyWith(source: AccentSource.custom, customColor: color, clearThemePack: true), (p) async {
         await p.setString(_sourceKey, AccentSource.custom.name);
         if (color != null) await p.setInt(_customKey, color);
+        await p.remove(_themePackKey);
       });
 
   Future<void> selectWallpaper() => _save(
-    state.copyWith(source: AccentSource.wallpaper),
-    (p) => p.setString(_sourceKey, AccentSource.wallpaper.name),
+    state.copyWith(source: AccentSource.wallpaper, clearThemePack: true),
+    (p) async {
+      await p.setString(_sourceKey, AccentSource.wallpaper.name);
+      await p.remove(_themePackKey);
+    },
+  );
+
+  /// 启用或退出主题包(传 null 回到常规玻璃主题)。
+  Future<void> selectThemePack(String? id) => _save(
+    state.copyWith(themePackId: id, clearThemePack: id == null),
+    (p) async {
+      if (id == null || id.isEmpty) {
+        await p.remove(_themePackKey);
+      } else {
+        await p.setString(_themePackKey, id);
+      }
+    },
   );
 
   /// 关掉跟随壁纸:回到上一次的预设。
   Future<void> leaveWallpaper() => selectPreset(state.presetId);
+
+  Future<void> setGlassOpacity(double value) {
+    final next = value.clamp(AppearanceSettings.minOpacity, 1.0);
+    return _save(state.copyWith(glassOpacity: next), (p) => p.setDouble(_glassOpacityKey, next));
+  }
+
+  Future<void> setGlassBlur(double value) {
+    final next = value.clamp(0.0, 1.0);
+    return _save(state.copyWith(glassBlur: next), (p) => p.setDouble(_glassBlurKey, next));
+  }
+
+  /// null = 跟随主题(删掉偏好)。
+  Future<void> setFontColor(int? color) => _save(
+    state.copyWith(fontColor: color, clearFontColor: color == null),
+    (p) async {
+      if (color == null) {
+        await p.remove(_fontColorKey);
+      } else {
+        await p.setInt(_fontColorKey, color);
+      }
+    },
+  );
 }
 
 final appearanceProvider = NotifierProvider<AppearanceController, AppearanceSettings>(AppearanceController.new);
@@ -149,9 +234,31 @@ final wallpaperAccentProvider = FutureProvider<Color?>((ref) {
   return ref.watch(dynamicColorChannelProvider).wallpaperAccent();
 });
 
+/// 当前生效的主题包(未选择或已卸载时为 null)。
+final activeThemePackProvider = Provider<ThemePack?>((ref) {
+  final id = ref.watch(appearanceProvider.select((s) => s.themePackId));
+  if (id == null || id.isEmpty) return null;
+  final builtIn = ThemePack.builtInById(id);
+  if (builtIn != null) return builtIn;
+  return ref.watch(themePackByIdProvider(id)).value;
+});
+
+/// 当前生效主题包已动态加载的包内字体族映射。
+final activeThemeFontsProvider = Provider<Map<String, String>>((ref) {
+  final id = ref.watch(appearanceProvider.select((s) => s.themePackId));
+  if (id == null || id.isEmpty || ThemePack.builtInById(id) != null) return const {};
+  return ref.watch(themeLoadedFontsProvider(id)).value ?? const {};
+});
+
 /// 当前生效的配色。壁纸色还没读到(或读不到)时先用上一次的预设。
 final accentProvider = Provider<AppAccent>((ref) {
   final s = ref.watch(appearanceProvider);
+  final themePack = ref.watch(activeThemePackProvider);
+  if (themePack != null) {
+    final packAccent = AppAccent.fromThemePack(themePack);
+    if (s.loaded) unawaited(_publishNotifyColor(packAccent));
+    return packAccent;
+  }
   final preset = AppAccent.preset(s.presetId);
   final accent = switch (s.source) {
     AccentSource.preset => preset,

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/l10n.dart';
 import '../../state/bots_state.dart';
+import '../chat/dsh_ui/dsh_ui.dart';
 import '../chat/render/markdown_body.dart';
 import '../chat/widgets/chat_card.dart';
 import '../chat/widgets/message_actions.dart';
@@ -418,12 +419,23 @@ class BotTranscript extends StatefulWidget {
 }
 
 class _BotTranscriptState extends State<BotTranscript> {
-  bool _onScroll(ScrollNotification note) {
-    final metrics = note.metrics;
+  /// A scroll, or a size change without one (a reply growing, the window
+  /// resizing): the header's shade follows either; only a scroll asks for more.
+  bool _onScroll(Notification note) {
+    // The transcript's own (depth 0), not a code block's sideways scroll in a row.
+    final metrics = switch (note) {
+      ScrollNotification(:final metrics, depth: 0) || ScrollMetricsNotification(:final metrics, depth: 0) => metrics,
+      _ => null,
+    };
+    if (metrics == null) return false;
+    // Shaded whenever the transcript is longer than the screen, at its oldest end
+    // too, where an overscroll pulls the text under the header.
+    widget.scrolledUnder?.value = (metrics.maxScrollExtent / 24).clamp(0.0, 1.0);
     // Reversed: content above the top edge is what lies past the scroll end.
     final above = metrics.maxScrollExtent - metrics.pixels;
-    widget.scrolledUnder?.value = (above / 24).clamp(0.0, 1.0);
-    if (above < 400 && widget.hasEarlier && !widget.loadingEarlier) widget.onEarlier?.call();
+    if (note is ScrollNotification && above < 400 && widget.hasEarlier && !widget.loadingEarlier) {
+      widget.onEarlier?.call();
+    }
     return false;
   }
 
@@ -437,7 +449,7 @@ class _BotTranscriptState extends State<BotTranscript> {
       );
     }
     final extra = widget.hasEarlier ? 1 : 0;
-    return NotificationListener<ScrollNotification>(
+    return NotificationListener<Notification>(
       onNotification: _onScroll,
       child: ListView.builder(
         reverse: true,
@@ -670,7 +682,7 @@ class BotTypingLine extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        SizedBox(height: 14, child: TypingIndicator(color: dsh.textTertiary)),
+        TypingIndicator(color: dsh.textTertiary),
       ],
     );
   }
@@ -686,6 +698,7 @@ class BotUserMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (dshUiReplyChip(text) case final label?) return DshUiReplyChip(label: label, pending: pending);
     final l10n = context.l10n;
     final shown = images > 0 && text.isEmpty ? l10n.botsImagePlaceholder : text;
     return Align(

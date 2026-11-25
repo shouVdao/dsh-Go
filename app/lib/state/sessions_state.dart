@@ -11,13 +11,14 @@ import '../companion/companion_state.dart';
 import '../runtime/runtime_state.dart';
 import 'connection_state.dart';
 import 'hosts_state.dart';
+import '../runtime/local_paths.dart';
 import 'read_list_cache.dart';
 import 'read_list_identity.dart';
 import 'settings_state.dart';
 import 'workspaces_state.dart';
 
-/// Default working directory for sessions created on the phone (inside the rootfs).
-const localWorkspaceDir = '/root/workspace';
+/// Default working directory for sessions created on the phone.
+String get localWorkspaceDir => LocalPaths.workspace;
 
 class ArchiveCommitResult {
   const ArchiveCommitResult(this.archived, this.failed);
@@ -509,9 +510,11 @@ class SessionsController extends AsyncNotifier<List<SessionSummary>> {
   /// Archived sessions of the active host, newest first (session search lists
   /// them so they can be found and restored). Changes to the archived set
   /// re-emit [state], so watchers of [sessionsProvider] see them.
-  List<SessionSummary> get archivedSessions =>
-      _rows().where((s) => !s.blank && !s.isSubagent && _archived.contains(s.sessionId)).toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  List<SessionSummary> get archivedSessions {
+    if (_archived.isEmpty) return [];
+    return _rows().where((s) => !s.blank && !s.isSubagent && _archived.contains(s.sessionId)).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  }
 
   /// Every row of the last `session/list`, subagent children included (the
   /// lineage in agents_state.dart is built from it). Re-read on [state].

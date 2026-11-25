@@ -144,8 +144,6 @@ class _WorkshopItemSheetState extends ConsumerState<WorkshopItemSheet> {
     final item = ref.watch(workshopItemProvider(widget.identity)) ?? widget.opened;
     final gone = ref.watch(workshopItemProvider(widget.identity)) == null;
     final localKnown = ref.watch(workshopCatalogProvider.select((s) => s.localStateKnown));
-    final install = ref.watch(workshopInstallProvider);
-    final mine = _mine(install);
     final meta = item.entry.metadata;
     final title = workshopTitleOf(meta, locale);
     final installed = item.installed;
@@ -170,7 +168,7 @@ class _WorkshopItemSheetState extends ConsumerState<WorkshopItemSheet> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
             children: [
               PluginHero(
-                avatar: WorkshopAvatar(meta, size: 64),
+                avatar: WorkshopEntryAvatar(item.entry, size: 64),
                 title: title,
                 subtitle: l10n.workshopByAuthor(meta.author),
                 badges: [
@@ -178,6 +176,7 @@ class _WorkshopItemSheetState extends ConsumerState<WorkshopItemSheet> {
                   if (installed != null && !item.updateAvailable) PluginBadge(l10n.commonInstalled),
                 ],
               ),
+              WorkshopPreviewPanel(item.entry),
               const SizedBox(height: 20),
               PluginStats([
                 (meta.version, l10n.workshopStatVersion),
@@ -238,17 +237,23 @@ class _WorkshopItemSheetState extends ConsumerState<WorkshopItemSheet> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: AnimatedSwitcher(
-              duration: AppMotion.of(context, AppMotion.quick),
-              child: mine && install.busy
-                  ? _Progress(key: const ValueKey('progress'), install: install)
-                  : _Action(
-                      key: const ValueKey('action'),
-                      item: item,
-                      gone: gone,
-                      failure: mine && install.phase == WorkshopInstallPhase.failed ? install.error : null,
-                      onInstall: () => unawaited(_install(item.entry)),
-                    ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final install = ref.watch(workshopInstallProvider);
+                final mine = _mine(install);
+                return AnimatedSwitcher(
+                  duration: AppMotion.of(context, AppMotion.quick),
+                  child: mine && install.busy
+                      ? _Progress(key: const ValueKey('progress'), install: install)
+                      : _Action(
+                          key: const ValueKey('action'),
+                          item: item,
+                          gone: gone,
+                          failure: mine && install.phase == WorkshopInstallPhase.failed ? install.error : null,
+                          onInstall: () => unawaited(_install(item.entry)),
+                        ),
+                );
+              },
             ),
           ),
         ),

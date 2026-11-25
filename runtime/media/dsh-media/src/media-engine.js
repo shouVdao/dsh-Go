@@ -57,6 +57,7 @@ export function mediaMeta(request, rid, status, job) {
     request: { provider: request.service.provider, model: request.model.id, label: request.model.label,
       n: request.n ?? 1, refs: request.refs?.length ?? 0,
       ...(request.aspect ? { aspect: request.aspect } : {}), ...(request.quality ? { quality: request.quality } : {}),
+      ...(request.resolution ? { resolution: request.resolution } : {}),
       ...(request.seconds ? { seconds: request.seconds } : {}) }, prompt: request.prompt };
 }
 export async function generateMedia(request, context) {
@@ -65,7 +66,7 @@ export async function generateMedia(request, context) {
   const outputDate = context.admission?.outputDate ?? createdAt.slice(0, 10);
   const timeout = AbortSignal.timeout(request.model.kind === 'video' ? 30 * 60_000 : 180_000);
   const signal = AbortSignal.any([context.signal, timeout]);
-  const client = context.client ?? createMediaClient({ transport: context.transport ?? requestBytes });
+  const client = context.client ?? createMediaClient({ transport: context.transport ?? undefined });
   const transport = context.transport ?? requestBytes;
   let store, secret, providerTask, submitted = false, remoteSucceeded = false, cancelledRemote;
   const meta = mediaMeta(request, rid, 'done', context.job?.id);
@@ -81,17 +82,29 @@ export async function generateMedia(request, context) {
       ...(request.model.kind === 'video' ? { duration: 3600, codec: 'hevc' } : {}),
     }));
     if (Buffer.byteLength(JSON.stringify({ 'dsh-go/media': { ...meta, items: maximumItems } })) > 8192) fail('metadata');
-    const refs = context.resumeTaskId ? [] : context.referenceSources ?? await readReferences(request.refs, { ...context, signal });
+    let refs = context.resumeTaskId ? [] : context.references?.sources ?? await readReferences(request.refs, { ...context, signal });
     secret = await context.resolveCredential();
     if (typeof secret !== 'string' || secret.length < 1 || secret.length > 8192 || /[\r\n]/.test(secret)) fail('credential');
     // Reject a secret deliberately echoed through any public metadata/input field.
     if (containsSecret({ request, cwd: store.cwd }, secret)) fail('credential');
     await store.recheck();
-    await validateReferencePins(context.referencePins);
+    await validateReferencePins(context.references?.pins);
     checkAbort(signal);
-    if (!context.resumeTaskId) await context.admission?.begin();
+    let performCreate;
+    if (!context.resumeTaskId) {
+      const options = { signal, maxResponseBytes: context.limits.maxResponseBytes };
+      performCreate = typeof client.prepareCreate === 'function'
+        ? await client.prepareCreate(request, refs, secret, options)
+        : () => client.create(request, refs, secret, options);
+      checkAbort(signal);
+      await context.admission?.begin();
+    }
     submitted = true; // Intent may have reached the provider, even if the response is lost.
-    const created = context.resumeTaskId ? { taskId: context.resumeTaskId } : await client.create(request, refs, secret, { signal, maxResponseBytes: context.limits.maxResponseBytes });
+    const created = context.resumeTaskId ? { taskId: context.resumeTaskId } : await performCreate();
+    // The background job shares captured inputs with its caller. Polling needs only the task ID.
+    if (context.references) context.references.sources = undefined;
+    refs = undefined;
+    performCreate = undefined;
     if (request.model.kind === 'image') {
       let total = 0;
       for (const source of created.images) {

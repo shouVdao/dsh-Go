@@ -10,16 +10,18 @@ import '../pets/pet_library.dart';
 import '../pets/pet_prefs.dart';
 import '../pets/pet_sheets.dart';
 import '../pets/pet_signals.dart' show petPackProvider, userPetsProvider;
+import '../themes/theme_library.dart';
 import '../workshop/workshop_client.dart';
 import '../workshop/workshop_http.dart';
 import '../workshop/workshop_models.dart';
 import '../workshop/workshop_repository.dart';
 import 'app_info.dart';
+import 'appearance_state.dart';
 
-/// The owner supplies a deployment, either with this provider or at build time.
-/// An absent deployment is a state error, never an implicit third-party host.
+/// Our own deployment unless the build names another; an empty value builds
+/// without a Workshop. Never an implicit third-party host.
 final workshopOriginProvider = Provider<Uri?>((ref) {
-  const configured = String.fromEnvironment('DSH_WORKSHOP_ORIGIN');
+  const configured = String.fromEnvironment('DSH_WORKSHOP_ORIGIN', defaultValue: 'https://go.dshtui.com');
   if (configured.isEmpty) return null;
   final parsed = Uri.tryParse(configured);
   if (parsed == null) workshopInvalid('workshop_untrusted_origin');
@@ -62,10 +64,11 @@ final workshopClientProvider = FutureProvider<WorkshopClient>((ref) async {
 /// Stores are borrowed; this provider never closes a companion reader/store.
 final workshopPackagesProvider = FutureProvider<WorkshopPackages>((ref) async {
   final pets = ref.watch(petLibraryProvider);
+  final themes = ref.watch(themeLibraryProvider);
   final loadCompanion = ref.watch(companionFloatStoreProvider);
   final companion = await loadCompanion();
   if (!ref.mounted) workshopInvalid('workshop_cancelled');
-  return LocalWorkshopPackages(pets: pets, companion: companion);
+  return LocalWorkshopPackages(pets: pets, companion: companion, themes: themes);
 }, retry: (_, _) => null);
 
 final workshopRepositoryProvider = FutureProvider<WorkshopRepository>((ref) async {
@@ -90,10 +93,10 @@ final workshopRepositoryProvider = FutureProvider<WorkshopRepository>((ref) asyn
 
 /// Called only by explicit actions. Healthy dependencies remain shared/open.
 void retryWorkshopDependencies(Ref ref, {bool includeLocal = false}) {
-  final clientFailed = ref.exists(workshopClientProvider) && ref.read(workshopClientProvider).hasError;
-  final packagesFailed = includeLocal && ref.exists(workshopPackagesProvider) &&
+  final clientFailed = ref.read(workshopClientProvider.exists) && ref.read(workshopClientProvider).hasError;
+  final packagesFailed = includeLocal && ref.read(workshopPackagesProvider.exists) &&
       ref.read(workshopPackagesProvider).hasError;
-  final repositoryFailed = includeLocal && ref.exists(workshopRepositoryProvider) &&
+  final repositoryFailed = includeLocal && ref.read(workshopRepositoryProvider.exists) &&
       ref.read(workshopRepositoryProvider).hasError;
   if (clientFailed) ref.invalidate(workshopClientProvider);
   if (packagesFailed) ref.invalidate(workshopPackagesProvider);
@@ -138,6 +141,17 @@ Future<void> _waitPetPreferences(Ref ref) async {
 /// operation can still refresh the local resource it changed.
 final workshopPackageChangedProvider = Provider<WorkshopPackageChanged>((ref) {
   return (item, {required removed}) async {
+    if (item.receipt.kind == 'theme') {
+      ThemeFonts.instance.forget(item.localId);
+      if (!ref.mounted) return;
+      ref.invalidate(themePackByIdProvider(item.localId));
+      ref.invalidate(themeLoadedFontsProvider(item.localId));
+      ref.invalidate(userThemesProvider);
+      if (removed && ref.read(appearanceProvider).themePackId == item.localId) {
+        await ref.read(appearanceProvider.notifier).selectThemePack(null);
+      }
+      return;
+    }
     if (item.receipt.kind != 'pet') return;
     PetSheets.instance.forget(item.localId);
     if (!ref.mounted) return;

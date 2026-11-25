@@ -30,6 +30,7 @@ import 'pet_sprite.dart';
 Map<String, String> get petNames => {
   'deepy-whale': appL10n.botsPetDeepy,
   'whale-girl': appL10n.botsPetWhaleGirl,
+  'pink-fish': appL10n.botsPetPinkFish,
   noPetId: appL10n.botsPetNone,
 };
 
@@ -59,6 +60,9 @@ String petImportProblemText(L10n l10n, PetImportException error) => switch (erro
   PetImportProblem.badPack => l10n.botsPetImportBadPack(error.detail ?? ''),
   PetImportProblem.missingSheet => l10n.botsPetImportMissingSheet(error.detail ?? ''),
   PetImportProblem.badSheet => l10n.botsPetImportBadSheet(error.detail ?? ''),
+  PetImportProblem.live2dModel => l10n.botsPetImportLive2dModel(error.detail ?? ''),
+  PetImportProblem.live2dPoster => l10n.botsPetImportLive2dPoster,
+  PetImportProblem.live2dExport => l10n.botsPetExportLive2d,
   PetImportProblem.tooLarge => l10n.botsPetImportTooLarge,
   PetImportProblem.storage => l10n.botsPetImportStorage,
 };

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../companion/companion_agent_phone_tools.dart' show companionPhoneWindow;
 import '../notify/chat_alerts.dart';
 import '../notify/notify_channel.dart';
 import '../l10n/l10n.dart';
@@ -263,7 +264,18 @@ class PhoneTurnEndController extends Notifier<void> {
       _ownerClient = null;
       _ownerGeneration = null;
       _trace('task=${link.taskId} event=begin');
-      unawaited(_snapshot(link.taskId!));
+      // iOS binds the task to the authenticated engine request at admission.
+      // A session-list snapshot is for legacy Android tasks with no owner; it
+      // can be ambiguous or still pending while the exact iOS owner is known.
+      final client = ref.read(localConnectionProvider).value?.client;
+      final owner = legacy.ownerSessionId;
+      if (owner != null && owner.isNotEmpty && client != null) {
+        _ownerClient = client;
+        _ownerGeneration = client.mux.generation;
+        link.began([owner]);
+      } else {
+        unawaited(_snapshot(link.taskId!));
+      }
     } else if (!link.armed) {
       final reading = _reading;
       if (reading != null) _retireRead(reading, invalidate: false);
@@ -275,12 +287,19 @@ class PhoneTurnEndController extends Notifier<void> {
     final lifetime = _lifetime;
     final client = ref.read(localConnectionProvider).value?.client;
     final generation = client?.mux.generation;
-    final reopen = ref.read(phoneReturnPrefProvider) && !ref.read(appForegroundProvider);
-    final bot = ref.read(dsBotSessionFilterProvider)(HostRef.local, session);
+    // A companion task goes back to her room (lib/ui/shell/system_entry_host.dart).
+    // Asked for from her floating self or her notification, it was outside the
+    // app: the person stays where the task left them, her reply in her bubble.
+    final companion = companionPhoneWindow(session);
+    final reopen = ref.read(phoneReturnPrefProvider) && !ref.read(appForegroundProvider) &&
+        (companion == null || companion == 'room');
+    final bot = companion == null && ref.read(dsBotSessionFilterProvider)(HostRef.local, session);
     final result = await ref.read(phoneChannelProvider).finishTask(
       taskId: id, sessionId: session, host: HostRef.local.encode(), reopen: reopen,
       runId: task.endedRunId, generation: task.endedGeneration, appOnly: bot,
     );
+    // No conversation to reveal, and a chat notification would open none.
+    if (companion != null) return;
     if (!ref.mounted || !identical(_lifetime, lifetime) || !result.current ||
         _nativeLatest[session] != id ||
         !identical(ref.read(localConnectionProvider).value?.client, client) ||

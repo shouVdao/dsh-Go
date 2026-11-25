@@ -158,7 +158,13 @@ class _MediaVideoViewerPageState extends State<MediaVideoViewerPage> with Widget
     _polling = true;
     try {
       final state = await widget.video.state(handle.texture);
-      if (mounted && identical(_handle, handle)) setState(() => _state = state);
+      if (!mounted || !identical(_handle, handle)) return;
+      final previous = _state;
+      if (previous?.positionMs != state.positionMs ||
+          previous?.durationMs != state.durationMs ||
+          previous?.playing != state.playing) {
+        setState(() => _state = state);
+      }
     } catch (error) {
       if (mounted && identical(_handle, handle)) _fail(error);
     } finally {
@@ -234,7 +240,7 @@ class _MediaVideoViewerPageState extends State<MediaVideoViewerPage> with Widget
       await widget.gallery.saveVideoFile(file.path, name: widget.item.name);
       if (mounted) messenger.showBriefNotice(l10n.chatImageSavedToPhotos);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || saveWindowDismissed(error)) return;
       final permission = error is PlatformException && error.code == 'permission';
       messenger.showSnackBar(
         SnackBar(
@@ -263,6 +269,7 @@ class _MediaVideoViewerPageState extends State<MediaVideoViewerPage> with Widget
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final handle = _handle;
+    final unsupported = _error is PlatformException && (_error as PlatformException).code == 'unsupported';
     final state = _state;
     final duration = (state?.durationMs ?? 0).clamp(0, 1 << 53).toDouble();
     final position = (_seeking ?? state?.positionMs.toDouble() ?? 0).clamp(0.0, duration);
@@ -305,11 +312,15 @@ class _MediaVideoViewerPageState extends State<MediaVideoViewerPage> with Widget
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                _file == null ? artifactErrorText(_error!) : l10n.mediaVideoCannotPlay,
+                                _file == null
+                                    ? artifactErrorText(_error!)
+                                    : unsupported
+                                    ? l10n.mediaVideoUnsupported
+                                    : l10n.mediaVideoCannotPlay,
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 16),
-                              FilledButton(onPressed: _load, child: Text(l10n.commonRetry)),
+                              if (!unsupported) FilledButton(onPressed: _load, child: Text(l10n.commonRetry)),
                             ],
                           ),
                         )
@@ -317,7 +328,11 @@ class _MediaVideoViewerPageState extends State<MediaVideoViewerPage> with Widget
                       ? const SizedBox.shrink()
                       : AspectRatio(
                           aspectRatio: handle.aspectRatio,
-                          child: Texture(textureId: handle.texture),
+                          // Dimensions already describe the display; rotate the buffer inside them.
+                          child: RotatedBox(
+                            quarterTurns: handle.rotation ~/ 90,
+                            child: Texture(textureId: handle.texture),
+                          ),
                         ),
                 ),
               ),

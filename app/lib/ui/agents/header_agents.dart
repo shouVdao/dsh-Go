@@ -109,6 +109,7 @@ class HeaderBackKey extends ConsumerWidget {
       excludeSemantics: true,
       child: GlassSurface(
         tier: GlassTier.chrome,
+        style: DshThemeStyle.of(context).headerGlass(Theme.of(context).colorScheme),
         stadium: true,
         grouped: true,
         onTap: () => selectConversation(ref, parent.address.parentSessionId),
@@ -182,7 +183,12 @@ class HeaderAgentsKey extends StatelessWidget {
             child: AnimatedOpacity(
               opacity: running ? 1 : 0,
               duration: AppMotion.of(context, AppMotion.quick),
-              child: const StatusDot(tone: StatusTone.busy, size: 7),
+              // Hidden is not enough: the dot's pulse would keep asking for
+              // frames while nothing runs (#1094).
+              child: TickerMode(
+                enabled: running,
+                child: const StatusDot(tone: StatusTone.busy, size: 7),
+              ),
             ),
           ),
         ],
@@ -207,6 +213,7 @@ class HeaderAgentsKey extends StatelessWidget {
                 dimension: height,
                 child: GlassSurface(
                   tier: GlassTier.chrome,
+                  style: DshThemeStyle.of(context).headerGlass(Theme.of(context).colorScheme),
                   circle: true,
                   grouped: true,
                   onTap: open,
@@ -215,6 +222,7 @@ class HeaderAgentsKey extends StatelessWidget {
               )
             : GlassSurface(
                 tier: GlassTier.chrome,
+                style: DshThemeStyle.of(context).headerGlass(Theme.of(context).colorScheme),
                 stadium: true,
                 grouped: true,
                 onTap: open,

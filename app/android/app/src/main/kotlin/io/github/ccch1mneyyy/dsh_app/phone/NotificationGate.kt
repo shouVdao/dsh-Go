@@ -53,32 +53,26 @@ class NotificationGate(
     override fun confirm(request: ConfirmRequest): Decision {
         PhoneRegistry.promptGate?.let { return it.confirm(request) }
         if (!available()) return Decision.UNAVAILABLE
-        // Without the unified presenter, a visual request can only authorize this step;
-        // its three slots must not silently remove the one-shot alternative.
-        // Three buttons fit a heads-up: 本任务免确认 makes "allow" waive the rest of the task.
-        val allow = when {
-            request.visualScope != null -> AppStrings.get(app, R.string.overlay_allow_once)
-            request.offerTaskWaiver -> AppStrings.get(app, R.string.overlay_allow_task_no_ask)
-            request.firstInApp -> AppStrings.get(app, R.string.overlay_allow_task)
-            else -> AppStrings.get(app, R.string.overlay_allow_once)
+        // A heads-up fits three answers: 允许一次 / 本轮允许 / 取消. A visual scope only ever
+        // authorizes one step, so it gets the two-answer form instead of a 本轮 grant.
+        val round = request.allowRound && request.visualScope == null
+        val buttons = buildList {
+            add(AppStrings.get(app, R.string.overlay_allow_once) to "allow")
+            if (round) add(AppStrings.get(app, R.string.overlay_allow_round) to "round")
+            add(AppStrings.get(app, R.string.overlay_decline) to "deny")
         }
         val title = if (request.firstInApp) AppStrings.get(app, R.string.overlay_open_app, request.appLabel ?: AppStrings.get(app, R.string.overlay_this_app)) else AppStrings.get(app, R.string.overlay_confirm_title)
         val choice = ask(
             title = title,
             text = request.sentence,
-            buttons = listOf(allow to "allow", AppStrings.get(app, R.string.overlay_decline) to "deny", AppStrings.get(app, R.string.overlay_stop) to "stop"),
+            buttons = buttons,
             timeoutMs = request.timeoutMs.coerceIn(5_000, 120_000),
             dismissed = "deny",
             channel = CHANNEL_CONFIRM,
         )
         return when (choice) {
-            "allow" -> when {
-                request.visualScope != null -> Decision.ALLOW_ONCE
-                request.offerTaskWaiver -> Decision.ALLOW_ALL_FOR_TASK
-                request.firstInApp -> Decision.ALLOW_APP_FOR_TASK
-                else -> Decision.ALLOW_ONCE
-            }
-            "stop" -> Decision.STOP
+            "allow" -> Decision.ALLOW_ONCE
+            "round" -> Decision.ALLOW_APP_FOR_TASK
             else -> Decision.DENY
         }
     }
@@ -109,6 +103,20 @@ class NotificationGate(
     override fun status(text: String?) = onStatus(text) { update -> update(); true }
 
     override fun status(text: String?, ifCurrent: (() -> Unit) -> Boolean) = onStatus(text, ifCurrent)
+
+    /** Announce an overlay/app prompt without duplicating its buttons or exposing request text. */
+    fun showWaiting(p: PromptPresentation) = p.showNotice {
+        if (!available()) return@showNotice null
+        val id = ids.incrementAndGet()
+        runCatching {
+            nm.notify(TAG, id, builder(CHANNEL_CONFIRM).setSmallIcon(R.drawable.ic_stat_dsh)
+                .setContentTitle(AppStrings.APP_NAME)
+                .setContentText(PhonePromptUi.title(app, p.ticket.content))
+                .setCategory(Notification.CATEGORY_REMINDER).setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setOngoing(true).setTimeoutAfter(p.ticket.remainingMs).build())
+            ({ runCatching { nm.cancel(TAG, id) }; Unit })
+        }.getOrNull()
+    }
 
     /** Non-blocking presentation for the shared arbiter. Open uses an Activity PendingIntent. */
     override fun showPrompt(presentation: PromptPresentation): (() -> Unit)? {
@@ -163,18 +171,27 @@ class NotificationGate(
     }
 
     /** A distinct result notification, independent of ordinary chat notification preferences. */
-    fun notifyFinished(taskId: Long, sessionId: String?, host: String?): Boolean = runCatching {
-        if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel(CHANNEL_RESULT,
-            AppStrings.get(app, R.string.phone_prompt_result_channel), NotificationManager.IMPORTANCE_HIGH))
-        if (!channelAvailable(CHANNEL_RESULT, NotificationManager.IMPORTANCE_MIN)) return false
+    fun notifyFinished(taskId: Long, sessionId: String?, host: String?): Boolean =
+        notifyResult(taskId, sessionId, host, null)
+
+    fun notifyDraft(taskId: Long, sessionId: String, display: String): Boolean =
+        notifyResult(taskId, sessionId, null, display)
+
+    private fun notifyResult(taskId: Long, sessionId: String?, host: String?, display: String?): Boolean = runCatching {
+        val channel = if (display == null) CHANNEL_RESULT else SystemActions.CHANNEL_NOTIFY
+        if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel(channel,
+            AppStrings.get(app, if (display == null) R.string.phone_prompt_result_channel else R.string.phone_reminder_channel),
+            if (display == null) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT))
+        if (!channelAvailable(channel, NotificationManager.IMPORTANCE_MIN)) return false
         val intent = if (sessionId != null) EntryActivity.openChat(app, sessionId, host) else EntryActivity.openApp(app)
-        val key = resultTag(taskId, sessionId, host)
+        val key = (if (display == null) "" else "skill-") + resultTag(taskId, sessionId, host)
         intent.data = Uri.fromParts("dsh-phone-result", key, null)
         val pi = PendingIntent.getActivity(app, RESULT_ID, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        nm.notify(key, RESULT_ID, builder(CHANNEL_RESULT).setSmallIcon(R.drawable.ic_stat_dsh)
-            .setContentTitle(AppStrings.get(app, R.string.phone_prompt_result_title))
-            .setContentText(AppStrings.get(app, R.string.phone_prompt_result_text))
+        nm.notify(key, RESULT_ID, builder(channel).setSmallIcon(R.drawable.ic_stat_dsh)
+            .setContentTitle(if (display == null) AppStrings.get(app, R.string.phone_prompt_result_title)
+                else AppStrings.get(app, R.string.phone_skill_draft_title, display))
+            .setContentText(AppStrings.get(app, if (display == null) R.string.phone_prompt_result_text else R.string.phone_skill_draft_open))
             .setContentIntent(pi).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).build())
         true
     }.getOrDefault(false)

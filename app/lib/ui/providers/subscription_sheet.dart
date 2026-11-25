@@ -13,6 +13,7 @@ import '../../state/account_state.dart' show accountBrowserProvider;
 import '../../state/app_foreground.dart';
 import '../../state/subscriptions_state.dart';
 import '../common/app_sheet.dart';
+import '../common/field_paste.dart';
 import '../common/sheet_title_bar.dart';
 import '../common/smooth_size.dart';
 import '../theme/app_icons.dart';
@@ -20,26 +21,32 @@ import '../theme/theme.dart';
 
 /// A subscription's monogram letter (a plain letter, no brand mark).
 String subscriptionLetter(Subscription s) => switch (s) {
-  Subscription.chatgpt => 'G',
+  Subscription.chatgpt || Subscription.chatgptOfficial => 'G',
   Subscription.claude => 'C',
 };
 
 /// Opens the sign-in sheet; true once signed in. Closing it cancels the
 /// attempt.
-Future<bool> showSubscriptionLogin(BuildContext context, Subscription subscription) async {
+Future<bool> showSubscriptionLogin(BuildContext context, Subscription subscription, {bool newAccount = false}) async {
   final signedIn = await showAppSheet<bool>(
     context,
     dismissal: SheetDismissal.button,
     isScrollControlled: true,
-    builder: (_) => SubscriptionLoginSheet(subscription: subscription),
+    builder: (_) => SubscriptionLoginSheet(subscription: subscription, newAccount: newAccount),
   );
   return signedIn ?? false;
 }
 
 class SubscriptionLoginSheet extends ConsumerStatefulWidget {
-  const SubscriptionLoginSheet({super.key, required this.subscription, this.interval = const Duration(seconds: 1)});
+  const SubscriptionLoginSheet({
+    super.key,
+    required this.subscription,
+    this.newAccount = false,
+    this.interval = const Duration(seconds: 1),
+  });
 
   final Subscription subscription;
+  final bool newAccount;
 
   /// Poll interval (tests shorten it).
   final Duration interval;
@@ -69,7 +76,12 @@ class _SubscriptionLoginSheetState extends ConsumerState<SubscriptionLoginSheet>
     super.initState();
     final backend = ref.read(subscriptionBackendProvider);
     if (backend == null) return;
-    final session = LoginSession(backend, widget.subscription, interval: widget.interval)..addListener(_onStep);
+    final session = LoginSession(
+      backend,
+      widget.subscription,
+      newAccount: widget.newAccount,
+      interval: widget.interval,
+    )..addListener(_onStep);
     _session = session;
     unawaited(session.start());
   }
@@ -443,11 +455,20 @@ class _PromptBody extends StatefulWidget {
   State<_PromptBody> createState() => _PromptBodyState();
 }
 
-class _PromptBodyState extends State<_PromptBody> {
+class _PromptBodyState extends State<_PromptBody> with FieldPaste<_PromptBody> {
+  String? _pasteError;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_PromptBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Another question on the same field: a paste still waiting was for the last one.
+    if (oldWidget.helper != widget.helper || oldWidget.hint != widget.hint) cancelPaste();
   }
 
   @override
@@ -456,10 +477,10 @@ class _PromptBodyState extends State<_PromptBody> {
     super.dispose();
   }
 
-  void _changed() => setState(() {});
+  void _changed() => setState(() => _pasteError = null);
 
   Future<void> _paste() async {
-    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text?.trim();
+    final text = (await readClipboard(say: (message) => setState(() => _pasteError = message)))?.trim();
     if (text == null || text.isEmpty || !mounted) return;
     widget.controller.value = TextEditingValue(
       text: text,
@@ -500,6 +521,8 @@ class _PromptBodyState extends State<_PromptBody> {
             hintText: widget.hint?.trim().isNotEmpty == true ? widget.hint : l10n.engineSubscriptionPasteHere,
             helperText: _cjk.hasMatch(widget.helper ?? '') ? widget.helper!.trim() : null,
             helperMaxLines: 3,
+            errorText: _pasteError,
+            errorMaxLines: 3,
             suffixIcon: IconButton(
               tooltip: l10n.commonPaste,
               icon: const Icon(AppIcons.paste, size: 20),

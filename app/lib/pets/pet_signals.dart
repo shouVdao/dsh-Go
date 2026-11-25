@@ -64,7 +64,7 @@ class UserPetsController extends AsyncNotifier<List<PetPack>> {
     // put right by this listing) is read again.
     for (final pack in found) {
       final read = petPackProvider(pack.id);
-      if (ref.exists(read) && ref.read(read).hasError) ref.invalidate(read);
+      if (ref.read(read.exists) && ref.read(read).hasError) ref.invalidate(read);
     }
     if (ticket < _landed) return _latest;
     _landed = ticket;
@@ -93,11 +93,17 @@ class UserPetsController extends AsyncNotifier<List<PetPack>> {
   /// Checks and unpacks [zip] (pet_library.dart). Returns the pet and whether
   /// it replaced one of the same id; throws [PetImportException].
   Future<({PetPack pack, bool replaced})> import(File zip) async {
-    final (:id, :replaced) = await ref.read(petLibraryProvider).install(zip);
-    _changed(id);
-    final pack = await ref.read(petPackProvider(id).future);
-    await _relist((was) => [...was.where((p) => p.id != id), pack]);
-    return (pack: pack, replaced: replaced);
+    final carrying = ref.read(petCarryingProvider.notifier);
+    carrying.set(true);
+    try {
+      final (:id, :replaced) = await ref.read(petLibraryProvider).install(zip);
+      _changed(id);
+      final pack = await ref.read(petPackProvider(id).future);
+      await _relist((was) => [...was.where((p) => p.id != id), pack]);
+      return (pack: pack, replaced: replaced);
+    } finally {
+      if (ref.mounted) carrying.set(false);
+    }
   }
 
   /// Removes a brought pet; when it was the chosen one, the default comes
@@ -278,6 +284,11 @@ final petInteractionProvider = NotifierProvider<PetInteractionController, DateTi
 
 // ── What runs where ──────────────────────────────────────────────────────────
 
+// Lineage and titles need none of the raw row or its inbox projections.
+typedef _Lineage = ({String? title, bool isSubagent, String? parentSessionId});
+
+_Lineage _lineage(SessionSummary s) => (title: s.title, isSubagent: s.isSubagent, parentSessionId: s.parentSessionId);
+
 /// Running conversations and subagents of one host, from its `$events`
 /// (status edges) and `session/list` (lineage).
 class _HostRuns {
@@ -291,7 +302,7 @@ class _HostRuns {
   final DateTime Function() clock;
   final void Function() onChange;
   late final StreamSubscription<HostEvent> _sub;
-  final Map<String, SessionSummary> _info = {};
+  final Map<String, _Lineage> _info = {};
   final Map<String, DateTime?> _running = {};
   bool _disposed = false;
   bool _listing = false;
@@ -345,7 +356,7 @@ class _HostRuns {
         onChange();
       case SessionAddedEvent(:final summary):
         if (_listing) _infoDuringList.add(summary.sessionId);
-        _info[summary.sessionId] = summary;
+        _info[summary.sessionId] = _lineage(summary);
       case SessionRemovedEvent(:final sessionId):
         if (_listing) {
           _statusDuringList.add(sessionId);
@@ -383,7 +394,9 @@ class _HostRuns {
       };
       _info
         ..clear()
-        ..addEntries(list.where((s) => !_infoDuringList.contains(s.sessionId)).map((s) => MapEntry(s.sessionId, s)))
+        ..addEntries(
+          list.where((s) => !_infoDuringList.contains(s.sessionId)).map((s) => MapEntry(s.sessionId, _lineage(s))),
+        )
         ..addAll(changedInfo);
       final was = {..._running};
       _running
@@ -518,15 +531,16 @@ class PetFocusController extends Notifier<PetFocus?> {
 
 final petFocusProvider = NotifierProvider<PetFocusController, PetFocus?>(PetFocusController.new);
 
-/// What the conversation [s] is doing, for the pet.
-PetFocus petFocusOf(HostRef host, String sessionId, ChatState s, {bool compacting = false}) {
+/// What the conversation [s] is doing, for the pet; [activity] is
+/// [runActivityOf] of [s].
+PetFocus petFocusOf(HostRef host, String sessionId, ChatState s, RunActivity? activity, {bool compacting = false}) {
   final approval = s.openApproval;
   final question = approval == null ? s.questions.firstOrNull : null;
   return PetFocus(
     host: host,
     sessionId: sessionId,
     title: s.title,
-    activity: petActivityOf(runActivityOf(s)?.kind),
+    activity: petActivityOf(activity?.kind),
     compacting: compacting,
     waitingKey: approval?.eventId ?? question?.eventId,
     waitingQuestion: question != null,
@@ -549,6 +563,9 @@ final petPendingProvider = Provider<List<PetPending>>((ref) {
   ];
 });
 
+/// A pet pack is being unpacked: the pet carries it in (docs/design/pets.md §4.2).
+final petCarryingProvider = NotifierProvider<FlagController, bool>(() => FlagController(false));
+
 /// All level signals.
 final petSignalsProvider = Provider<PetSignals>((ref) {
   final focus = ref.watch(petFocusProvider);
@@ -558,6 +575,7 @@ final petSignalsProvider = Provider<PetSignals>((ref) {
     runs: ref.watch(petRunsProvider),
     pending: ref.watch(petPendingProvider),
     lastInteraction: ref.watch(petInteractionProvider),
+    carrying: ref.watch(petCarryingProvider),
     quiet: ref.watch(petPrefsProvider.select((p) => p.quiet)),
   );
 });
@@ -658,6 +676,10 @@ final petScopedStateProvider = Provider.family<PetState, PetScope>((ref, scope) 
     foreground: ref.watch(appForegroundProvider),
     packId: prefs.packId,
     size: prefs.size,
+    bodyHeight: prefs.bodyHeight,
+    // The page's size above; the floating window has its own (null: follow).
+    overlaySize: prefs.overlaySize,
+    overlayBodyHeight: prefs.overlaySize == null ? null : prefs.overlayBodyHeight,
     quiet: prefs.quiet,
     reduceMotion: ref.watch(performanceDefaultsProvider.select((p) => p.reduceMotion)),
     canStop: signals.runs.any((r) => PetTarget(r.host, r.root) == petTarget(global, signals) && r.host == activeHost),

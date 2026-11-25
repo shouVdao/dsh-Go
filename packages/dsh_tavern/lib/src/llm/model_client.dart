@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 
 import '../api.dart';
 
+part 'model_metadata.dart';
+
 /// The transport contract is OpenAI Chat Completions. DeepSeek's beta endpoint,
 /// prefix, reasoning_content and usage fields follow its published API:
 /// https://api-docs.deepseek.com/api/create-chat-completion/
@@ -35,6 +37,7 @@ class ModelToolFragment extends ModelDelta {
     this.name,
     this.arguments,
     List<Map<String, Object?>> issues = const [],
+    this.structure,
   }) : _issues = jsonEncode(issues);
 
   final int? index;
@@ -42,6 +45,7 @@ class ModelToolFragment extends ModelDelta {
   final String? type;
   final String? name;
   final String? arguments;
+  final ModelToolFragmentStructure? structure;
   final String _issues;
 
   /// Every read is detached, including nested diagnostic metadata.
@@ -51,13 +55,16 @@ class ModelToolFragment extends ModelDelta {
 }
 
 class ModelUsage extends ModelDelta {
-  const ModelUsage(this.usage);
+  const ModelUsage(this.usage, {this.report});
   final TavernUsage usage;
+  final ModelUsageReport? report;
 }
 
 class ModelFinished extends ModelDelta {
-  const ModelFinished(this.reason);
+  const ModelFinished(this.reason, {this.assistantSnapshot, this.finalUsageReport});
   final String? reason;
+  final ModelAssistantSnapshot? assistantSnapshot;
+  final ModelUsageReport? finalUsageReport;
 }
 
 class TavernModelException implements Exception {
@@ -74,6 +81,29 @@ class TavernModelException implements Exception {
 class _RetryableModelException implements Exception {
   const _RetryableModelException(this.cause);
   final TavernModelException cause;
+}
+
+/// Owned consumer failures retain their original identity and stack. They are
+/// not HTTP/JSON failures and must never enter transport retry classification.
+class _ResponseFrameFailure implements Exception {
+  const _ResponseFrameFailure(this.error, this.stack);
+  final Object error;
+  final StackTrace stack;
+}
+
+({String text, String reasoning})? _projectResponseText(
+  ModelCancellation cancellation,
+  bool streaming,
+  Map<String, Object?> frame,
+) {
+  if (cancellation is! ModelRequestContext || cancellation.projectResponseText == null) return null;
+  try {
+    // The projection must not change evidence subsequently collected from the
+    // original parsed frame, including tool structure and usage diagnostics.
+    return cancellation.projectResponseText!(streaming, jsonDecode(jsonEncode(frame)) as Map<String, Object?>);
+  } catch (error, stack) {
+    throw _ResponseFrameFailure(error, stack);
+  }
 }
 
 /// One cancellation per generation, including time spent obtaining the key.
@@ -100,17 +130,135 @@ class ModelCancellation {
   }
 }
 
+/// A single request's raw-usage observation scope over the original token.
+/// All cancellation operations delegate; closing observations neither cancels
+/// that token nor erases already recorded evidence. Legacy generate overrides
+/// still accept this through their unchanged ModelCancellation parameter.
+class ModelRequestContext extends ModelCancellation {
+  ModelRequestContext({
+    required ModelCancellation cancellation,
+    required void Function(ModelUsageReport) onUsageReport,
+    this.preparedBody = false,
+    this.allowEmptyKey = false,
+    this.endpointOverride,
+    this.onResponseStarted,
+    this.onResponseBytes,
+    this.onResponseSecret,
+    this.projectResponseText,
+    this.onResponseFrame,
+  }) : _cancellation = cancellation,
+       _onUsageReport = onUsageReport;
+
+  final bool preparedBody;
+  final bool allowEmptyKey;
+
+  /// An explicit per-request endpoint; omitted by native callers. Helper proxy
+  /// URLs preserve their selected path without the native DeepSeek beta suffix.
+  final Uri? endpointOverride;
+
+  /// Optional raw transport evidence for opt-in SPreset logs. Observers are
+  /// synchronous, detached from response ownership and cannot alter retries.
+  final void Function(int attempt, int status, Map<String, String> headers)? onResponseStarted;
+  final void Function(int attempt, List<int> bytes)? onResponseBytes;
+
+  /// Supplies the already-resolved credential only to an opt-in log redactor.
+  /// It is never included in a report or resolved a second time for logging.
+  final void Function(String secret)? onResponseSecret;
+  void observeResponseSecret(String secret) {
+    if (_observationsClosed) return;
+    try {
+      onResponseSecret?.call(secret);
+    } catch (_) {
+      /* observation only */
+    }
+  }
+
+  /// Optional synchronous text extraction over a detached parsed response.
+  /// A compatibility consumer may select provider-specific text/reasoning
+  /// before either channel is yielded. The original response remains the
+  /// collector/usage/tool evidence. Omitted by native and quiet callers.
+  final ({String text, String reasoning}) Function(bool streaming, Map<String, Object?> frame)? projectResponseText;
+
+  /// Optional consumer work after all deltas of a decoded response frame. This
+  /// is an owned operation, unlike the observation-only callbacks above. A
+  /// Helper progress update may persist macro effects and must be drained.
+  /// Native callers omit it and incur no new asynchronous boundary.
+  /// A synchronous metadata consumer returns null; only real owned work adds
+  /// an await. Nonstream delivers its complete parsed response before finish.
+  final Future<void>? Function(int attempt, bool streaming, Map<String, Object?> frame)? onResponseFrame;
+  void observeResponseStarted(int attempt, int status, Map<String, String> headers) {
+    if (_observationsClosed) return;
+    try {
+      onResponseStarted?.call(attempt, status, Map.of(headers));
+    } catch (_) {
+      /* observation only */
+    }
+  }
+
+  void observeResponseBytes(int attempt, List<int> bytes) {
+    if (_observationsClosed) return;
+    try {
+      onResponseBytes?.call(attempt, List.of(bytes));
+    } catch (_) {
+      /* observation only */
+    }
+  }
+
+  final ModelCancellation _cancellation;
+  final void Function(ModelUsageReport) _onUsageReport;
+  var _observationsClosed = false;
+
+  @override
+  bool get isCancelled => _cancellation.isCancelled;
+  @override
+  Future<void> get whenCancelled => _cancellation.whenCancelled;
+  @override
+  void cancel() => _cancellation.cancel();
+  @override
+  void check() => _cancellation.check();
+  @override
+  Future<T> wait<T>(Future<T> operation) => _cancellation.wait(operation);
+
+  /// Called synchronously when the actual report is observed, before outward
+  /// response deltas. The owner handles its persistence failure separately;
+  /// an observer cannot replace a transport error or change retry behavior.
+  void reportUsage(ModelUsageReport report) {
+    if (_observationsClosed) return;
+    try {
+      _onUsageReport(report);
+    } catch (_) {
+      /* observation only */
+    }
+  }
+
+  void closeObservations() {
+    _observationsClosed = true;
+  }
+}
+
+void _observeUsage(ModelCancellation cancellation, ModelUsageReport report) {
+  if (cancellation is ModelRequestContext) cancellation.reportUsage(report);
+}
+
 /// An HTTP client is owned by each call so stopping one chat cannot abort a
 /// different chat. Supply [clientFactory] for deterministic transport tests.
 class TavernModelClient {
-  TavernModelClient({http.Client Function()? clientFactory, this.idleTimeout = const Duration(minutes: 5)})
-    : _clientFactory = clientFactory ?? http.Client.new;
+  TavernModelClient({
+    http.Client Function()? clientFactory,
+    this.idleTimeout = const Duration(minutes: 5),
+    this.onUsageSettled,
+  }) : _clientFactory = clientFactory ?? http.Client.new;
+
+  /// Once per actual HTTP attempt, including retries. A clean terminal response
+  /// determines whether the latest report can be treated as final.
+  final void Function(ModelUsageReport? report, {required bool partial})? onUsageSettled;
 
   final http.Client Function() _clientFactory;
   final Duration idleTimeout;
 
   /// [body] is the final, inspected request from the assembler. This method
-  /// only supplies the configured model and transport stream setting.
+  /// supplies transport settings and removes DeepSeek-only wire fields for
+  /// an OpenAI-compatible endpoint.
   /// `stream: false` presets are also supported: one text/reasoning delta.
   /// Connection errors while sending and HTTP 5xx get at most two retries,
   /// after 250 and 500 ms. Accepted responses and 4xx are not retried; waiting
@@ -122,32 +270,42 @@ class TavernModelClient {
     required TavernModelConfig config,
     required Map<String, Object?> body,
     required ModelCancellation cancellation,
+    void Function(int attempt)? onRequestStarted,
   }) async* {
     String? key;
     try {
       cancellation.check();
+      final headers = Map<String, String>.of(config.headers);
       key = await cancellation.wait(config.apiKey());
       cancellation.check();
       key = key?.trim();
-      if (key == null || key.isEmpty) {
+      if (key != null && key.isNotEmpty && cancellation is ModelRequestContext) {
+        cancellation.observeResponseSecret(key);
+      }
+      if (config.deepseek &&
+          (key == null || key.isEmpty) &&
+          !(cancellation is ModelRequestContext && cancellation.allowEmptyKey)) {
         throw const TavernModelException(TavernFailure.noKey, 'no_api_key');
       }
-      final payload = <String, Object?>{...body, 'model': config.model};
-      payload.putIfAbsent('stream', () => true);
-      if (config.deepseek) {
-        payload.putIfAbsent('thinking', () => {'type': config.thinking ? 'enabled' : 'disabled'});
-      }
+      final payload = cancellation is ModelRequestContext && cancellation.preparedBody
+          ? body
+          : prepareModelRequestBody(config, body);
       final encodedBody = jsonEncode(payload);
-      final uri = endpoint(config);
+      final uri = cancellation is ModelRequestContext && cancellation.endpointOverride != null
+          ? cancellation.endpointOverride!
+          : endpoint(config);
       for (var attempt = 0; ; attempt++) {
         try {
           await for (final delta in _generateAttempt(
             config,
             uri,
             key,
+            headers,
             encodedBody,
             payload['stream'] != false,
             cancellation,
+            attempt: attempt,
+            onRequestStarted: onRequestStarted,
           )) {
             yield delta;
           }
@@ -158,6 +316,8 @@ class TavernModelClient {
           await cancellation.wait(Future<void>.delayed(Duration(milliseconds: 250 * (1 << attempt))));
         }
       }
+    } on _ResponseFrameFailure catch (failure) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
     } on TavernModelException {
       rethrow;
     } on http.RequestAbortedException {
@@ -182,22 +342,47 @@ class TavernModelClient {
   Stream<ModelDelta> _generateAttempt(
     TavernModelConfig config,
     Uri uri,
-    String key,
+    String? key,
+    Map<String, String> headers,
     String encodedBody,
     bool streaming,
-    ModelCancellation cancellation,
-  ) async* {
+    ModelCancellation cancellation, {
+    required int attempt,
+    void Function(int attempt)? onRequestStarted,
+  }) async* {
     http.Client? client;
+    ModelUsageReport? usageReport;
+    var sentRequest = false;
+    var finished = false;
     try {
       cancellation.check();
       final request = http.AbortableRequest('POST', uri, abortTrigger: cancellation.whenCancelled)
-        ..headers.addAll({'Content-Type': 'application/json', 'Authorization': 'Bearer $key'})
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          for (final entry in headers.entries)
+            if (key == null || key.isEmpty || entry.key.toLowerCase() != 'authorization') entry.key: entry.value,
+          if (key != null && key.isNotEmpty) 'Authorization': 'Bearer $key',
+        })
         ..body = encodedBody;
       client = _clientFactory();
       cancellation.check();
       http.StreamedResponse response;
       try {
-        response = await cancellation.wait(client.send(request).timeout(idleTimeout));
+        late final Future<http.StreamedResponse> sent;
+        try {
+          sentRequest = true;
+          sent = client.send(request);
+        } finally {
+          // The method was really invoked, even if it threw synchronously.
+          // This is not proof of socket delivery or HTTP acceptance. A private
+          // observer cannot add retries, replace the error, or insert an await.
+          try {
+            onRequestStarted?.call(attempt);
+          } catch (_) {
+            /* observation only */
+          }
+        }
+        response = await cancellation.wait(sent.timeout(idleTimeout));
       } on http.RequestAbortedException {
         rethrow;
       } on http.ClientException {
@@ -205,17 +390,24 @@ class TavernModelClient {
         throw const _RetryableModelException(TavernModelException(TavernFailure.network, 'http_transport_failed'));
       }
       cancellation.check();
+      if (cancellation is ModelRequestContext) {
+        cancellation.observeResponseStarted(attempt, response.statusCode, response.headers);
+      }
+      final responseBytes = response.stream.map((bytes) {
+        if (cancellation is ModelRequestContext) cancellation.observeResponseBytes(attempt, bytes);
+        return bytes;
+      });
       if (response.statusCode < 200 || response.statusCode >= 300) {
         String error;
         try {
-          error = await cancellation.wait(_errorBody(response.stream.timeout(idleTimeout)));
+          error = await cancellation.wait(_errorBody(responseBytes.timeout(idleTimeout)));
         } catch (_) {
           cancellation.check();
           // The HTTP status remains authoritative even if its error body was
           // interrupted. Do not substitute raw transport exception messages.
           error = 'error_response_body_unavailable';
         }
-        final failure = _apiError(response.statusCode, error, key);
+        final failure = _apiError(response.statusCode, error, key, headers.values);
         if (response.statusCode >= 500 && response.statusCode < 600) {
           throw _RetryableModelException(failure);
         }
@@ -223,17 +415,35 @@ class TavernModelClient {
       }
 
       if (!streaming) {
-        final text = await cancellation.wait(response.stream.bytesToString().timeout(idleTimeout));
+        final text = await cancellation.wait(utf8.decodeStream(responseBytes).timeout(idleTimeout));
         cancellation.check();
         final result = _object(jsonDecode(text));
-        if (result['error'] != null) throw _apiError(200, text, key);
+        if (result.containsKey('usage')) {
+          usageReport = _providerUsageReport(
+            result['usage'],
+            present: true,
+            transport: 'nonstream',
+            observationIndex: 0,
+          );
+          _observeUsage(cancellation, usageReport);
+        }
+        if (result['error'] != null) throw _apiError(200, text, key, headers.values);
         final choice = _firstChoice(result);
         final message = _object(choice['message']);
-        if (message['reasoning_content'] case final String reasoning when reasoning.isNotEmpty) {
+        // The complete nonstream body and actual message are already present.
+        // Do not fabricate absence for a malformed completion envelope.
+        if (usageReport == null && choice.isNotEmpty && message.isNotEmpty) {
+          usageReport = _providerUsageReport(null, present: false, transport: 'nonstream', observationIndex: 0);
+          _observeUsage(cancellation, usageReport);
+        }
+        final projection = _projectResponseText(cancellation, false, result);
+        final assistant = _AssistantCollector('nonstream_message')..add(message, streaming: false);
+        if ((projection?.reasoning ?? _reasoningText(message)) case final String reasoning when reasoning.isNotEmpty) {
           cancellation.check();
           yield ModelReasoning(reasoning);
         }
-        if (message['content'] case final String content when content.isNotEmpty) {
+        if ((projection == null ? message['content'] : projection.text) case final String content
+            when content.isNotEmpty) {
           cancellation.check();
           yield ModelText(content);
         }
@@ -243,36 +453,75 @@ class TavernModelClient {
         }
         if (result['usage'] case final Map<String, dynamic> usage) {
           cancellation.check();
-          yield ModelUsage(_usage(usage, result['model'] as String? ?? config.model));
+          yield ModelUsage(_usage(usage, result['model'] as String? ?? config.model), report: usageReport);
         }
-        if (choice.isEmpty || message.isEmpty) {
+        if (projection == null && (choice.isEmpty || message.isEmpty)) {
           throw const TavernModelException(TavernFailure.server, 'invalid_completion_response');
         }
         final reason = choice['finish_reason'] as String?;
         _checkFinish(reason);
         cancellation.check();
-        yield ModelFinished(reason);
+        if (cancellation is ModelRequestContext && cancellation.onResponseFrame != null) {
+          try {
+            final work = cancellation.onResponseFrame!(
+              attempt,
+              false,
+              jsonDecode(jsonEncode(result)) as Map<String, Object?>,
+            );
+            if (work != null) await work;
+          } catch (error, stack) {
+            throw _ResponseFrameFailure(error, stack);
+          }
+          cancellation.check();
+        }
+        finished = true;
+        yield ModelFinished(reason, assistantSnapshot: assistant.finish(), finalUsageReport: usageReport);
         return;
       }
 
       String? finishReason;
       var sawFinish = false;
       var sawDone = false;
-      await for (final event in decodeServerSentEvents(response.stream.timeout(idleTimeout))) {
+      final assistant = _AssistantCollector('streaming_aggregate');
+      var usageObservationIndex = 0;
+      await for (final event in decodeServerSentEvents(responseBytes.timeout(idleTimeout))) {
         cancellation.check();
         if (event == '[DONE]') {
           sawDone = true;
+          if (usageReport == null) {
+            usageReport = _providerUsageReport(
+              null,
+              present: false,
+              transport: 'streaming',
+              observationIndex: usageObservationIndex,
+            );
+            _observeUsage(cancellation, usageReport);
+          }
           break;
         }
         final data = _object(jsonDecode(event));
-        if (data['error'] != null) throw _apiError(200, event, key);
+        // Top-level presence is independent of choice/delta shape. Deliver it
+        // before this payload can yield text or fail on another response field.
+        if (data.containsKey('usage')) {
+          usageReport = _providerUsageReport(
+            data['usage'],
+            present: true,
+            transport: 'streaming',
+            observationIndex: usageObservationIndex++,
+          );
+          _observeUsage(cancellation, usageReport);
+        }
+        if (data['error'] != null) throw _apiError(200, event, key, headers.values);
         final choice = _firstChoice(data);
         final delta = _object(choice['delta']);
-        if (delta['reasoning_content'] case final String reasoning when reasoning.isNotEmpty) {
+        final projection = _projectResponseText(cancellation, true, data);
+        assistant.add(delta, streaming: true);
+        if ((projection?.reasoning ?? _reasoningText(delta)) case final String reasoning when reasoning.isNotEmpty) {
           cancellation.check();
           yield ModelReasoning(reasoning);
         }
-        if (delta['content'] case final String content when content.isNotEmpty) {
+        if ((projection == null ? delta['content'] : projection.text) case final String content
+            when content.isNotEmpty) {
           cancellation.check();
           yield ModelText(content);
         }
@@ -288,8 +537,30 @@ class TavernModelClient {
         // chunk. It must be read independently of the first choice.
         if (data['usage'] case final Map<String, dynamic> usage) {
           cancellation.check();
-          yield ModelUsage(_usage(usage, data['model'] as String? ?? config.model));
+          yield ModelUsage(_usage(usage, data['model'] as String? ?? config.model), report: usageReport);
         }
+        if (cancellation is ModelRequestContext && cancellation.onResponseFrame != null) {
+          try {
+            final work = cancellation.onResponseFrame!(
+              attempt,
+              true,
+              jsonDecode(jsonEncode(data)) as Map<String, Object?>,
+            );
+            if (work != null) await work;
+          } catch (error, stack) {
+            throw _ResponseFrameFailure(error, stack);
+          }
+          cancellation.check();
+        }
+      }
+      if (sawFinish && usageReport == null) {
+        usageReport = _providerUsageReport(
+          null,
+          present: false,
+          transport: 'streaming',
+          observationIndex: usageObservationIndex,
+        );
+        _observeUsage(cancellation, usageReport);
       }
       cancellation.check();
       if (!sawDone && !sawFinish) {
@@ -297,9 +568,17 @@ class TavernModelClient {
       }
       _checkFinish(finishReason);
       cancellation.check();
-      yield ModelFinished(finishReason);
+      finished = true;
+      yield ModelFinished(finishReason, assistantSnapshot: assistant.finish(), finalUsageReport: usageReport);
     } finally {
       client?.close();
+      if (sentRequest) {
+        try {
+          onUsageSettled?.call(usageReport, partial: !finished);
+        } catch (_) {
+          // Analytics must not replace the transport result or block retry.
+        }
+      }
     }
   }
 
@@ -353,6 +632,41 @@ Map<String, Object?> _object(Object? value) {
   return const {};
 }
 
+// The transport boundary also covers custom callers of TavernModelClient.
+// Copy message/tool maps without mutating the caller's inspected body.
+// OpenRouter keeps an assistant message's reasoning (ST sends it there).
+void _normalizeOpenAiBody(Map<String, Object?> body, {bool keepReasoning = false}) {
+  body.remove('thinking');
+  if (body['messages'] case final List<Object?> messages) {
+    body['messages'] = [
+      for (final message in messages)
+        if (message is Map<String, Object?>)
+          Map<String, Object?>.of(message)
+            ..remove('prefix')
+            ..remove('reasoning_content')
+            ..removeWhere((key, _) => key == 'reasoning' && !keepReasoning)
+        else
+          message,
+    ];
+  }
+  if (body['tools'] case final List<Object?> tools) {
+    body['tools'] = [
+      for (final tool in tools)
+        if (tool is Map<String, Object?> && tool['function'] is Map<String, Object?>)
+          {...tool, 'function': Map<String, Object?>.of(tool['function']! as Map<String, Object?>)..remove('strict')}
+        else
+          tool,
+    ];
+  }
+}
+
+String? _reasoningText(Map<String, Object?> message) {
+  final content = message['reasoning_content'];
+  if (content is String && content.isNotEmpty) return content;
+  final alias = message['reasoning'];
+  return alias is String ? alias : null;
+}
+
 Map<String, Object?> _firstChoice(Map<String, Object?> response) {
   final choices = response['choices'];
   if (choices is! List<Object?> || choices.isEmpty) return const {};
@@ -372,6 +686,7 @@ Iterable<ModelToolFragment> _toolFragments(Object? value, {required bool streami
       issues: [
         {'code': 'invalid_tool_calls', 'field': 'tool_calls', 'message': 'Expected an array of tool calls.'},
       ],
+      structure: const ModelToolFragmentStructure(unsupportedEnvelope: true, invalidMetadataType: true),
     );
     return;
   }
@@ -389,10 +704,16 @@ Iterable<ModelToolFragment> _toolFragments(Object? value, {required bool streami
             'message': 'Expected a tool call object.',
           },
         ],
+        structure: const ModelToolFragmentStructure(unsupportedEnvelope: true, invalidMetadataType: true),
       );
       continue;
     }
     final issues = <Map<String, Object?>>[];
+    var invalidMetadata = false;
+    var invalidArguments = false;
+    var unsupported = item.keys.any(
+      (key) => !const ['id', 'type', 'function'].contains(key) && !(streaming && key == 'index'),
+    );
     int? index;
     if (!streaming) {
       index = ordinal;
@@ -414,6 +735,11 @@ Iterable<ModelToolFragment> _toolFragments(Object? value, {required bool streami
       if (raw is String) {
         return raw;
       }
+      if (path == 'function.arguments') {
+        invalidArguments = true;
+      } else {
+        invalidMetadata = true;
+      }
       issues.add({'code': 'invalid_field_type', 'field': path, 'index': ?index, 'message': 'Expected a string.'});
       return null;
     }
@@ -425,9 +751,12 @@ Iterable<ModelToolFragment> _toolFragments(Object? value, {required bool streami
     if (item.containsKey('function')) {
       final function = item['function'];
       if (function is Map<String, Object?>) {
+        unsupported = unsupported || function.keys.any((key) => !const ['name', 'arguments'].contains(key));
         name = field(function, 'name', 'function.name');
         arguments = field(function, 'arguments', 'function.arguments');
       } else {
+        invalidMetadata = true;
+        invalidArguments = true;
         issues.add({
           'code': 'invalid_field_type',
           'field': 'function',
@@ -436,7 +765,19 @@ Iterable<ModelToolFragment> _toolFragments(Object? value, {required bool streami
         });
       }
     }
-    yield ModelToolFragment(index: index, id: id, type: type, name: name, arguments: arguments, issues: issues);
+    yield ModelToolFragment(
+      index: index,
+      id: id,
+      type: type,
+      name: name,
+      arguments: arguments,
+      issues: issues,
+      structure: ModelToolFragmentStructure(
+        unsupportedEnvelope: unsupported,
+        invalidMetadataType: invalidMetadata,
+        invalidArgumentsType: invalidArguments,
+      ),
+    );
   }
 }
 
@@ -488,7 +829,7 @@ bool _isContextLengthError(String body) {
   }
 }
 
-TavernModelException _apiError(int status, String body, String key) {
+TavernModelException _apiError(int status, String body, String? key, Iterable<String> headerValues) {
   final kind = switch (status) {
     401 || 403 => TavernFailure.badKey,
     402 => TavernFailure.insufficientBalance,
@@ -498,8 +839,34 @@ TavernModelException _apiError(int status, String body, String key) {
     400 || 422 => TavernFailure.invalidParameters,
     _ => TavernFailure.server,
   };
-  var detail = body.replaceAll(key, '[redacted]');
+  var detail = body;
+  void redact(String value) {
+    if (value.isEmpty) return;
+    final encoded = jsonEncode(value);
+    detail = detail.replaceAll(value, '[redacted]').replaceAll(encoded.substring(1, encoded.length - 1), '[redacted]');
+  }
+
+  if (key != null) redact(key);
+  for (final value in headerValues) {
+    redact(value);
+    final separator = value.indexOf(' ');
+    if (separator >= 0) redact(value.substring(separator + 1));
+  }
   detail = detail.replaceAll(RegExp(r'Bearer\s+[^\s"<>]+', caseSensitive: false), 'Bearer [redacted]');
   if (detail.length > 512) detail = detail.substring(0, 512);
   return TavernModelException(kind, 'HTTP $status: $detail');
+}
+
+/// Shared final wire normalization. SPreset applies its final request function
+/// after this step and passes a prepared ModelRequestContext to the transport.
+Map<String, Object?> prepareModelRequestBody(TavernModelConfig config, Map<String, Object?> body) {
+  final payload = <String, Object?>{...body, 'model': config.model};
+  payload.putIfAbsent('stream', () => true);
+  if (config.deepseek) {
+    payload.putIfAbsent('thinking', () => {'type': config.thinking ? 'enabled' : 'disabled'});
+  } else {
+    final host = Uri.tryParse(config.baseUrl)?.host.toLowerCase() ?? '';
+    _normalizeOpenAiBody(payload, keepReasoning: host == 'openrouter.ai' || host.endsWith('.openrouter.ai'));
+  }
+  return payload;
 }

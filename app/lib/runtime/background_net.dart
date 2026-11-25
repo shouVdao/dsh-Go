@@ -52,12 +52,12 @@ abstract final class BackgroundNetPolicy {
     required bool? exempt,
     required Map<BackgroundNetReason, int> shown,
     DateTime? blockedAt,
-    bool transportFailed = false,
+    bool Function()? transportFailed,
   }) {
     if (exempt != false) return null;
     final reason = blockedAt != null && !blockedAt.isBefore(since)
         ? BackgroundNetReason.blocked
-        : transportFailed
+        : (transportFailed?.call() ?? false)
         ? BackgroundNetReason.failures
         : null;
     if (reason == null || (shown[reason] ?? 0) >= maxShows) return null;
@@ -177,7 +177,7 @@ class BackgroundNetController extends Notifier<BackgroundNetReason?> {
       exempt: await _exempt(),
       shown: _shown,
       blockedAt: status.networkBlockedAt,
-      transportFailed: _transportFailed(since, now),
+      transportFailed: () => _transportFailed(since, now),
     );
     if (reason == null || !ref.mounted || !_visible) return;
     _show(reason);
@@ -188,7 +188,7 @@ class BackgroundNetController extends Notifier<BackgroundNetReason?> {
     final connection = ref.read(activeConnectionProvider).value;
     final sessionId = ref.read(currentSessionProvider);
     if (connection == null || !connection.isLocal || sessionId == null) return false;
-    if (!ref.exists(chatProvider(sessionId))) return false;
+    if (!ref.read(chatProvider(sessionId).exists)) return false;
     return BackgroundNetPolicy.transportFailedIn(ref.read(chatProvider(sessionId).notifier).events, since, until);
   }
 

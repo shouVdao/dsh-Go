@@ -234,7 +234,7 @@ class ChatNotifier(private val app: Context) {
     }
 
     fun ensureChannels() {
-        if (nm.getNotificationChannel(CHANNEL_DONE) != null && nm.getNotificationChannel(CHANNEL_ATTENTION) != null) return
+        // Refresh localized labels; Android preserves user-controlled channel behavior.
         // An app can't raise a channel's importance once created: the old IMPORTANCE_DEFAULT
         // "一轮结束" channel goes, and the heads-up one lives under a new id.
         nm.deleteNotificationChannel(LEGACY_CHANNEL_DONE)
@@ -375,7 +375,11 @@ class ChatNotifier(private val app: Context) {
             .setAutoCancel(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setGroup(identity.first)
-        if (post != null) builder.setContentIntent(openIntent(post, identity.first, identity.second))
+        // A cold action has no Post; retain the existing notification's route.
+        val tap = post?.let { openIntent(it, identity.first, identity.second) }
+            ?: nm.activeNotifications.firstOrNull { it.tag == identity.first && it.id == identity.second }
+                ?.notification?.contentIntent
+        if (tap != null) builder.setContentIntent(tap)
         if (expire) builder.setTimeoutAfter(1_000)
         nm.notify(identity.first, identity.second, builder.build())
     }

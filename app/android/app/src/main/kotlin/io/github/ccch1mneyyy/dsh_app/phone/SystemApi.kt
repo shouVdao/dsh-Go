@@ -20,10 +20,16 @@ data class AppEntry(val label: String, val identity: PhoneAppIdentity) {
 sealed interface SystemTarget {
     data class Known(val app: AppEntry) : SystemTarget
     data object UserChoice : SystemTarget
+    /** PM could not name the handler; the Intent is sent as it is, after a one-time confirmation. */
+    data object Unknown : SystemTarget
 }
 
-/** Android keeps the actual Intent private; Core only uses its prepared target for approval. */
-interface SystemLaunch { val target: SystemTarget }
+/** Android keeps the Intent private; Core checks its prepared target and explicit package for approval. */
+interface SystemLaunch {
+    val target: SystemTarget
+    /** The fixed Intent's explicit package, when known; this does not certify a UID. */
+    val packageName: String? get() = null
+}
 
 /** target is present only once a platform start was attempted, including a throwing start. */
 class SysResult(val ok: Boolean, val message: String, val target: SystemTarget? = null,
@@ -43,6 +49,8 @@ interface SystemApi {
     fun notify(title: String, text: String): SysResult
     fun clipboardSet(text: String): SysResult
     fun clipboardGet(): SysResult
+    fun calendarList(start: LocalDate, until: LocalDate, zone: ZoneId): SysResult =
+        SysResult(false, "CALENDAR_UNAVAILABLE")
 }
 
 /** PM adapter data. No package-name heuristic can identify every platform/OEM resolver. */
@@ -52,7 +60,7 @@ internal sealed interface SystemResolution {
     data object Choice : SystemResolution
 }
 
-/** Used by the Android preparation path and its final filter recheck. Null means missing evidence. */
+/** Classifies PM facts during Android preparation. Null means the target identity is unknown. */
 internal object SystemHandlers {
     /** ActivityInfo.enabled may still be the manifest flag for a runtime-enabled launcher alias. */
     fun componentEnabled(manifestEnabled: Boolean, readSetting: () -> Int): Boolean = try {

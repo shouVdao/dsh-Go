@@ -94,7 +94,7 @@ class DshProcess(
             else DirectLaunch.select(rootfs, directEngine, safe, directFailed)
         // Only PRoot's fake hard links stand in the way: tidy them once no runtime process is left.
         val tidy = selection.fallbackReason == DirectLaunch.INCOMPATIBLE
-        val cleanup = reapStrays(allowObservationGap = !selection.direct && !tidy)
+        val cleanup = reapStrays(allowObservationGap = true)
         if (tidy && cleanup.complete) selection = tidyLinks(binds)
         tawc = tawcReady && selection.direct
         direct = selection.direct && !tawcReady
@@ -105,8 +105,8 @@ class DshProcess(
             else -> null
         }
         launchDiagnostics.selected(if (tawc) "tawcroot" else if (direct) "direct" else "proot", directFallbackReason)
-        check(cleanup.complete || (!direct && !tawc && !cleanup.ownedRemaining)) { "runtime cleanup incomplete; stop the engine and retry" }
-        if (!cleanup.complete) listener.onLog("[dsh-app] starting proot with incomplete process observation; no captured runtime identities remain", "system")
+        check(!cleanup.ownedRemaining) { "runtime cleanup incomplete; stop the engine and retry" }
+        if (!cleanup.complete) listener.onLog("[dsh-app] starting with incomplete process observation; no captured runtime identities remain", "system")
         val pidFile = File(rootfs, "tmp/dsh-web.pid")
         pidFile.delete() // also removes a stale/dangling symlink; never reuse a previous run's PID
         check(!java.nio.file.Files.exists(pidFile.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)) { "cannot remove stale runtime pid file" }
@@ -180,12 +180,6 @@ class DshProcess(
         env["PROOT_TMP_DIR"] = tmp.absolutePath
         manifest.launchEnv.forEach { (k, v) -> env[k] = expand(v) }
         if (!guestEnvPlaced) env.putAll(effectiveGuestEnv)
-        if (direct) {
-            val plan = DirectLaunch.prepare(rootfs, manifest.abi, argv, env.toMap())
-            builder.command(plan.argv).directory(plan.cwd)
-            env.clear()
-            env.putAll(plan.environment)
-        }
         val tawcPlan = if (!tawc) null else try {
             TawcrootLaunch.prepare(rootfs.canonicalPath, context.applicationInfo.nativeLibraryDir, argv, env.toMap())
         } catch (e: TawcrootLaunch.Unsupported) {
@@ -199,6 +193,12 @@ class DshProcess(
         if (!tawc && TawcrootLinks.pending(rootfs)) {
             check(cleanup.complete) { "runtime cleanup incomplete; stop the engine and retry" }
             untangleTawcroot()
+        }
+        if (direct) {
+            val plan = DirectLaunch.prepare(rootfs, manifest.abi, argv, env.toMap())
+            builder.command(plan.argv).directory(plan.cwd)
+            env.clear()
+            env.putAll(plan.environment)
         }
         if (tawcPlan != null) {
             TawcrootLaunch.writeDevView(tawcPlan.devView)
@@ -346,7 +346,8 @@ class DshProcess(
                 if (node != null) signalOwned(node, OsConstants.SIGTERM)
                 else if ((direct || tawc) && p.isAlive) p.destroy() // loader/preload may fail before writing its pid file
                 if (!waitExit(p, 5000) && proot != null) signalOwned(proot, OsConstants.SIGQUIT)
-                waitExit(p, 2000)
+                // Tawcroot needs no extra QUIT grace; retain PRoot and Direct's existing wait.
+                if (!tawc) waitExit(p, 2000)
             } finally {
                 try {
                     if (p.isAlive) p.destroyForcibly()
@@ -446,10 +447,6 @@ class DshProcess(
     private fun processSnapshot(known: Set<Int> = emptySet()): RuntimeProcessSnapshot =
         RuntimeProcessOwnership.scan(processReader, AndroidProcess.myUid(), AndroidProcess.myPid(), known)
 
-    private fun pidHint(): Int? = try {
-        File(rootfs, "tmp/dsh-web.pid").readText().trim().toIntOrNull()?.takeIf { it > 0 }
-    } catch (_: Exception) { null }
-
     private fun remember(snapshot: RuntimeProcessSnapshot) {
         snapshot.retired.forEach { cleanupKnown.remove(it) }
         for (record in snapshot.records) {
@@ -462,8 +459,8 @@ class DshProcess(
 
     internal data class CleanupResult(val complete: Boolean, val ownedRemaining: Boolean, val canPruneTemp: Boolean = false)
 
-    /** Unknown ambient processes are not proof of ownership. The default-mode
-     * startup policy may continue after reaping every captured identity, while
+    /** Unknown ambient processes are not proof of ownership. Startup may
+     * continue after reaping every captured identity, while
      * killStrays itself still reports the observation as incomplete. */
     @Synchronized internal fun reapStrays(allowObservationGap: Boolean = false): CleanupResult = synchronized(cleanupState) {
         reapStraysLocked(allowObservationGap)
@@ -472,11 +469,12 @@ class DshProcess(
     private fun reapStraysLocked(allowObservationGap: Boolean): CleanupResult {
         val myPid = AndroidProcess.myPid()
         val roots = setOf(rootfs.absolutePath, rootfs.canonicalPath)
-        val hinted = pidHint()?.let { setOf(it) }.orEmpty()
         val deadline = System.nanoTime() + 2_000_000_000L
         var first = true
         while (true) {
-            val snapshot = processSnapshot(cleanupKnown.keys + hinted)
+            // A persisted bare PID can be reused by a hidden, unrelated process.
+            // Only captured identities supplement the current /proc enumeration.
+            val snapshot = processSnapshot(cleanupKnown.keys)
             remember(snapshot)
             val owned = RuntimeProcessOwnership.owned(snapshot.records, roots, myPid, cleanupKnown)
             owned.forEach { cleanupKnown[it.pid] = it.started }

@@ -1,266 +1,102 @@
-<p align="center">
-  <a href="README.md">简体中文</a> · <b>English</b>
-</p>
+# mygo
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-en-dark.webp">
-    <img src="docs/assets/hero-en-light.webp" alt="DSH Go: DeepSeek Harness, in your pocket" width="100%">
-  </picture>
-</p>
+English · [简体中文](README.md)
 
-<p align="center">
-  An Android client for DeepSeek Harness. Run DSH right on your phone, or drive the one on your computer.
-</p>
+## Project
 
-<p align="center">
-  <a href="https://github.com/ccch1mneyyy/dsh-go/releases/latest"><img alt="Android 8+" src="https://img.shields.io/badge/Android-8%2B-4B67B4?style=flat-square&logo=android&logoColor=white&labelColor=2B3245"></a>
-  <a href="LICENSE"><img alt="License AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-4B67B4?style=flat-square&labelColor=2B3245"></a>
-  <a href="https://forum.dshtui.com"><img alt="Forum" src="https://img.shields.io/badge/forum-forum.dshtui.com-4B67B4?style=flat-square&labelColor=2B3245"></a>
-  <a href="https://qm.qq.com/q/OEy2RqZnqY"><img alt="QQ group 1132118290" src="https://img.shields.io/badge/QQ%20group-1132118290-4B67B4?style=flat-square&logo=tencentqq&logoColor=white&labelColor=2B3245"></a>
-</p>
+mygo is an Android client branch of [DSH Go](https://github.com/ccch1mneyyy/dsh-Go), developed from the upstream repository and including the features below. DSH Go is the mobile client for DeepSeek Harness: it connects to a remote DSH instance and runs sessions and tools on the phone.
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/319451"><img src="https://trendshift.io/api/badge/trendshift/repositories/319451/daily" alt="DSH Go: #1 on Trendshift's all-language daily ranking (2026-10-30)" width="250" height="55"></a><br>
-  <sub>#1 on Trendshift's all-language daily ranking · 2026-10-30</sub>
-</p>
-
-<br>
-
-<h3 align="center">Deepy and Whale girl keep you company</h3>
-
-<p align="center">They code, flip, wave and nap along with DSH, and can follow you to the home screen.</p>
-
-<p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-typing-en-dark.gif"><img src="docs/assets/pet-deepy-typing-en-light.gif" width="168" alt="Deepy coding"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-happy-en-dark.gif"><img src="docs/assets/pet-deepy-happy-en-light.gif" width="168" alt="Deepy done"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-notification-en-dark.gif"><img src="docs/assets/pet-deepy-notification-en-light.gif" width="168" alt="Deepy needs you"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-deepy-sleeping-en-dark.gif"><img src="docs/assets/pet-deepy-sleeping-en-light.gif" width="168" alt="Deepy asleep"></picture>
-</p>
-
-<p align="center">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-typing-en-dark.gif"><img src="docs/assets/pet-girl-typing-en-light.gif" width="168" alt="Whale girl coding"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-happy-en-dark.gif"><img src="docs/assets/pet-girl-happy-en-light.gif" width="168" alt="Whale girl done"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-notification-en-dark.gif"><img src="docs/assets/pet-girl-notification-en-light.gif" width="168" alt="Whale girl needs you"></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/pet-girl-sleeping-en-dark.gif"><img src="docs/assets/pet-girl-sleeping-en-light.gif" width="168" alt="Whale girl asleep"></picture>
-</p>
-
-<br>
-
-<a id="download"></a>
-<h3 align="center">Download DSH Go</h3>
-
-<p align="center">Get the latest APK from GitHub Releases or the download page at go.dshtui.com. Most phones need the arm64 package.</p>
-
-<p align="center">
-  <a href="https://github.com/ccch1mneyyy/dsh-go/releases/latest"><img alt="Download from GitHub Releases" src="https://img.shields.io/badge/GitHub%20Releases-Download%20APK-4B67B4?style=for-the-badge&logo=github&logoColor=white&labelColor=2B3245"></a>&emsp;<a href="https://go.dshtui.com/download"><img alt="Download from go.dshtui.com" src="https://img.shields.io/badge/go.dshtui.com-Download%20page-4B67B4?style=for-the-badge&labelColor=2B3245"></a>
-</p>
-
-<p align="center">
-  <b>Thank you all for supporting and loving DSH Go! iOS and HarmonyOS versions are coming as soon as I can make them. The more stars, the faster they come, hehe</b>
-</p>
-
-<p align="center">
-  <a href="https://github.com/ccch1mneyyy/dsh-go/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ccch1mneyyy/dsh-go?style=flat-square&logo=github&label=Star&color=4B67B4&labelColor=2B3245"></a>
-</p>
-
-<p align="center">
-  <sub>New here? Start with the <a href="docs/guide/README.md">user guide</a>, and bring questions to the <a href="#community">forum and QQ group</a>.</sub><br>
-  <sub>An early test build signed with a different key can't be updated in place: uninstall it first, which clears your chats, the Linux environment and settings.</sub>
-</p>
-
-<br>
-
-<h3 align="center">Runs on your phone. Drives your computer.</h3>
-
-<p align="center">A Linux environment built in, no root and no Termux. Switch to the DSH on your computer in one tap.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-remote-en-dark.webp">
-    <img src="docs/assets/f-remote-en-light.webp" width="100%" alt="A chat on the phone, the host switcher, a chat on the computer">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Chime in, interrupt, stay tidy</h3>
-
-<p align="center">Send a message while DSH is replying, and tap "Send now" whenever you like. Finished steps fold into one line.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-steer-en-dark.webp">
-    <img src="docs/assets/f-steer-en-light.webp" width="100%" alt="A queued message during a reply; the folded process after it">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Native, with the web interface one tap away</h3>
-
-<p align="center">Switch between the native app and the official web interface on the same chat. It reopens in whichever you used last.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-web-en-dark.webp">
-    <img src="docs/assets/f-web-en-light.webp" width="100%" alt="The same chat in the native and the web interface">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Share cards, replays and links</h3>
-
-<p align="center">Turn a reply into a share card. Share a whole chat as a link that replays in any browser, end-to-end encrypted.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-share-en-dark.webp">
-    <img src="docs/assets/f-share-en-light.webp" width="100%" alt="A share card, a chat replay and the list of shared links">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Landscape and tablets</h3>
-
-<p align="center">New layouts for landscape phones and tablets: the sidebar stays, content stays centered, the keyboard never crowds.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-adaptive-en-dark.webp">
-    <img src="docs/assets/f-adaptive-en-light.webp" width="100%" alt="A tablet and a phone on its side">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Colors and home screen icons</h3>
-
-<p align="center">Six accent colors, your wallpaper's, or your own. Four home screen icons and three icon styles.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-theme-en-dark.webp">
-    <img src="docs/assets/f-theme-en-light.webp" width="100%" alt="Theme settings and two accent colors">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">English and 中文</h3>
-
-<p align="center">The whole app speaks both. It follows your system, or pick one in Settings.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-lang-dark.webp">
-    <img src="docs/assets/f-lang-light.webp" width="100%" alt="The same chat in Chinese and in English">
-  </picture>
-</p>
-
-<br>
-
-<h3 align="center">Phone control</h3>
-
-<p align="center">DSH reads the screen and taps for you. Sensitive actions stay with you by default; understand the risks before relaxing app rules or lifting limits.</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/f-phone-en-dark.webp">
-    <img src="docs/assets/f-phone-en-light.webp" width="100%" alt="Phone control and its confirmation modes">
-  </picture>
-</p>
-
-<br>
+- Repository: <https://github.com/shouVdao/dsh-Go>
+- Default branch: `harmonyos`
+- Upstream baseline: `9ad11167c` (2026-11-19)
+- Application ID: `io.github.ccch1mneyyy.dsh_app`; minimum Android 8.0 (API 26), targetSdk 28
+- Platform: Android first; `app/` also keeps the iOS and OpenHarmony implementations
 
 ## Features
 
-DSH Go combines a chat interface, an on-device runtime and remote connections. It is a third-party project built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). The DSH engine runs on your phone; model requests are still handled by the model provider you configure.
+### Interface and appearance
 
-- **On-device runtime:** install Ubuntu, Node.js and DSH from the app without Root or a separate Termux installation.
-- **Remote connections:** use DSH on a computer or server through SSH or [DSHarness Remote](https://github.com/liguobao/ds-harness-remote), developed by Li Guobao (liguobao).
-- **Chat and tools:** switch models, send images, use voice input, and respond to tool approvals and questions. Chat and web interfaces are available.
-- **Plugin interfaces:** use native tool cards, forms and panels from plugins adapted for DSH Go. This repository includes an SDK, guides and examples.
-- **Phone control:** after you enable the required permissions, let the local engine read the screen, tap and type. You can stop it at any time.
-- **Sharing and appearance:** share, export and replay conversations, and customize themes, icons and pets.
+- **Start-page tips toggle**: Settings → Interface → Start page. When off, the start page of a new conversation renders no tips placeholder.
+  - `app/lib/state/settings_state.dart` (`chatTips`, preference key `chat_tips`)
+  - `app/lib/ui/chat/chat_screen.dart` (passes `tips` according to the toggle)
+- **Material and text**: Settings → Appearance → Material. Overlays and cards use a translucent glass material with adjustable opacity, blur radius, text color, and a follow-theme option.
+  - `app/lib/state/appearance_state.dart`
+  - `app/lib/ui/settings/appearance/appearance_page.dart`
+- **Pet overlay size**: Settings → Desktop pet → Overlay size. Choose a smaller height for the pet window outside the app; the in-chat pet size is adjusted separately.
+  - `app/lib/pets/pet_prefs.dart` (`overlaySize`, `overlayCustomHeight`)
+  - `app/lib/ui/pets/overlay_settings_tile.dart`
 
-Capabilities depend on the host and connection. DSHarness Remote currently accepts image attachments only, does not open the web interface inside the app, limits plugin management to enabling or disabling plugins, and does not support DS Bot or conversation-log export. See [Engine and remote hosts](docs/guide/en/03-engine-hosts.md).
+### Wallpapers
 
-## Install
+- **Looping live wallpaper**: Settings → Appearance → Wallpaper → Looping live wallpaper. An imported video file loops as the wallpaper, without progress or sound controls.
+  - `app/lib/wallpaper/live_wallpaper.dart`
+  - `app/lib/ui/wallpaper/video_wallpaper_editor_page.dart`
+- **`.json` live wallpaper**: Settings → Appearance → Wallpaper → `.json` live wallpaper. An imported scene package switches between `day`/`dusk`/`night` scenes and supports background, image, and text nodes.
+  - `app/lib/wallpaper/scene_document.dart`, `scene_engine.dart`, `scene_view.dart`
+  - Format reference: `docs/json-wallpaper.md`
 
-Installation requires Android 8.0 (API 26) or later. The **arm64** package on the Releases page is for typical 64-bit Android phones; the x64 package for x86_64 devices and emulators is under “Other builds” at the end of the release notes. This repository has no 32-bit ARM build.
+### Pets and Live2D
 
-1. Download the APK for your device architecture from [GitHub Releases](https://github.com/ccch1mneyyy/dsh-go/releases/latest) or the [download page](https://go.dshtui.com/download), and follow Android's prompt to allow that installation source.
-2. On first launch, choose an on-device runtime or a remote host.
-3. Configure a model and its credentials for the selected host, then start a conversation. Some remote providers must be configured on the host itself.
+- **Cubism 2 models**: the pet page imports `.moc` models with `model.json`. The app injects the `live2d.min.js` runtime and plays `*.mtn` motions; physics, poses, expressions, and eye blinking are not evaluated.
+  - `app/lib/pets/live2d_kit.dart`
+  - `app/lib/pets/pet_live2d_install.dart`
+- **Model sharpness**: the cube texture is chosen from screen density and stage size, preferring 1024 and falling back to 512/256. Pet packs are not written with a `poster.png`; the first frame comes from a stage screenshot.
+  - `app/lib/pets/live2d_kit.dart`
+- **Convert Live2D model**: pet-page entry that turns a Live2D model into a pet pack inside the app, including cover, size, and validation.
+  - `app/lib/ui/pets/live2d_convert_page.dart`
+- **`pet-theme` skill hosting**: Android, iOS, and OpenHarmony each copy `app/assets/skills/pet-theme` into the runtime user-skills directory. The skill contains sprite-asset conversion (GIF/ APNG/ WebP/ frame directories/ Aseprite/ single image, `pet_theme_convert.py`) and Live2D conversion (`live2d_pet_kit.py`).
+  - `app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/ManagedSkillInstaller.kt`
+  - `app/ios/Runner/EngineSkills.swift`
+  - `app/ohos/entry/src/main/ets/runtime/ManagedSkillCore.ets`
 
-A remote-only setup does not need a local runtime on the phone. Phone control works with the local engine outside safe mode and requires permissions such as Accessibility, as explained in the app. Non-disruptive mode additionally requires Android 14 or later and Shizuku or self-ADB. Follow the [user guide](docs/guide/README.md) for setup.
+### Pendant
 
-The local engine uses compatible PRoot startup by default. Direct startup is off by default in Developer options; see [Troubleshooting](docs/guide/en/11-faq.md) for compatibility and fallback behavior. The current Android build targets APK sideloading, not Google Play distribution.
+- **Balance whale**: a floating pendant on the chat page that shows the balance and the valley/peak countdown. Tapping her opens the balance bubble, and tapping the bubble switches to the line bubble, stepping through lines. Holding drags the pendant, snapping it to the screen edge and saving its position. Sounds can be changed or turned off in settings.
+  - `app/lib/ui/chat/pendant/whale_pendant.dart`
+  - `app/lib/state/pendant_options.dart`
+  - Design and behavior: `docs/design/pendant.md`
+- **Custom character art**: the pendant settings import a user-provided character image, copied into the app's private directory; mirroring applies only to the built-in art.
+  - `app/lib/state/settings_state.dart` (`pendantArt`, `pendantArtPath`)
+  - `app/lib/ui/settings/appearance/pendant_section.dart`
 
-## Data and permissions
+### Build and compatibility
 
-Model requests go to the provider you configure. During phone-control tasks, relevant screen text may be sent to the model, and vision-capable models may receive screenshots. Read the app's permission disclosure before enabling the feature.
+- **Pinned dependencies**: `file_picker` is pinned to 13.3.0 and `android_file_picker` to 2.1.6, because `android_file_picker` 2.2.0 (required by 13.4.0) does not compile with Kotlin; `path_provider_android` is pinned to 2.2.20, because its 2.3.x JNI implementation passes the `Landroid/content/Context;` descriptor to `JClass.forName` as a class name and throws `ClassNotFoundException`, which takes down the tavern, companion, workshop, and converter pages together.
+  - `app/pubspec.yaml`
 
-“Send anonymous usage statistics” is on by default. You can turn it off during onboarding or in Settings → Privacy and sharing. See [Troubleshooting](docs/guide/en/11-faq.md) for the fields collected and what happens when it is disabled. Review content before sharing it; recipients can save a copy of a shared link or file's contents.
+## Differences from upstream main
 
-## Risks and disclaimer
+| Item | Upstream main | mygo | Main location |
+| --- | --- | --- | --- |
+| Start-page tips | Always shown | Can be turned off in settings | `app/lib/state/settings_state.dart`, `app/lib/ui/chat/chat_screen.dart` |
+| Appearance material | None | Material and text: opacity, blur, text color, follow theme | `app/lib/state/appearance_state.dart` |
+| Wallpaper kinds | Gradient, image | Adds looping video and `.json` scene packages | `app/lib/state/wallpaper_state.dart` (`WallpaperKind`) |
+| Live2D models | Cubism 3 | Adds Cubism 2 (`.moc` + `model.json`) | `app/lib/pets/live2d_kit.dart` |
+| Pet-page entry | "Let AI make a pet", types `/pet-theme` | "Convert Live2D model" wizard | `app/lib/ui/pets/pet_settings_page.dart`, `live2d_convert_page.dart` |
+| Pet-pack cover | Required `poster.png` | Falls back to the stage's first frame | `app/lib/pets/live2d_kit.dart` |
+| Pet overlay | Fixed sizes | Adds a smaller size | `app/lib/pets/pet_prefs.dart` |
+| Balance pendant | None | Toggleable balance whale with optional custom art | `app/lib/ui/chat/pendant/whale_pendant.dart`, `app/lib/state/settings_state.dart` |
+| `pet-theme` skill | Android hosting only | Hosted on Android, iOS, and OpenHarmony, with the Live2D flow | `ManagedSkillInstaller.kt`, `EngineSkills.swift`, `ManagedSkillCore.ets` |
+| `file_picker` | 13.4.0 | Pinned 13.3.0 / `android_file_picker` 2.1.6 | `app/pubspec.yaml` |
 
-DSH Go is an unofficial community project. It is not affiliated with, endorsed by, or a representative of DeepSeek. Before using it, please understand:
+## Project layout
 
-- **AI is fallible:** answers, code and actions may be wrong, and malicious instructions in web pages, messages or files may mislead it. Verify important results; do not rely solely on AI output for high-stakes medical, legal or investment decisions.
-- **Tools have real effects:** commands and file changes on local or remote hosts, as well as phone control, may cause data loss, privacy breaches, or harm to accounts, funds or devices. Skipping confirmations, relaxing app rules or lifting limits reduces safeguards; confirmation and blocking mechanisms cannot eliminate all risks. Keep default protections, grant only necessary permissions, and avoid lifting limits on devices holding payment or banking details. See the [phone-control guide](docs/guide/en/04-phone-control.md).
-- **Third-party services and costs:** models, remote hosts and plugins operate under their own terms. Data handling, availability and charges depend on the services and configuration you choose. Running locally does not mean the model is offline or that data never leaves the device.
-- **Take precautions:** back up important data, connect only to trusted hosts, install only trusted plugins, and monitor model usage and costs. Do not leave AI unattended on irreversible or high-risk tasks.
-- **No warranty and limits of liability:** to the extent permitted by applicable law, the software is provided “as is,” without guarantees of accuracy, continuous availability or fitness for a particular purpose. See sections 15–17 of [LICENSE](LICENSE) for warranty disclaimers and liability limits. This notice does not exclude or limit liability that cannot legally be excluded or limited, or reduce your statutory rights.
+| Path | Contents |
+| --- | --- |
+| `app/` | Flutter UI, Android Kotlin implementation, iOS Swift/WidgetKit implementation, and OpenHarmony ArkTS implementation |
+| `packages/dsh_client/` | Dart client for the DSH Web API |
+| `packages/dsh_remote/` | Dart client for DSH Remote |
+| `runtime/` | Android Linux runtime, iOS runtime specialization, engine patches, and app bridges |
+| `docs/` | Design documents, user guides, and pet/Live2D authoring references |
+| `tooling/` | Toolchain installation, APK/iOS build, and diagnostic scripts |
 
-## FAQ
+## Reproducing the build
 
-<details>
-<summary><b>Is this an official DeepSeek app?</b></summary>
-<br>
-
-No. DSH Go is an unofficial client made by the community, built on the open-source [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). DSH itself runs on your phone; model requests go to the provider you configure, so it needs a connection and bills your account with that provider.
-
-</details>
-
-<details>
-<summary><b>Is it safe?</b></summary>
-<br>
-
-The local web interface only answers to the app itself. Shared links are end-to-end encrypted: the key lives only in the link, and the server never sees the content, but anyone with the complete link can read and save it. Phone control retains sensitive-action protections by default; relaxing app rules or using “Lift limits” reduces those protections. Safeguards cannot guarantee zero risk. See [Risks and disclaimer](#risks-and-disclaimer) and the [phone-control guide](docs/guide/en/04-phone-control.md).
-
-</details>
-
-<details>
-<summary><b>Will the system kill it in the background?</b></summary>
-<br>
-
-Some battery savers hold apps back. When that happens, DSH Go tells you and opens the right setting, on vivo, Xiaomi, Huawei, Honor and OPPO.
-
-</details>
-
-<details>
-<summary><b>What phone do I need?</b></summary>
-<br>
-
-Android 8 or later. On a phone, download the package on the Releases page; the x86_64 build for emulators is under “Other builds” at the end of the release notes. Running DSH on the phone needs the built-in environment, so keep about 1 GB free; connecting to DSH on a computer or server doesn't.
-
-</details>
-
-<details>
-<summary><b>Is it open source?</b></summary>
-<br>
-
-Yes. The code is in this repository under [AGPL-3.0](LICENSE); `sdk/` and `examples/` are MIT. The DSH Go name and logo, and the mascots Deepy and Whale girl, are not covered by the open-source license; see [ASSETS.md](ASSETS.md). Credit requirements for forks and redistributed builds are in [License scope and redistribution](#license-scope-and-redistribution).
-
-</details>
-
-## Build from source
-
-The following workflow targets **Linux x86_64**. The toolchain script currently defaults to JDK 17, Flutter 3.47.7 and the Android SDK/NDK. The app requires Dart `^3.13.5`. Prepare Bash, Git, curl, tar, unzip, xz, Python 3, zstd (for unpacking zstd-compressed deb archives when Python does not provide `compression.zstd`), file and standard GNU utilities. Resolving Ubuntu package locks again also requires gpgv.
-
-Start with the complete source tree and project assets. Fonts, images and other files declared in `app/pubspec.yaml` are build inputs. The following script generates the runtime bundle.
+The flow matches upstream and targets Linux x86_64. It needs Bash, Git, curl, tar, unzip, xz, Python 3, zstd, and the usual GNU commands. The toolchain script installs Temurin JDK 17, Flutter 3.47.7, and the Android SDK/NDK. The required Dart version is declared in `app/pubspec.yaml`.
 
 ```bash
-git clone https://github.com/ccch1mneyyy/dsh-go.git
-cd dsh-go
+git clone https://github.com/shouVdao/dsh-Go.git
+cd dsh-Go
 
 bash tooling/setup-toolchain.sh
 source tooling/env.sh
@@ -271,91 +107,33 @@ bash runtime/build-runtime.sh arm64-v8a
 DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f arm64 --keep-daemon
 ```
 
-The toolchain script downloads the SDK/NDK and emulator images and runs Android SDK license acceptance. Its default location is `~/dev`; set `DEV_ROOT` to use a separate directory. The script reuses existing installations, so check their versions before building.
+- The toolchain installs into `~/dev` by default; set `DEV_ROOT` to use another directory. The script reuses existing installations, so verify the versions before building.
+- `runtime/build-runtime.sh` produces the runtime package that the app consumes; it downloads dependencies over the network and verifies pinned versions.
+- `DSH_BETA_TOKEN_FILE=` embeds no beta-channel token; `--keep-daemon` leaves the Gradle daemon running.
+- x86_64 build: `bash runtime/build-runtime.sh x86_64`, then `DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f x64 --keep-daemon`.
+- Print the build commands without running them: `DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh --dry-run -f all`.
+- The artifact is written to `app/build/app/outputs/flutter-apk/app-arm64-release.apk`.
+- Without `app/android/key.properties`, release builds use the debug signing key and cannot replace an installation signed with a different key. Release keys and `key.properties` must not be committed.
+- On Windows, run the scripts above under WSL or Git Bash; once the runtime package exists, `cd app && flutter build apk --release --target-platform android-arm64` also works.
 
-The output is `app/build/app/outputs/flutter-apk/app-arm64-release.apk`. Runtime assembly uses the versions and verification data pinned in the repository and needs network access to download dependencies. `DSH_BETA_TOKEN_FILE=` leaves out the maintainer's beta-channel token. `--keep-daemon` preserves Gradle daemons, which is useful when working on other Android projects at the same time.
-
-For an x86_64 APK, generate its runtime first:
-
-```bash
-bash runtime/build-runtime.sh x86_64
-DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh -f x64 --keep-daemon
-```
-
-Without `app/android/key.properties`, a local release build uses debug signing. It cannot replace an official installation signed with a different key. Use a test device and preserve existing data; do not uninstall your daily-use app just to resolve a signing mismatch. Do not commit signing keys or their configuration.
-
-To inspect APK build commands without building:
+## Development and checks
 
 ```bash
-DSH_BETA_TOKEN_FILE= bash tooling/build-apk.sh --dry-run -f all
+cd app
+flutter pub get
+flutter analyze
+flutter test
 ```
 
-## Repository layout
+- After editing `app/lib/l10n/parts/*.arb`, run `python app/tool/l10n_merge.py` to regenerate `app/lib/l10n/gen/`; do not edit generated files by hand.
+- After editing `docs/guide/`, run `python app/tool/guide_sync.py`.
+- Font and golden tests need Noto CJK fonts. The default directory is `/usr/share/fonts/noto-cjk`; set `DSH_TEST_FONT_DIR` to another directory containing `NotoSansCJK-Light.ttc`, `NotoSansCJK-Regular.ttc`, and `NotoSansCJK-Bold.ttc`.
+- On Windows, some tests fail on path separators, symbolic-link permissions (`errno 1314`), and CRLF line endings. Those are environment differences; Linux results are the reference.
 
-| Path | Contents |
-| --- | --- |
-| `app/` | Flutter interface and Android Kotlin platform code |
-| `packages/dsh_client/` | Dart client for the DSH Web API |
-| `packages/dsh_remote/` | Dart client for DSH Remote |
-| `runtime/` | Linux runtime assembly, engine patches and the app bridge |
-| `sdk/plugin-kit/` | Native plugin authoring kit, used from the repository and not published to npm |
-| `examples/plugins/` | Example plugins |
-| `docs/guide/`, `docs/plugins/` | User and plugin development guides |
-| `docs/assets/` | Showcase images, pet animations and community QR codes used on this page |
-| `tooling/` | Toolchain, APK build and diagnostic scripts |
-| `services/`, `site/`, `infra/` | Companion sharing service, website and deployment materials |
+## License
 
-## Contribute
+This project follows upstream and is licensed under the [GNU Affero General Public License v3.0](LICENSE). Modifications and redistribution must comply with its terms and keep the copyright, license, and modification notices.
 
-Report bugs and suggest improvements in [Issues](https://github.com/ccch1mneyyy/dsh-go/issues). For code, documentation and translation changes, start with [CONTRIBUTING.en.md](CONTRIBUTING.en.md). Plugin authors can use the [plugin guides](docs/plugins/en/README.md) and [SDK](sdk/plugin-kit/README.en.md).
-
-Report security issues through [SECURITY.en.md](SECURITY.en.md). Keep vulnerability details and credentials out of public issues.
-
-<a id="community"></a>
-
-## Community
-
-- **Forum**: [forum.dshtui.com](https://forum.dshtui.com)
-- **QQ group**: `1132118290` ([join](https://qm.qq.com/q/OEy2RqZnqY))
-- **WeChat group**: scan the code below; if it has expired, join the QQ group
-<!-- Telegram: link to come, add a line here -->
-
-<p align="center">
-  <a href="https://qm.qq.com/q/OEy2RqZnqY"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/qr-qq-en-dark.webp"><img src="docs/assets/qr-qq-en-light.webp" width="300" alt="QQ group DSH-Go!!, number 1132118290"></picture></a>&emsp;&emsp;<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/qr-wechat-en-dark.webp"><img src="docs/assets/qr-wechat-en-light.webp" width="300" alt="WeChat group DSHGo 2群"></picture>
-</p>
-
-<p align="center">
-  <sub>QQ group <code>1132118290</code>. On a computer, <a href="https://qm.qq.com/q/OEy2RqZnqY">join with one click</a>. The WeChat code changes every week; if it has expired, join the QQ group.</sub>
-</p>
-
-## Friends' Links
-
-- **[DSH-TUI](https://dshtui.com/)**: the interactive terminal UI for DeepSeek Harness by the same author — the desktop counterpart to DSH Go, with a pixel whale, live status and time travel ([GitHub](https://github.com/ccch1mneyyy/dsh-TUI)).
-
-## License scope and redistribution
-
-The code is open source under [AGPL-3.0](LICENSE), and forking it to study, self-host or build on is welcome. Please respect the original author and project origin:
-
-- **Please contact the author before making modifications.** If you plan to modify this project, develop it further or publish a derivative product, please contact the original author, ccch1mneyyy, through [Issues](https://github.com/ccch1mneyyy/dsh-go/issues) or the [community](#community) in advance and describe your intended use and plans.
-- **Please credit the upstream repository and author in forks.** When publishing a modified version, please clearly credit <https://github.com/ccch1mneyyy/dsh-go> and the original author, [ccch1mneyyy](https://github.com/ccch1mneyyy), in the repository README, in-app About screen and release page. Retain copyright, license and modification notices as required by the applicable license.
-- **No unauthorized commercial reskins.** Do not use this project's brand graphics or protected assets, including Deepy and Whale girl, in reskinned products for sale, paid distribution or other commercial products without permission. Do not violate the applicable license by removing required copyright and license notices or distributing derivative code without the required source, or impersonate the original author or an official release.
-- **The name and assets are separate.** The DSH Go name and logo, and the Deepy and Whale girl mascots, are not covered by AGPL-3.0. Ship a modified build under your own name and assets; see [ASSETS.md](ASSETS.md).
-
-**License clarification:** AGPL-3.0 permits modification, redistribution and commercial use subject to its terms. Advance contact and the requested credit locations above are collaboration requests from the author, not additional restrictions on the code license. Brand and asset use remains subject to their own terms; this notice does not change the licenses of `sdk/`, `examples/` or third-party content.
-
-## License and acknowledgments
-
-This project is licensed under [AGPL-3.0](LICENSE). `sdk/` and `examples/` remain **MIT**. Third-party code and assets retain the terms stated in their own notices.
-
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): the agent DSH Go runs and connects to.
-- [DSH-TUI](https://github.com/ccch1mneyyy/dsh-TUI): home of the mascots, Deepy and Whale girl.
-
-Code derived from Phase is used with the author's permission. DeepSeek Harness, PiPilot, DS Bot, DSH Remote and other third-party components and assets retain their own licenses and attribution. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for sources and terms.
-
-The DSH Go name, logo and mascots (Deepy and Whale girl) are not covered by the AGPL; see [ASSETS.md](ASSETS.md) for their terms.
-
-<sub>Remote connections draw on the [ds-harness-remote](https://github.com/liguobao/ds-harness-remote) project and its server. Thanks to its author, liguobao.</sub>
-
-<br>
-
-<p align="center"><sub>DSH Go is an unofficial client made by the community. It is not affiliated with or endorsed by DeepSeek. DeepSeek names and marks belong to their owners.</sub></p>
+- `sdk/` and `examples/` remain MIT-licensed.
+- Third-party code and assets keep their own terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- The DSH Go name and logo, Deepy, and the whale-girl artwork are not covered by AGPL-3.0; see [ASSETS.md](ASSETS.md).

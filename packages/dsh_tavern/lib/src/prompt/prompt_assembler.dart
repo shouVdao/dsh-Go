@@ -4,10 +4,14 @@
 import 'dart:convert';
 
 import '../js_string.dart';
+import '../spreset.dart';
 import 'character_fields.dart';
 import 'deepseek_processing.dart';
 import 'preset.dart';
+import 'post_processing.dart';
 import 'prompt_types.dart';
+import 'prompt_manager_snapshot.dart';
+import 'reasoning.dart';
 
 final class PromptInput {
   const PromptInput({
@@ -19,6 +23,7 @@ final class PromptInput {
     this.characterId = '',
     this.generationType = 'normal',
     this.deepseek = true,
+    this.chatCompletionSource = 'custom',
     this.persona = '',
     this.personaInPrompt = true,
     this.groupNames = const [],
@@ -33,6 +38,8 @@ final class PromptInput {
     this.worldExamples = const [],
     this.pinExamples = false,
     this.stripExamples = false,
+    this.cacheFriendlyTrimming,
+    this.historyWindow,
     this.quietPrompt = '',
     this.bias = '',
     this.stops = const [],
@@ -41,6 +48,9 @@ final class PromptInput {
     this.expansion,
     this.cardExpansion,
     this.preparedFields,
+    this.onSPresetDiagnostic,
+    this.macroNestRuntime,
+    this.spresetProvider,
   });
   final ChatPreset preset;
 
@@ -54,6 +64,13 @@ final class PromptInput {
   final String characterId;
   final String generationType;
   final bool deepseek;
+
+  /// Actual connection dialect, not an imported endpoint selection.
+  final String chatCompletionSource;
+
+  /// SPreset hooks read the page's current provider even when one Helper
+  /// request uses a different custom transport. Omitted by native callers.
+  final SPresetProvider? spresetProvider;
   final String persona;
   final bool personaInPrompt;
   final List<String> groupNames;
@@ -76,6 +93,11 @@ final class PromptInput {
   final List<PromptExample> worldExamples;
   final bool pinExamples;
   final bool stripExamples;
+
+  /// Explicit turn setting takes priority over the preset. A missing preset
+  /// setting enables cache-friendly trimming; false keeps ST's original path.
+  final bool? cacheFriendlyTrimming;
+  final PromptHistoryWindow? historyWindow;
   final String quietPrompt;
   final String bias;
   final List<String> stops;
@@ -91,19 +113,86 @@ final class PromptInput {
   /// assembly uses a limited names/fields fallback and retains unknown macros.
   final PromptExpansion? cardExpansion;
   final PreparedCharacterFields? preparedFields;
+  final SPresetDiagnostic? onSPresetDiagnostic;
+
+  /// Reuse for one native runtime; isolated previews may omit it.
+  final SPresetMacroNestRuntime? macroNestRuntime;
 }
 
 final class PromptAssembler {
-  const PromptAssembler({this.counter = const EstimatedTokenCounter()});
+  const PromptAssembler({this.counter = const EstimatedTokenCounter(), this.onPromptManager});
   final PromptTokenCounter counter;
-  PromptAssembly assemble(PromptInput input) => _AssemblyRun(input, counter).run();
+
+  /// Runtime-only setter boundary; detached previews omit this observer.
+  final void Function(PromptManagerSnapshot)? onPromptManager;
+  PromptAssembly assemble(PromptInput input) => _AssemblyRun(input, counter, onPromptManager: onPromptManager).run();
 }
+
+/// The engine has already proved the unread prefix cannot fit. Retain its
+/// ordinary exclusions without loading its bodies or expanding its macros.
+PromptAssembly assemblePromptWindow(
+  PromptAssembler assembler,
+  PromptInput input, {
+  required List<PromptHistoryMessage> prefix,
+}) => _AssemblyRun(input, assembler.counter, historyPrefix: prefix, onPromptManager: assembler.onPromptManager).run();
+
+/// Rebuild provider conversion after an asynchronous prompt hook. Admission,
+/// macro effects and stop expansion have already happened and are not replayed.
+PromptAssembly reprocessPromptAssembly(
+  PromptAssembly original,
+  List<PromptSegment> before,
+  PromptInput input, {
+  PromptTokenCounter counter = const EstimatedTokenCounter(),
+}) {
+  final run = _AssemblyRun(input, counter);
+  run.excluded
+    ..clear()
+    ..addAll(
+      original.excluded.where(
+        (item) => item.reason != 'reasoning-prefill-unsupported' && item.reason != 'no-preset-prefill-tail',
+      ),
+    );
+  final stops = original.body['stop'];
+  return run.finish(before, stops: stops is List<Object?> ? stops.cast<String>() : const [], original: original);
+}
+
+/// Cost of an unchanged, meaningful history message, using the assembler's
+/// exact name/CR/tool-field normalization. Only pure counters may preflight.
+int plainHistoryTokenCost(
+  PromptTokenCounter counter,
+  PromptHistoryMessage item, {
+  required Object? namesBehavior,
+  required String userName,
+  required bool group,
+}) {
+  if (item.hidden || item.isSystem) return 0;
+  final prompt = _historyPrompt(item, namesBehavior: namesBehavior, userName: userName, group: group);
+  final message = _messageData(prompt, prompt.content, includeName: namesBehavior == 1);
+  return _meaningfulMessage(message) ? counter.countMessage(message) : 0;
+}
+
+/// Internal quiet adapter: call the already-prepared stop supplier once at
+/// the assembler's real stop stage, without filtering or expanding it again.
+/// Its bias admission uses the first prepared value and JS whitespace; the
+/// ordinary assemble/default raw paths retain their original behavior.
+PromptAssembly assembleScriptPrompt(
+  PromptAssembler assembler,
+  PromptInput input, {
+  required List<String> Function() preparedStops,
+}) => _AssemblyRun(
+  input,
+  assembler.counter,
+  preparedStops: preparedStops,
+  onPromptManager: assembler.onPromptManager,
+  preparedBiasHasContent: trimJsWhitespace(input.bias).isNotEmpty,
+).run();
 
 final class _Prompt {
   _Prompt(
     this.id,
     this.content,
     this.sources, {
+    String? windowId,
     this.role = 'system',
     this.data = const {},
     this.injected = false,
@@ -113,8 +202,9 @@ final class _Prompt {
     this.explicitRole = false,
     this.trimGroup,
     this.pieces,
-  });
+  }) : windowId = windowId ?? id;
   final String id;
+  final String windowId;
   String content;
   List<PromptSource> sources;
   Object? role;
@@ -140,6 +230,7 @@ final class _Prompt {
     id,
     content,
     [...sources],
+    windowId: windowId,
     role: role,
     data: {...data},
     injected: injected,
@@ -160,6 +251,46 @@ final class _TrimGroup {
   bool queued = false;
 }
 
+_Prompt _historyPrompt(
+  PromptHistoryMessage item, {
+  required Object? namesBehavior,
+  required String userName,
+  required bool group,
+}) {
+  final role = item.role == 'narrator' ? 'system' : item.role;
+  var content = item.content;
+  if ((namesBehavior == 2 && role != 'system') ||
+      (namesBehavior == 0 && item.name != userName && (group || (item.forceAvatar && role != 'system')))) {
+    content = '${item.name}: $content';
+  }
+  return _Prompt(
+    item.id,
+    content.replaceAll('\r', ''),
+    [PromptSource('history', item.id, label: item.name)],
+    role: role,
+    expandMacros: item.expandMacros,
+    data: {
+      'name': item.name,
+      if (item.toolCalls != null) 'tool_calls': item.toolCalls,
+      if (item.toolCallId != null) 'tool_call_id': item.toolCallId,
+    },
+  );
+}
+
+Map<String, Object?> _messageData(_Prompt prompt, String content, {required bool includeName}) {
+  final name = prompt.data['name'];
+  return <String, Object?>{
+    'role': presetTruthy(prompt.role) ? prompt.role : 'system',
+    'content': content,
+    if (includeName && name is String && name.isNotEmpty) 'name': sanitizeName(name),
+    if (prompt.data['tool_calls'] != null) 'tool_calls': prompt.data['tool_calls'],
+    if (prompt.data['tool_call_id'] != null) 'tool_call_id': prompt.data['tool_call_id'],
+  };
+}
+
+bool _meaningfulMessage(Map<String, Object?> message) =>
+    message['content'] != '' || message.containsKey('tool_calls') || message['role'] == 'tool';
+
 final class _ExampleBlock {
   const _ExampleBlock(this.messages, this.source, {this.trimGroup});
   final List<Map<String, Object?>> messages;
@@ -176,7 +307,34 @@ final class _DepthExtension {
 }
 
 final class _AssemblyRun {
-  _AssemblyRun(this.input, this.counter) : settings = input.preset.settings {
+  _AssemblyRun(
+    this.input,
+    this.counter, {
+    this.preparedStops,
+    this.preparedBiasHasContent,
+    this.historyPrefix = const [],
+    this.onPromptManager,
+  }) : settings = input.preset.executionSettings {
+    cacheFriendlyTrimming = input.cacheFriendlyTrimming ?? (settings['cacheFriendlyTrimming'] != false);
+    final window = cacheFriendlyTrimming ? input.historyWindow : null;
+    if (window != null) {
+      // Bodies are deliberately unnecessary here: unread prefix nodes still
+      // carry their physical identities and original depth positions.
+      var found = false;
+      for (final item in historyPrefix.followedBy(input.history)) {
+        if (item.id == window.firstNodeId && !item.hidden && !item.isSystem) {
+          found = true;
+          break;
+        }
+        olderHistory.add(item.id);
+      }
+      if (found) {
+        historyWindow = window;
+      } else {
+        olderHistory.clear();
+      }
+    }
+    if (cacheFriendlyTrimming) unreadHistory.addAll(historyPrefix.map((item) => item.id));
     type = input.generationType.trim().toLowerCase();
     if (type.isEmpty) type = 'normal';
     final extensions = settings['extensions'];
@@ -202,8 +360,21 @@ final class _AssemblyRun {
     remaining = budget - 3;
   }
   final PromptInput input;
+  final void Function(PromptManagerSnapshot)? onPromptManager;
+  final List<String> Function()? preparedStops;
+  final bool? preparedBiasHasContent;
+  final List<PromptHistoryMessage> historyPrefix;
   final PromptTokenCounter counter;
   final Map<String, Object?> settings;
+  late final spreset = SPresetConfig.fromPreset(settings);
+  late final macroNestRuntime = input.macroNestRuntime ?? SPresetMacroNestRuntime();
+  late final bool cacheFriendlyTrimming;
+  PromptHistoryWindow? historyWindow;
+  final olderHistory = <String>{};
+  final unreadHistory = <String>{};
+  bool historyOverflow = false;
+  final admittedExamples = <({String kind, String id, int block}), _TrimGroup?>{};
+  final excludedInjections = <String>{};
   late final bool enhancedPrefillEnabled;
   late final String prefillTarget;
   late final List<Map<String, Object?>> tools;
@@ -214,6 +385,10 @@ final class _AssemblyRun {
   final prompts = <_Prompt>[];
   final collections = <String, List<PromptSegment>>{};
   final tail = <PromptSegment>[];
+  final historyTail = <PromptSegment>{};
+  final managerTails = <String, List<PromptSegment>>{};
+  final logicalIdentifiers = <PromptSegment, String?>{};
+  bool historyStoredNewestFirst = false;
   final excluded = <PromptExclusion>[];
   final disabled = <String>{};
   final uiDisabled = <String>{};
@@ -235,6 +410,13 @@ final class _AssemblyRun {
     // temporary values (e.g. original) may override that environment.
     if (input.expansion != null) return input.expansion!(text, overrides);
     return fallbackExpand(text, overrides);
+  }
+
+  String prepareText(String id, String text, [Map<String, String> overrides = const {}]) {
+    final expanded = spreset.macroNest && text.isNotEmpty
+        ? macroNestRuntime.expand(text, (value) => expand(value, overrides))
+        : expand(text, overrides);
+    return expanded.isEmpty && spresetHasStructuredBinding(spreset, id) ? '\u200b' : expanded;
   }
 
   String baseExpand(String text) =>
@@ -273,11 +455,7 @@ final class _AssemblyRun {
 
   PromptSegment message(_Prompt prompt, {bool expandText = false, bool includeName = false}) {
     final content = expandText && prompt.expandMacros ? expand(prompt.content) : prompt.content;
-    final data = <String, Object?>{'role': presetTruthy(prompt.role) ? prompt.role : 'system', 'content': content};
-    final name = prompt.data['name'];
-    if (includeName && name is String && name.isNotEmpty) data['name'] = sanitizeName(name);
-    if (prompt.data['tool_calls'] != null) data['tool_calls'] = prompt.data['tool_calls'];
-    if (prompt.data['tool_call_id'] != null) data['tool_call_id'] = prompt.data['tool_call_id'];
+    final data = _messageData(prompt, content, includeName: includeName);
     final segment = PromptSegment(
       id: prompt.id,
       message: data,
@@ -296,7 +474,16 @@ final class _AssemblyRun {
       injectionPieces(injection).any((fragment) => fragment.content.isNotEmpty);
   _TrimGroup? groupFor(PromptFragment fragment) => !fragment.trimOnOverflow
       ? null
-      : trimGroups.putIfAbsent((fragment.source.kind, fragment.source.id), () => _TrimGroup(fragment.source));
+      : trimGroups.putIfAbsent((fragment.source.kind, fragment.source.id), () {
+          final group = _TrimGroup(fragment.source);
+          if (historyWindow?.excludedOptionalSources.contains((kind: fragment.source.kind, id: fragment.source.id)) ==
+              true) {
+            // Keep the ordinary exclusion reason: WI persistence must not
+            // count a source that the retained window continues to exclude.
+            drop(group);
+          }
+          return group;
+        });
   Iterable<_Prompt> promptPieces(_Prompt prompt) sync* {
     final pieces = prompt.pieces;
     if (pieces == null) {
@@ -375,10 +562,7 @@ final class _AssemblyRun {
     spend(segment);
   }
 
-  bool meaningful(PromptSegment segment) =>
-      segment.message['content'] != '' ||
-      segment.message.containsKey('tool_calls') ||
-      segment.message['role'] == 'tool';
+  bool meaningful(PromptSegment segment) => _meaningfulMessage(segment.message);
   void addFixed(String id) {
     final prompt = get(id);
     if (prompt == null || prompt.absolute || (disabled.contains(id) && id != 'main')) return;
@@ -451,7 +635,7 @@ final class _AssemblyRun {
       prompts.add(
         _Prompt(
           id,
-          expand(allowed ? presetContent(definition['content']) : ''),
+          prepareText(id, allowed ? presetContent(definition['content']) : ''),
           [source],
           role: definition['role'],
           data: {...definition},
@@ -478,7 +662,7 @@ final class _AssemblyRun {
               for (var i = 0; i < fragments.length; i++)
                 _Prompt(
                   '$id-piece-$i',
-                  fragments[i].expandMacros ? expand(fragments[i].content) : fragments[i].content,
+                  fragments[i].expandMacros ? prepareText('$id-piece-$i', fragments[i].content) : fragments[i].content,
                   [fragments[i].source],
                   role: fragments[i].role ?? inheritedRole,
                   data: {...metadata},
@@ -489,7 +673,7 @@ final class _AssemblyRun {
             ];
       final replacement = _Prompt(
         id,
-        pieces == null ? expand(content) : pieces.map((p) => p.content).join('\n'),
+        pieces == null ? prepareText(id, content) : pieces.map((p) => p.content).join('\n'),
         pieces == null ? sources : [for (final piece in pieces) ...piece.sources],
         role: inheritedRole,
         data: metadata,
@@ -587,6 +771,12 @@ final class _AssemblyRun {
     if (input.persona.isNotEmpty && input.personaInPrompt) {
       marker('personaDescription', input.persona, const [PromptSource('persona', 'description')]);
     }
+    final occupiedExtensionIds = <String>{
+      for (final prompt in prompts) prompt.id,
+      for (final injection in input.injections) injection.fragment.source.id.replaceAll(RegExp(r'\W'), '_'),
+      ...knownExtensions.values,
+    };
+    var isolatedExtensionIndex = 0;
     for (final injection in input.injections) {
       final key = injection.fragment.source.id;
       if (injection.placement == PromptPlacement.inChat ||
@@ -595,7 +785,13 @@ final class _AssemblyRun {
           const {'PERSONA_DESCRIPTION', 'QUIET_PROMPT', 'DEPTH_PROMPT'}.contains(key)) {
         continue;
       }
-      extension(injection, key.replaceAll(RegExp(r'\W'), '_'), unknown: true);
+      var identifier = key.replaceAll(RegExp(r'\W'), '_');
+      if (injection.fragment.source.kind == 'scriptInjection') {
+        do {
+          identifier = 'scriptPrivateExtension${isolatedExtensionIndex++}';
+        } while (!occupiedExtensionIds.add(identifier));
+      }
+      extension(injection, identifier, unknown: true);
     }
     for (final pair in [('main', 'system_prompt'), ('jailbreak', 'post_history_instructions')]) {
       final prompt = get(pair.$1);
@@ -603,19 +799,17 @@ final class _AssemblyRun {
           !disabled.contains(pair.$1) &&
           prompt.data['forbid_overrides'] != true &&
           field(pair.$2).isNotEmpty) {
-        prompt.content = expand(field(pair.$2), {'original': prompt.content});
+        prompt.content = prepareText(prompt.id, field(pair.$2), {'original': prompt.content});
         prompt.sources = [cardSource(pair.$2), ...prompt.sources];
       }
     }
   }
 
-  PromptAssembly run() {
+  PromptSource get prefillSource =>
+      PromptSource('preset', 'assistant_prefill', details: {'enhanced': true, 'target': prefillTarget});
+
+  PromptHistoryWindow? admit() {
     prepare();
-    final prefillSource = PromptSource(
-      'preset',
-      'assistant_prefill',
-      details: {'enhanced': true, 'target': prefillTarget},
-    );
     PromptSegment? configuredPrefill;
     if (enhancedPrefillEnabled && type == 'continue') {
       excluded.add(PromptExclusion('assistant_prefill', 'enhanced-prefill-continue', [prefillSource]));
@@ -648,7 +842,7 @@ final class _AssemblyRun {
     for (final id in ['nsfw', 'jailbreak', ...relativeIds, 'enhanceDefinitions']) {
       addFixed(id);
     }
-    if (input.bias.trim().isNotEmpty) addFixed('bias');
+    if (preparedBiasHasContent ?? input.bias.trim().isNotEmpty) addFixed('bias');
     final absolute = prompts.where((prompt) => prompt.absolute).map((prompt) => prompt.copy()).toList();
     final depthExtensions = input.injections
         .where((injection) => injection.placement == PromptPlacement.inChat && injectionHasContent(injection))
@@ -739,24 +933,95 @@ final class _AssemblyRun {
       commitReserved(control);
     }
     tail.addAll(controls);
+    if (controls.isNotEmpty) managerTails['controlPrompts'] = controls;
     for (final prefill in worldPrefill) {
       commitReserved(prefill);
     }
     // CCV3 prefill follows all native controls. An explicitly enabled preset
     // prefix may follow it; its reasoning channel keeps a separate boundary.
     tail.addAll(worldPrefill);
+    if (worldPrefill.isNotEmpty) managerTails['dshWorldPrefill'] = worldPrefill;
     if (configuredPrefill != null) {
       tail.add(configuredPrefill);
+      managerTails['dshConfiguredPrefill'] = [configuredPrefill];
     }
     // The decorator says "reaches" maximum context, including an exact fit.
     // This has no effect without optional fragments and never re-expands text.
     makeRoom(1);
+    // Unpinned examples have already made their ordinary admission choices.
+    // Releasing extra history space any earlier would let them refill it.
+    return finishHistoryWindow();
+  }
+
+  PromptManagerSnapshot managerSnapshot() {
+    PromptManagerMessage message(PromptSegment segment) => PromptManagerMessage(
+      segment,
+      identifier: logicalIdentifiers.containsKey(segment)
+          ? logicalIdentifiers[segment]
+          : segment.message['role'] == 'tool'
+          ? segment.message['tool_call_id'] as String?
+          : segment.id,
+    );
+    final snapshot = PromptManagerSnapshot([
+      for (final id in prompts.map((prompt) => prompt.id).toSet())
+        if (collections.containsKey(id))
+          PromptManagerCollection(id, [
+            for (final segment
+                in id == 'chatHistory' && historyStoredNewestFirst ? collections[id]!.reversed : collections[id]!)
+              if (!removed(segment)) message(segment),
+          ]),
+      for (final entry in managerTails.entries)
+        PromptManagerCollection(entry.key, [
+          for (final segment in entry.value)
+            if (!removed(segment)) message(segment),
+        ]),
+    ]);
+    return settings['squash_system_messages'] == true ? snapshot.squashSystems() : snapshot;
+  }
+
+  PromptAssembly run() {
+    PromptHistoryWindow? nextHistoryWindow;
+    try {
+      nextHistoryWindow = admit();
+    } finally {
+      // A failed admission publishes only objects already added to root.
+      // This runs before MI and does not retry expansions or token admission.
+      onPromptManager?.call(managerSnapshot());
+    }
     var flattened = <PromptSegment>[
-      for (final id in prompts.map((prompt) => prompt.id).toSet()) ...?collections[id],
-      ...tail,
-    ].where((segment) => !removed(segment)).toList();
+      for (final id in prompts.map((prompt) => prompt.id).toSet())
+        for (final segment in collections[id] ?? const <PromptSegment>[])
+          if (!removed(segment)) inCollection(segment, id),
+      for (final segment in tail)
+        if (!removed(segment)) historyTail.contains(segment) ? inCollection(segment, 'chatHistory') : segment,
+    ];
+    flattened = spresetInjectSegments(
+      flattened.where(meaningful).toList(),
+      spreset,
+      input.spresetProvider ??
+          SPresetProvider(source: input.deepseek ? 'deepseek' : input.chatCompletionSource, model: input.model),
+      counter,
+      onDiagnostic: (stage, error) {
+        excluded.add(PromptExclusion('SPreset.$stage', '$error', const [PromptSource('control', 'SPreset')]));
+        input.onSPresetDiagnostic?.call(stage, error);
+      },
+    );
     if (settings['squash_system_messages'] == true) flattened = squash(flattened);
-    final before = flattened.where(meaningful).toList();
+    // The SPreset hook may replace its nonempty placeholder with an empty
+    // content channel carrying reasoning/signatures/tools. ST retains it.
+    final before = flattened;
+    final stops = preparedStops == null
+        ? input.stops.where((stop) => stop.isNotEmpty).map((stop) => expand(stop)).toList()
+        : List<String>.of(preparedStops!());
+    return finish(before, stops: stops, nextHistoryWindow: nextHistoryWindow);
+  }
+
+  PromptAssembly finish(
+    List<PromptSegment> before, {
+    required List<String> stops,
+    PromptAssembly? original,
+    PromptHistoryWindow? nextHistoryWindow,
+  }) {
     final last = before.lastOrNull;
     final enhancedTail =
         enhancedPrefillEnabled &&
@@ -773,9 +1038,18 @@ final class _AssemblyRun {
     } else if (enhancedPrefillEnabled && type != 'continue' && prefillTarget == 'reasoning' && !enhancedTail) {
       excluded.add(PromptExclusion('assistant_prefill', 'no-preset-prefill-tail', [prefillSource]));
     }
+    final converted = postProcessPrompt(
+      before,
+      presetString(settings['custom_prompt_post_processing']),
+      userName: input.userName,
+      characterName: characterName,
+      groupNames: input.groupNames,
+      counter: counter,
+      separateLast: enhancedTail && input.deepseek && prefillTarget == 'reasoning' && settings['show_thoughts'] == true,
+    );
     final after = input.deepseek
         ? postProcessDeepSeek(
-            before,
+            converted,
             userName: input.userName,
             characterName: characterName,
             groupNames: input.groupNames,
@@ -784,8 +1058,7 @@ final class _AssemblyRun {
             reasoningPrefill: enhancedTail && prefillTarget == 'reasoning' && settings['show_thoughts'] == true,
             counter: counter,
           )
-        : before;
-    final stops = input.stops.where((stop) => stop.isNotEmpty).map((stop) => expand(stop)).toList();
+        : converted;
     final body = input.deepseek
         ? deepSeekRequestBody(
             messages: after,
@@ -802,42 +1075,43 @@ final class _AssemblyRun {
       beforePostProcessing: before,
       afterPostProcessing: after,
       excluded: excluded,
-      budget: budget,
-      remainingBudget: remaining,
-      counterName: counter.name,
-      exactTokenCounts: counter.exact,
+      budget: original?.budget ?? budget,
+      remainingBudget: original?.remainingBudget ?? remaining,
+      counterName: original?.counterName ?? counter.name,
+      exactTokenCounts: original?.exactTokenCounts ?? counter.exact,
+      historyWindow: original?.historyWindow ?? nextHistoryWindow,
     );
   }
 
   List<_Prompt> historyPrompts() {
     final result = <_Prompt>[];
     final names = settings['names_behavior'];
-    for (final item in input.history) {
-      final sources = [PromptSource('history', item.id, label: item.name)];
+    for (final item in historyPrefix) {
       if (item.hidden || item.isSystem) {
-        excluded.add(PromptExclusion(item.id, item.hidden ? 'hidden' : 'is_system', sources));
+        excluded.add(
+          PromptExclusion(item.id, item.hidden ? 'hidden' : 'is_system', [
+            PromptSource('history', item.id, label: item.name),
+          ]),
+        );
+      } else {
+        // Keep the original depth positions. The proven overflowing real
+        // suffix stops addHistory before these unread bodies are evaluated.
+        result.add(
+          _historyPrompt(item, namesBehavior: names, userName: input.userName, group: input.groupNames.isNotEmpty),
+        );
+      }
+    }
+    for (final item in input.history) {
+      if (item.hidden || item.isSystem) {
+        excluded.add(
+          PromptExclusion(item.id, item.hidden ? 'hidden' : 'is_system', [
+            PromptSource('history', item.id, label: item.name),
+          ]),
+        );
         continue;
       }
-      final role = item.role == 'narrator' ? 'system' : item.role;
-      var content = item.content;
-      if ((names == 2 && role != 'system') ||
-          (names == 0 &&
-              item.name != input.userName &&
-              (input.groupNames.isNotEmpty || (item.forceAvatar && role != 'system')))) {
-        content = '${item.name}: $content';
-      }
       result.add(
-        _Prompt(
-          item.id,
-          content.replaceAll('\r', ''),
-          sources,
-          role: role,
-          data: {
-            'name': item.name,
-            if (item.toolCalls != null) 'tool_calls': item.toolCalls,
-            if (item.toolCallId != null) 'tool_call_id': item.toolCallId,
-          },
-        ),
+        _historyPrompt(item, namesBehavior: names, userName: input.userName, group: input.groupNames.isNotEmpty),
       );
     }
     return result;
@@ -866,18 +1140,26 @@ final class _AssemblyRun {
     }.toList()..sort();
     var inserted = 0;
     for (final depth in depths) {
-      final atDepth = ownPieces.where((prompt) => prompt.depth == depth && prompt.content.isNotEmpty).toList();
-      final orders = <num>{100, ...atDepth.map((prompt) => prompt.order)}.toList()..sort((a, b) => b.compareTo(a));
+      final atDepth = ownPieces.where((prompt) => prompt.depth == depth).toList();
+      final orders = <num>{
+        100,
+        ...atDepth.where((prompt) => prompt.content.isNotEmpty).map((prompt) => prompt.order),
+      }.toList()..sort((a, b) => b.compareTo(a));
       final injected = <_Prompt>[];
       for (final order in orders) {
         for (final role in ['system', 'user', 'assistant']) {
-          final own = atDepth.where((prompt) => prompt.order == order && prompt.role == role).toList();
+          final allOwn = atDepth.where((prompt) => prompt.order == order && prompt.role == role).toList();
+          final own = allOwn.where((prompt) => prompt.content.isNotEmpty).toList();
           final ext = order == 100
               ? extensionPieces.where((piece) => piece.injection.depth == depth && piece.role == role).toList()
               : <_DepthExtension>[];
           ext.sort((a, b) {
-            final byKey = a.injection.fragment.source.id.compareTo(b.injection.fragment.source.id);
-            return byKey != 0 ? byKey : a.index.compareTo(b.index);
+            final byKey = (a.injection.sortKey ?? a.injection.fragment.source.id).compareTo(
+              b.injection.sortKey ?? b.injection.fragment.source.id,
+            );
+            if (byKey != 0) return byKey;
+            final bySource = a.injection.sourceOrder.compareTo(b.injection.sourceOrder);
+            return bySource != 0 ? bySource : a.index.compareTo(b.index);
           });
           final split =
               own.any((prompt) => prompt.explicitRole || prompt.trimGroup != null || !prompt.expandMacros) ||
@@ -903,6 +1185,26 @@ final class _AssemblyRun {
           // complete entry together so later refunds cannot erase base AN text
           // or another mandatory entry in the same native depth group.
           final parts = <_Prompt>[];
+          // Other sources can activate between turns. Only this source's own
+          // occurrence distinguishes its pieces; empty declarations still count.
+          final sourceOccurrences = <String, int>{};
+          final windowIds = <Object, String>{};
+          void rememberWindowId(Object piece, List<PromptSource> sources) {
+            final key = jsonEncode([
+              for (final source in sources) [source.kind, source.id],
+            ]);
+            final occurrence = sourceOccurrences[key] ?? 0;
+            sourceOccurrences[key] = occurrence + 1;
+            windowIds[piece] = 'depth-$depth-$order-$role-source-$occurrence';
+          }
+
+          for (final prompt in allOwn) {
+            rememberWindowId(prompt, prompt.sources);
+          }
+          for (final piece in ext) {
+            rememberWindowId(piece, [piece.fragment.source]);
+          }
+
           for (final prompt in own) {
             final text = trimJsWhitespace(prompt.content);
             if (text.isEmpty) continue;
@@ -911,6 +1213,7 @@ final class _AssemblyRun {
                 'depth-$depth-$order-$role-piece-${parts.length}',
                 text,
                 prompt.sources,
+                windowId: windowIds[prompt]!,
                 role: role,
                 injected: true,
                 trimGroup: prompt.trimGroup,
@@ -922,11 +1225,13 @@ final class _AssemblyRun {
             final raw = trimJsWhitespace(piece.fragment.content);
             final text = raw.isEmpty ? '' : trimJsWhitespace(piece.fragment.expandMacros ? expand(raw) : raw);
             if (text.isEmpty) continue;
+            final sources = [piece.fragment.source];
             parts.add(
               _Prompt(
                 'depth-$depth-$order-$role-piece-${parts.length}',
                 text,
-                [piece.fragment.source],
+                sources,
+                windowId: windowIds[piece]!,
                 role: role,
                 injected: true,
                 trimGroup: groupFor(piece.fragment),
@@ -967,7 +1272,10 @@ final class _AssemblyRun {
               ? extensions.where((prompt) => prompt.depth == depth && prompt.role == role).toList()
               : <PromptInjection>[];
           final ownText = own.map((prompt) => prompt.content).join('\n');
-          ext.sort((a, b) => a.fragment.source.id.compareTo(b.fragment.source.id));
+          ext.sort((a, b) {
+            final byKey = (a.sortKey ?? a.fragment.source.id).compareTo(b.sortKey ?? b.fragment.source.id);
+            return byKey != 0 ? byKey : a.sourceOrder.compareTo(b.sourceOrder);
+          });
           final extensionRaw = ext.map((prompt) => trimJsWhitespace(prompt.fragment.content)).join('\n');
           final extensionText = extensionRaw.isEmpty ? '' : expand(extensionRaw);
           final text = [ownText, extensionText].where((text) => text.isNotEmpty).map(trimJsWhitespace).join('\n');
@@ -993,6 +1301,8 @@ final class _AssemblyRun {
   void addHistory(List<_Prompt> history, String cyclePrompt) {
     if (get('chatHistory') == null) return;
     final reverseOutput = <PromptSegment>[];
+    collections['chatHistory'] = reverseOutput;
+    historyStoredNewestFirst = true;
     final newChatKey = input.groupNames.isEmpty ? 'new_chat_prompt' : 'new_group_chat_prompt';
     final newChat = message(_Prompt('newMainChat', expand(setting(newChatKey)), [PromptSource('control', newChatKey)]));
     reserve(newChat);
@@ -1002,7 +1312,12 @@ final class _AssemblyRun {
     if (type == 'continue' && cyclePrompt.isNotEmpty && settings['continue_prefill'] != true) {
       final nudge = expand(setting('continue_nudge_prompt'), {'lastChatMessage': cyclePrompt.trim()});
       final index = history.lastIndexWhere((prompt) => !prompt.injected);
-      if (index >= 0) continuation.add(message(history.removeAt(index), expandText: true));
+      if (index >= 0) {
+        final continued = message(history.removeAt(index), expandText: true);
+        continuation.add(continued);
+        // ST displaces the original chat object before assigning loop IDs.
+        logicalIdentifiers[continued] = null;
+      }
       continuation.add(
         message(_Prompt('continueNudge', expand(nudge), const [PromptSource('control', 'continue_nudge_prompt')])),
       );
@@ -1024,7 +1339,28 @@ final class _AssemblyRun {
     }
     final pool = history.reversed.toList();
     for (var i = 0; i < pool.length; i++) {
-      final segment = message(pool[i], expandText: true, includeName: settings['names_behavior'] == 1);
+      final prompt = pool[i];
+      if (prompt.injected && historyWindow?.excludedInjections.contains(injectionKey(prompt)) == true) {
+        excluded.add(PromptExclusion(prompt.id, 'cache-friendly-window', prompt.sources));
+        continue;
+      }
+      if (cacheFriendlyTrimming && !prompt.injected) {
+        if (olderHistory.contains(prompt.id)) {
+          excluded.add(PromptExclusion(prompt.id, 'cache-friendly-window', prompt.sources));
+          continue;
+        }
+        if (unreadHistory.contains(prompt.id)) {
+          // Preflight supplies identities, not zero-token history. If an
+          // existing window lets us reach them, they still cannot be admitted.
+          historyOverflow = true;
+          excluded.add(PromptExclusion(prompt.id, 'history-budget', prompt.sources));
+          continue;
+        }
+      }
+      final segment = message(prompt, expandText: true, includeName: settings['names_behavior'] == 1);
+      logicalIdentifiers[segment] = segment.message['role'] == 'tool'
+          ? segment.message['tool_call_id'] as String?
+          : '${segment.message.containsKey('tool_calls') ? 'toolCall-' : ''}chatHistory-${pool.length - i}';
       makeRoom(segment.tokens);
       if (removed(segment)) continue;
       if (segment.tokens > remaining) {
@@ -1034,6 +1370,12 @@ final class _AssemblyRun {
           continue;
         }
         for (final dropped in pool.skip(i)) {
+          // An injected depth piece can be the first miss while its older
+          // tail still contains eligible history. That is also a history
+          // overflow; already excluded old-window nodes alone are not.
+          if (cacheFriendlyTrimming && !dropped.injected && !olderHistory.contains(dropped.id)) {
+            historyOverflow = true;
+          }
           final tailGroup = dropped.trimGroup;
           // These older entries have not been visited/charged. Still report
           // optional exclusions so WI persistence cannot count an unsent
@@ -1042,6 +1384,7 @@ final class _AssemblyRun {
             drop(tailGroup);
             continue;
           }
+          if (cacheFriendlyTrimming && dropped.injected) excludedInjections.add(injectionKey(dropped));
           excluded.add(PromptExclusion(dropped.id, 'history-budget', dropped.sources));
         }
         break;
@@ -1055,6 +1398,7 @@ final class _AssemblyRun {
     // Keep newest-first expansion and budgeting, then order references once.
     final output = <PromptSegment>[newChat, ...reverseOutput.reversed];
     collections['chatHistory'] = output;
+    historyStoredNewestFirst = false;
     if (groupNudge != null) {
       commitReserved(groupNudge);
       output.add(groupNudge);
@@ -1062,7 +1406,9 @@ final class _AssemblyRun {
     for (final segment in continuation) {
       commitReserved(segment);
     }
+    historyTail.addAll(continuation);
     tail.addAll(continuation);
+    if (continuation.isNotEmpty) managerTails['continueNudge'] = continuation;
   }
 
   void prepareExamples() {
@@ -1135,12 +1481,22 @@ final class _AssemblyRun {
         PromptSource('control', 'new_example_chat_prompt'),
       ]),
     );
+    final sourceBlocks = <({String kind, String id}), int>{};
     for (var i = 0; i < exampleBlocks.length; i++) {
       final entry = exampleBlocks[i];
       final block = entry.messages;
       final source = entry.source;
       final group = entry.trimGroup;
+      final sourceKey = (kind: source.kind, id: source.id);
+      final blockIndex = sourceBlocks[sourceKey] ?? 0;
+      sourceBlocks[sourceKey] = blockIndex + 1;
+      final key = (kind: source.kind, id: source.id, block: blockIndex);
       if (group?.removed == true) continue;
+      if (historyWindow != null && !historyWindow!.admittedExamples.contains(key)) {
+        excluded.add(PromptExclusion('dialogueExamples-$i', 'cache-friendly-window', [source]));
+        if (group != null) drop(group);
+        continue;
+      }
       // Native blocks share their immutable prefix. An optional entry needs
       // its own charged instance so dropping it cannot remove another block.
       final blockPrefix = group == null
@@ -1176,6 +1532,7 @@ final class _AssemblyRun {
         }
         break;
       }
+      if (cacheFriendlyTrimming) admittedExamples[key] = group;
       for (final segment in candidates) {
         // ST canAffordAll counts empty named examples; insert then skips them.
         if (!meaningful(segment)) continue;
@@ -1184,6 +1541,93 @@ final class _AssemblyRun {
       }
     }
   }
+
+  bool actualHistory(PromptSegment segment) =>
+      segment.sources.length == 1 &&
+      segment.sources.single.kind == 'history' &&
+      segment.sources.single.id == segment.id;
+
+  bool trimmableHistory(PromptSegment segment) =>
+      actualHistory(segment) &&
+      segment.message['role'] != 'tool' &&
+      !segment.message.containsKey('tool_calls') &&
+      !segment.message.containsKey('tool_call_id');
+
+  String injectionKey(_Prompt prompt) => jsonEncode([
+    prompt.windowId,
+    [
+      for (final source in prompt.sources) [source.kind, source.id],
+    ],
+  ]);
+
+  PromptHistoryWindow? finishHistoryWindow() {
+    if (!cacheFriendlyTrimming || (!historyOverflow && historyWindow == null)) return null;
+    final history = collections['chatHistory'];
+    if (historyOverflow && history != null) {
+      var tokens = 0;
+      var count = 0;
+      String? latestUser;
+      for (final segment in history) {
+        if (!trimmableHistory(segment)) continue;
+        tokens += segment.tokens * (charges[segment] ?? 0);
+        count++;
+        if (segment.message['role'] == 'user') latestUser = segment.id;
+      }
+      // Everything else has already been charged: fixed prompts, examples,
+      // tools, controls, continuation and retained depth injections. Only the
+      // remaining pure-history allowance receives the 75% target.
+      final target = (remaining + tokens) * 3 ~/ 4;
+      final trimmed = <PromptSegment>{};
+      for (final segment in history) {
+        if (tokens <= target || count <= 1) break;
+        if (!actualHistory(segment)) continue;
+        // Advancing a single prefix cannot leave a protected tool exchange
+        // behind and then remove later history. The target is best effort.
+        if (!trimmableHistory(segment) || segment.id == latestUser) break;
+        final refund = segment.tokens * (charges.remove(segment) ?? 0);
+        remaining += refund;
+        tokens -= refund;
+        count--;
+        trimmed.add(segment);
+        excluded.add(PromptExclusion(segment.id, 'cache-friendly-trim', segment.sources));
+      }
+      history.removeWhere(trimmed.contains);
+    }
+    String? firstNodeId = historyWindow?.firstNodeId;
+    if (historyOverflow) {
+      // Read physical sources before squash or DeepSeek can combine them with
+      // controls/injections. Continue-prefill carries its original source id.
+      firstNodeId = (history ?? const <PromptSegment>[])
+          .followedBy(tail)
+          .where((segment) => !removed(segment))
+          .expand((segment) => segment.sources)
+          .where((source) => source.kind == 'history')
+          .firstOrNull
+          ?.id;
+    }
+    if (firstNodeId == null) return null;
+    return PromptHistoryWindow(
+      firstNodeId: firstNodeId,
+      admittedExamples: [
+        for (final entry in admittedExamples.entries)
+          if (entry.value?.removed != true) entry.key,
+      ],
+      excludedOptionalSources: {
+        ...?historyWindow?.excludedOptionalSources,
+        for (final group in trimGroups.values)
+          if (group.removed) (kind: group.source.kind, id: group.source.id),
+      },
+      excludedInjections: {...?historyWindow?.excludedInjections, ...excludedInjections},
+    );
+  }
+
+  PromptSegment inCollection(PromptSegment segment, String id) => PromptSegment(
+    id: segment.id,
+    message: segment.message,
+    sources: segment.sources,
+    tokens: segment.tokens,
+    collectionId: id,
+  );
 
   List<PromptSegment> squash(List<PromptSegment> input) {
     const protected = {'newMainChat', 'newChat', 'groupNudge'};
@@ -1201,6 +1645,7 @@ final class _AssemblyRun {
             message: data,
             sources: [...previous.sources, ...segment.sources],
             tokens: counter.countMessage(data),
+            collectionId: previous.collectionId == segment.collectionId ? previous.collectionId : null,
           ),
         );
       } else {
@@ -1210,21 +1655,89 @@ final class _AssemblyRun {
     return result;
   }
 
-  Map<String, Object?> genericBody(List<PromptSegment> messages, List<String> stops) => {
-    'messages': messages.map((segment) => segment.message).toList(),
-    'model': input.model,
-    'temperature': presetSamplingNumber(settings['temperature']),
-    'max_tokens': settings['openai_max_tokens'],
-    'stream': settings['stream_openai'] == true && type != 'quiet',
-    'presence_penalty': presetSamplingNumber(settings['presence_penalty']),
-    'frequency_penalty': presetSamplingNumber(settings['frequency_penalty']),
-    'top_p': presetSamplingNumber(settings['top_p']),
-    if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
-    if (presetJsNumber(settings['seed']) >= 0) 'seed': settings['seed'],
-    if (tools.isNotEmpty) 'tools': tools,
-    if (tools.isNotEmpty && input.toolChoice != null) 'tool_choice': input.toolChoice,
-  };
+  Map<String, Object?> genericBody(List<PromptSegment> messages, List<String> stops) => genericChatRequestBody(
+    messages: messages,
+    settings: settings,
+    model: input.model,
+    generationType: type,
+    stops: stops,
+    tools: tools,
+    toolChoice: input.toolChoice,
+    source: input.chatCompletionSource,
+  );
 }
+
+/// The existing provider parameter projection, exposed independently of prompt
+/// assembly so an explicit raw sequence need not manufacture preset prompts.
+Map<String, Object?> genericChatRequestBody({
+  required List<PromptSegment> messages,
+  required Map<String, Object?> settings,
+  required String model,
+  required String generationType,
+  List<String> stops = const [],
+  List<Map<String, Object?>> tools = const [],
+  Object? toolChoice,
+  String source = 'custom',
+}) => {
+  'messages': messages.map((segment) => segment.message).toList(),
+  'model': model,
+  'temperature': presetSamplingNumber(settings['temperature']),
+  'max_tokens': settings['openai_max_tokens'],
+  'stream': settings['stream_openai'] == true && generationType != 'quiet',
+  'presence_penalty': presetSamplingNumber(settings['presence_penalty']),
+  'frequency_penalty': presetSamplingNumber(settings['frequency_penalty']),
+  'top_p': presetSamplingNumber(settings['top_p']),
+  if (stops.isNotEmpty) 'stop': stops.take(4).toList(),
+  if (presetJsNumber(settings['seed']) >= 0) 'seed': settings['seed'],
+  if (tools.isNotEmpty) 'tools': tools,
+  if (tools.isNotEmpty && toolChoice != null) 'tool_choice': toolChoice,
+  ...genericReasoningFields(settings, model, source),
+};
+
+List<PromptSegment> convertExplicitPromptMessages(
+  List<PromptSegment> messages, {
+  required bool deepseek,
+  required String userName,
+  required String characterName,
+  List<String> groupNames = const [],
+  required PromptTokenCounter counter,
+}) => deepseek
+    ? postProcessDeepSeek(
+        messages,
+        userName: userName,
+        characterName: characterName,
+        groupNames: groupNames,
+        counter: counter,
+      )
+    : messages;
+
+Map<String, Object?> explicitPromptRequestBody({
+  required List<PromptSegment> messages,
+  required Map<String, Object?>? settings,
+  required bool deepseek,
+  required String model,
+  List<String> preparedStops = const [],
+}) => settings == null
+    ? {
+        'model': model,
+        'messages': messages.map((message) => message.message).toList(),
+        if (preparedStops.isNotEmpty) 'stop': preparedStops.take(4).toList(),
+      }
+    : deepseek
+    ? deepSeekRequestBody(
+        messages: messages,
+        settings: settings,
+        model: model,
+        generationType: 'normal',
+        stops: preparedStops,
+      )
+    : genericChatRequestBody(
+        messages: messages,
+        settings: settings,
+        model: model,
+        generationType: 'normal',
+        stops: preparedStops,
+      );
 
 // JS trim's exact WhiteSpace/LineTerminator set. In particular U+0085 NEL is
 // meaningful text; Dart String.trim would incorrectly discard that prefix.

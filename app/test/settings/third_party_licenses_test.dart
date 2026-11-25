@@ -19,6 +19,8 @@ const _expected = <String, String>{
   'DS Bot': 'Copyright 2026 Fei2411 and the DS Bot contributors',
   'ds-harness-remote': 'Copyright (c) 2026 DSH Remote contributors',
   'DSHA': 'Copyright (c) 2026 qiannianhuanxiang',
+  'Libraries.dev': 'Copyright (c) 2026 Jakub Antalik',
+  'Paper Shaders': 'Copyright (c) Paper Design, Inc.',
   'Shizuku-API': 'Copyright (c) 2021 RikkaW',
   'tawcroot (tawc)': 'Copyright (c) 2026 Sophie Winter',
   'libadb-android': 'Copyright 2021 Muntashir Al-Islam',
@@ -27,6 +29,9 @@ const _expected = <String, String>{
   'Bouncy Castle': 'Copyright (c) 2000-2023 The Legion of the Bouncy Castle Inc.',
   'XZ for Java': 'Copyright (C) The XZ for Java authors and contributors',
   'AndroidX WebKit': 'The Android Open Source Project',
+  'ONNX Runtime': 'Copyright (c) Microsoft Corporation',
+  'Silero VAD': 'Copyright (c) 2020-present Silero Team',
+  'smart-turn': 'Copyright (c) 2024–2025, Daily',
   'flutter_webrtc': 'Copyright (c) 2015 Howard Yang',
   'WebRTC': 'Copyright (c) 2011, The WebRTC project authors',
   'AudioSwitch': 'Copyright 2020 Twilio, inc.',
@@ -34,6 +39,11 @@ const _expected = <String, String>{
   'Material Icons': 'Google',
   'discourse-emojis': 'Joffrey Jaffeux',
   'JetBrains Mono': 'Copyright 2020 The JetBrains Mono Project Authors',
+  'jQuery': 'Copyright OpenJS Foundation and other contributors, https://openjsf.org/',
+  'Lodash': 'Copyright OpenJS Foundation and other contributors <https://openjsf.org/>',
+  'Zod': 'Copyright (c) 2025 Colin McDonnell',
+  'YAML (eemeli/yaml)': 'Copyright Eemeli Aro <eemeli@gmail.com>',
+  'Streaming Zipformer zh-en (sherpa-onnx)': 'csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20',
 };
 
 const _mit = 'Permission is hereby granted, free of charge';
@@ -54,6 +64,64 @@ void main() {
   tearDownAll(LicenseRegistry.reset);
 
   String textOf(String package) => entries.singleWhere((e) => e.packages.contains(package)).text;
+
+  group('on HarmonyOS', () {
+    late List<LicenseEntryWithLineBreaks> harmony;
+    const gradle = [
+      'Google ML Kit Text Recognition (Chinese)',
+      'Shizuku-API',
+      'libadb-android',
+      'spake2-android',
+      'Conscrypt',
+      'Bouncy Castle',
+      'XZ for Java',
+      'AndroidX WebKit',
+      'ONNX Runtime',
+      'Silero VAD',
+      'smart-turn',
+      'tawcroot (tawc)',
+      'flutter_webrtc',
+      'AudioSwitch',
+      'WebRTC',
+      'Streaming Zipformer zh-en (sherpa-onnx)',
+    ];
+
+    setUp(() async {
+      LicenseRegistry.reset();
+      registerThirdPartyLicenses(os: 'ohos');
+      harmony = (await LicenseRegistry.licenses.toList()).cast<LicenseEntryWithLineBreaks>();
+    });
+    tearDown(() async {
+      LicenseRegistry.reset();
+      registerThirdPartyLicenses();
+      registerFontLicenses();
+    });
+
+    test('what Gradle bundles for the APK isn\'t listed, and what the HAP carries is', () {
+      final names = {for (final entry in harmony) ...entry.packages};
+      for (final name in gradle) {
+        expect(names, isNot(contains(name)), reason: name);
+      }
+      expect(
+        names,
+        containsAll(['Node.js', 'HarmonyOS runtime packages', 'DS Bot', 'Libraries.dev', 'Phosphor Icons']),
+      );
+    });
+
+    test('Node says whose it is and its terms; each package once', () {
+      final node = harmony.singleWhere((e) => e.packages.contains('Node.js')).text;
+      expect(node, contains('Copyright Node.js contributors'));
+      expect(node, contains(_mit));
+      final names = [for (final entry in harmony) ...entry.packages];
+      expect(names.toSet(), hasLength(names.length));
+    });
+
+    test('the packages\' texts it points at are in the source', () {
+      final runtime = harmony.singleWhere((e) => e.packages.contains('HarmonyOS runtime packages')).text;
+      expect(runtime, contains('runtime/ohos/licenses/texts'));
+      expect(Directory('../runtime/ohos/licenses/texts').existsSync(), isTrue);
+    });
+  });
 
   test('WebRTC entry exposes the complete upstream asset without truncation', () {
     final file = File('assets/licenses/webrtc-150.7871.04.md');
@@ -123,12 +191,57 @@ void main() {
       expect(textOf(package), contains(_apache), reason: package);
     }
     expect(textOf('spake2-android'), allOf(contains(_lgpl), contains(_gpl)));
-    expect(textOf('Phase'), contains("used with the author's permission"));
+    expect(
+      textOf('Phase'),
+      allOf(contains("with the author's permission"), contains('Copyright (c) 2026 CikeSeven'), contains(_mit)),
+    );
     expect(textOf('Bouncy Castle'), contains(_mit));
     expect(textOf('flutter_webrtc'), contains(_mit));
     expect(textOf('WebRTC'), allOf(contains('Neither the name of Google'), contains('Additional IP Rights Grant')));
     expect(textOf('XZ for Java'), contains('Permission to use, copy, modify, and/or distribute'));
     expect(textOf('JetBrains Mono'), contains('SIL OPEN FONT LICENSE Version 1.1'));
     expect(textOf('Unicode Character Database (15.0.0)'), File('tool/unicode-15.0-LICENSE.txt').readAsStringSync());
+    // The canvas libraries: their own LICENSE files, as published (npm tarball integrity in
+    // THIRD_PARTY_NOTICES.md), and the shipped builds those files go with.
+    for (final (package, license, build, licenseSha, buildSha) in [
+      (
+        'jQuery',
+        'assets/licenses/jquery-3.7.1-LICENSE.txt',
+        'assets/tavern/jquery-3.7.1.min.js',
+        'd4db9ebe6f29f5168eac45ad713f055623ac5d0dcd5ba92da23d650ae012020d',
+        'fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a',
+      ),
+      (
+        'Lodash',
+        'assets/licenses/lodash-4.17.21-LICENSE.txt',
+        'assets/tavern/lodash-4.17.21.min.js',
+        'f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc',
+        'a9705dfc47c0763380d851ab1801be6f76019f6b67e40e9b873f8b4a0603f7a9',
+      ),
+      (
+        'Zod',
+        'assets/licenses/zod-4.6.7-LICENSE.txt',
+        'assets/tavern/zod-4.6.7.min.js',
+        '3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8',
+        '3320c08ae7b97e5a977aac7ea438f9cb1238020e3a8b3bc7cfde2d1965a4e38a',
+      ),
+      (
+        'YAML (eemeli/yaml)',
+        'assets/licenses/yaml-2.9.1-LICENSE.txt',
+        'assets/tavern/yaml-2.9.1.min.js',
+        '5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869',
+        'ccdebd91f1f455d059da218b7f794aaa794705781740e67e94cd0dba0419df29',
+      ),
+    ]) {
+      expect(textOf(package), File(license).readAsStringSync(), reason: package);
+      // YAML's is ISC, the others MIT.
+      expect(
+        textOf(package),
+        contains(package.startsWith('YAML') ? 'Permission to use, copy, modify' : _mit),
+        reason: package,
+      );
+      expect(sha256.convert(File(license).readAsBytesSync()).toString(), licenseSha, reason: license);
+      expect(sha256.convert(File(build).readAsBytesSync()).toString(), buildSha, reason: build);
+    }
   });
 }

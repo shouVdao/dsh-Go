@@ -19,6 +19,21 @@ BUILD = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BUILD)
 
 
+# Original production function from the pinned tawc path.c. The fake archive
+# must expose the real patch site, even when the compiler itself is mocked.
+PATH_C = """static long prod_readlink(void *ctx, const char *suffix,
+\t\t\t  char *out, size_t out_cap)
+{
+\t(void)ctx;
+\tif (!suffix || suffix[0] == 0) return TAWC_EINVAL;
+\tif (tawcroot_rootfs_fd < 0)    return TAWC_EBADF;
+\tlong n = TAWC_RAW(TAWC_SYS_readlinkat, tawcroot_rootfs_fd,
+\t\t\t  (long)suffix, (long)out, (long)out_cap, 0, 0);
+\treturn n;
+}
+"""
+
+
 def synthetic_elf(abi, *, machine=None, alignment=16384, needed=None, entry_delta=512):
     """ELF headers only; nothing executable."""
     _, expected_machine, base = BUILD.ABIS[abi]
@@ -47,12 +62,15 @@ class TawcrootBuildTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.runtime = self.root / "runtime"
         (self.runtime / "tawcroot").mkdir(parents=True)
+        self.patch = (RUNTIME / "tawcroot/bind-aware-oracle.diff").read_bytes()
+        (self.runtime / "tawcroot/bind-aware-oracle.diff").write_bytes(self.patch)
         self.source = json.loads((RUNTIME / "tawcroot/source.json").read_text())
         self.archive = self.root / "fixture.zip"
         prefix = self.source["archiveRoot"] + "/"
         with zipfile.ZipFile(self.archive, "w") as zipped:
             for name in self.source["cSources"] + ["include/example.h"]:
-                zipped.writestr(prefix + "tawcroot/" + name, "/* fixture */\n")
+                zipped.writestr(prefix + "tawcroot/" + name,
+                                PATH_C if name == "src/path.c" else "/* fixture */\n")
             zipped.writestr(prefix + "LICENSE.MIT", "MIT fixture\n")
             zipped.writestr(prefix + "tawcroot/tests/example.c", "not production\n")
             zipped.writestr(prefix + "app/example.kt", "not part of this build\n")
@@ -69,6 +87,9 @@ class TawcrootBuildTests(unittest.TestCase):
 
     def fake_tools(self, elf=synthetic_elf):
         def run(argv, **kwargs):
+            if "-c" in argv and argv[argv.index("-c") + 1] == "src/path.c":
+                compiled = (Path(kwargs["cwd"]) / "src/path.c").read_text()
+                self.assertIn("return TAWC_ENOENT;", compiled)
             out = Path(argv[argv.index("-o") + 1]) if "-o" in argv else None
             if out is not None and out.name == "libtawcroot.so":
                 abi = out.parent.name
@@ -91,12 +112,36 @@ class TawcrootBuildTests(unittest.TestCase):
             BUILD.cached_archive(self.source, self.root / "other", bad)
         self.assertEqual(list((self.root / "other").iterdir()), [])
 
+    def test_archive_import_and_reuse_without_file_digest(self):
+        # Capability simulation only; the real interpreter is unchanged.
+        cache = self.root / "cache"
+        with mock.patch.dict(hashlib.__dict__), \
+                mock.patch.object(BUILD.urllib.request, "urlopen") as network:
+            hashlib.__dict__.pop("file_digest", None)
+            first = BUILD.cached_archive(self.source, cache, self.archive)
+            again = BUILD.cached_archive(self.source, cache, offline=True)
+        network.assert_not_called()
+        self.assertEqual(first, again)
+        self.assertEqual(first.read_bytes(), self.archive.read_bytes())
+        self.assertEqual(hashlib.sha256(first.read_bytes()).hexdigest(), self.source["archiveSha256"])
+
     def test_extracts_only_production_sources_and_license(self):
         src = BUILD.extract_source(self.archive, self.source, self.root / "x")
         self.assertTrue((src / "src/main.c").is_file())
         self.assertTrue((self.root / "x/LICENSE.MIT").is_file())
         self.assertFalse((src / "tests").exists())
         self.assertFalse((self.root / "x/app").exists())
+
+    def test_source_patch_requires_one_unchanged_old_block(self):
+        src = BUILD.extract_source(self.archive, self.source, self.root / "x")
+        path = src / "src/path.c"
+        anchor = "\tif (tawcroot_rootfs_fd < 0)    return TAWC_EBADF;\n"
+        for text in (PATH_C.replace(anchor, ""), PATH_C + PATH_C):
+            with self.subTest(matches=text.count(anchor)):
+                path.write_text(text)
+                with self.assertRaises(SystemExit):
+                    BUILD.apply_source_patch(self.runtime, src)
+                self.assertEqual(path.read_text(), text)
 
     def test_toolchain_needs_the_pinned_ndk(self):
         self.assertIn("clang", BUILD.toolchain(self.ndk, self.source))
@@ -131,6 +176,12 @@ class TawcrootBuildTests(unittest.TestCase):
             self.assertTrue((out / "jniLibs" / abi / "libtawcroot.so").is_file())
         manifest = json.loads((out / "manifest.json").read_text())
         self.assertEqual([a["abi"] for a in manifest["artifacts"]], list(BUILD.ABIS))
+        self.assertEqual(manifest["source"],
+                         {key: self.source[key] for key in ("repo", "commit", "archiveSha256")})
+        self.assertEqual(manifest["sourcePatch"], {
+            "path": "tawcroot/bind-aware-oracle.diff",
+            "sha256": hashlib.sha256(self.patch).hexdigest(),
+        })
         before = (out / "manifest.json").read_bytes()
 
         def x64_wrong(abi):
@@ -145,6 +196,24 @@ class TawcrootBuildTests(unittest.TestCase):
             self.assertEqual(Path(BUILD.default_ndk(self.runtime)), Path("/sdk/ndk/28.2.13676358"))
         with mock.patch.dict(BUILD.os.environ, {"ANDROID_NDK_HOME": "/ndk"}, clear=True):
             self.assertEqual(BUILD.default_ndk(self.runtime), "/ndk")
+
+    def test_default_ndk_decodes_local_properties_unicode(self):
+        sdk = self.root / "Android SDK 用户 🐳"
+        ndk = sdk / "ndk" / self.source["ndkVersion"]
+        ndk.parent.mkdir(parents=True)
+        self.ndk.rename(ndk)
+        props = self.runtime.parent / "app/android/local.properties"
+        props.parent.mkdir(parents=True)
+        plain_unicode = str(sdk).replace("\\", "\\\\")
+        escaped = plain_unicode.replace(":", "\\:").replace("用户 🐳", r"\u7528\u6237 \uD83D\uDC33")
+        for label, value in (("plain Unicode", plain_unicode), ("Properties.store", escaped)):
+            with self.subTest(source=label):
+                props.write_text("sdk.dir=" + value + "\n", encoding="utf-8")
+                with mock.patch.dict(BUILD.os.environ, {}, clear=True), \
+                        mock.patch.object(BUILD.subprocess, "run", side_effect=AssertionError("no compiler")):
+                    selected = BUILD.default_ndk(self.runtime)
+                    self.assertEqual(Path(selected), ndk)
+                    BUILD.toolchain(selected, self.source)
 
 
 if __name__ == "__main__":

@@ -76,7 +76,7 @@ final class RegexScript {
     );
   }
 
-  const RegexScript._({
+  RegexScript._({
     required this.id,
     required this.scriptName,
     required this.findRegex,
@@ -107,6 +107,36 @@ final class RegexScript {
   final num? minDepth;
   final num? maxDepth;
   final bool _valid;
+  late final _RegexReplacement _replacement = _RegexReplacement(replaceString);
+}
+
+final class _RegexReplacement {
+  _RegexReplacement(String source) : template = source.replaceAll(_matchMacro, r'$0');
+
+  final String template;
+  late final int templateBytes = regexUtf8Length(template);
+  ({List<String> keys, int bytes})? _captureReferences;
+
+  List<String> referenceKeys(int maximum) {
+    final cached = _captureReferences;
+    var bytes = cached?.bytes ?? 0;
+    if (bytes > maximum) {
+      throw const _DisplayLimit('capture-limit', '捕获引用描述超过内部传输上限。');
+    }
+    if (cached != null) return cached.keys;
+    final keys = <String>{};
+    for (final reference in _captureReference.allMatches(template)) {
+      final key = _referenceKey(reference);
+      if (!keys.add(key)) continue;
+      bytes += regexUtf8Length(key, stopAfter: maximum - bytes - 16) + 16;
+      if (bytes > maximum) {
+        throw const _DisplayLimit('capture-limit', '捕获引用描述超过内部传输上限。');
+      }
+    }
+    final result = keys.toList();
+    _captureReferences = (keys: result, bytes: bytes);
+    return result;
+  }
 }
 
 /// Text transforms with legacy synchronous and protected display paths.
@@ -118,8 +148,19 @@ final class RegexEngine {
     Iterable<RegexScript> globalScripts = const [],
     Iterable<RegexScript> presetScripts = const [],
     Iterable<RegexScript> characterScripts = const [],
+    Iterable<RegexScript> chatScripts = const [],
     this.enabled = true,
-  }) : _scripts = List.unmodifiable([...globalScripts, ...presetScripts, ...characterScripts]);
+    List<int> scopeOrder = const [0, 2, 1],
+  }) : _scripts = List.unmodifiable([
+         for (final scope in scopeOrder)
+           ...switch (scope) {
+             0 => globalScripts,
+             1 => characterScripts,
+             2 => presetScripts,
+             _ => const <RegexScript>[],
+           },
+         ...chatScripts,
+       ]);
 
   final bool enabled;
   final List<RegexScript> _scripts;
@@ -143,10 +184,55 @@ final class RegexEngine {
     num? depth,
     String? characterOverride,
     RegexMacroExpansion? expand,
+  }) => _apply(
+    input,
+    placement: placement,
+    phase: phase,
+    isEdit: isEdit,
+    depth: depth,
+    characterOverride: characterOverride,
+    expand: expand,
+  );
+
+  /// Runs the ordinary synchronous phase once while recording its real skips
+  /// and replacements. This is not the protected display-worker path.
+  RegexDisplayResult applyWithDiagnostics(
+    String input, {
+    required int placement,
+    RegexPhase phase = RegexPhase.prompt,
+    bool isEdit = false,
+    num? depth,
+    String? characterOverride,
+    RegexMacroExpansion? expand,
+  }) {
+    final trace = _RegexRunTrace();
+    final text = _apply(
+      input,
+      placement: placement,
+      phase: phase,
+      isEdit: isEdit,
+      depth: depth,
+      characterOverride: characterOverride,
+      expand: expand,
+      trace: trace,
+    );
+    return RegexDisplayResult(text: text, warnings: trace.warnings, replacements: trace.replacements);
+  }
+
+  String _apply(
+    String input, {
+    required int placement,
+    required RegexPhase phase,
+    required bool isEdit,
+    num? depth,
+    String? characterOverride,
+    RegexMacroExpansion? expand,
+    _RegexRunTrace? trace,
   }) {
     if (!enabled || input.isEmpty) return input;
     var result = input;
-    for (final script in _scripts) {
+    for (var index = 0; index < _scripts.length; index++) {
+      final script = _scripts[index];
       final eligible = switch (phase) {
         RegexPhase.writeBack => !script.markdownOnly && !script.promptOnly,
         RegexPhase.prompt => script.promptOnly,
@@ -161,7 +247,14 @@ final class RegexEngine {
         if (minimum != null && minimum >= -1 && depth < minimum) continue;
         if (maximum != null && maximum >= 0 && depth > maximum) continue;
       }
-      result = runScript(script, result, characterOverride: characterOverride, expand: expand);
+      result = _runScript(
+        script,
+        result,
+        characterOverride: characterOverride,
+        expand: expand,
+        trace: trace,
+        ruleIndex: index,
+      );
     }
     return result;
   }
@@ -227,7 +320,6 @@ final class RegexEngine {
           script.disabled ||
           (isEdit && !script.runOnEdit) ||
           !script.placement.contains(placement) ||
-          script.findRegex.isEmpty ||
           result.isEmpty) {
         continue;
       }
@@ -243,6 +335,7 @@ final class RegexEngine {
         warn(script, index, 'invalid-script', '正则条目的已知字段类型不兼容，已跳过。');
         continue;
       }
+      if (script.findRegex.isEmpty) continue;
       if (rules >= limits.maxRules) {
         warn(script, index, 'rule-limit', '本次显示已达规则上限，后续规则跳过。');
         break;
@@ -257,23 +350,12 @@ final class RegexEngine {
         if (isCancelled?.call() == true) {
           return finish(cancelled: true);
         }
-        final template = script.replaceString.replaceAll(_matchMacro, r'$0');
-        final references = <String>{};
-        var referenceBytes = 0;
-        for (final reference in _captureReference.allMatches(template)) {
-          final key = _referenceKey(reference);
-          if (!references.contains(key)) {
-            referenceBytes += regexUtf8Length(key) + 16;
-            if (referenceBytes > limits.maxCaptureBytes) {
-              throw const _DisplayLimit('capture-limit', '捕获引用描述超过内部传输上限。');
-            }
-            references.add(key);
-          }
-        }
+        final replacementPlan = script._replacement;
+        final referenceKeys = replacementPlan.referenceKeys(limits.maxCaptureBytes);
         final captures = await worker.findCaptures(
           pattern,
           result,
-          references: references,
+          references: referenceKeys,
           maxMatches: limits.maxReplacements - replacements,
         );
         if (isCancelled?.call() == true) {
@@ -286,6 +368,8 @@ final class RegexEngine {
         if (captures.code == 'literal-fallback') {
           warn(script, index, 'literal-fallback', captures.message!);
         }
+        // The worker already checked this unchanged text against maxOutputBytes.
+        if (captures.matches.isEmpty) continue;
         final output = _BoundedText(limits.maxOutputBytes);
         var previousEnd = 0;
         for (final match in captures.matches) {
@@ -301,7 +385,7 @@ final class RegexEngine {
           replacements++;
           final replacement = _replaceDisplayTemplate(
             script,
-            template,
+            replacementPlan,
             (reference) => _captured(match, result, reference),
             substitute,
             characterOverride,
@@ -343,8 +427,23 @@ final class RegexEngine {
 
   /// Direct execution, like ST's /regex command: placement/phase/edit/depth
   /// selection is bypassed, while disabled and invalid-pattern guards remain.
-  String runScript(RegexScript script, String input, {String? characterOverride, RegexMacroExpansion? expand}) {
-    if (!script._valid || script.disabled || script.findRegex.isEmpty || input.isEmpty) return input;
+  String runScript(RegexScript script, String input, {String? characterOverride, RegexMacroExpansion? expand}) =>
+      _runScript(script, input, characterOverride: characterOverride, expand: expand);
+
+  String _runScript(
+    RegexScript script,
+    String input, {
+    String? characterOverride,
+    RegexMacroExpansion? expand,
+    _RegexRunTrace? trace,
+    int ruleIndex = -1,
+  }) {
+    if (script.disabled || input.isEmpty) return input;
+    if (!script._valid) {
+      trace?.warn(script, ruleIndex, 'invalid-script', 'Regex known fields are incompatible; this rule was skipped.');
+      return input;
+    }
+    if (script.findRegex.isEmpty) return input;
     final substitute = expand ?? _identityExpansion;
     final pattern = switch (script.substituteRegex) {
       1 => substitute(script.findRegex),
@@ -352,13 +451,22 @@ final class RegexEngine {
       _ => script.findRegex,
     };
     final compiled = _compile(pattern);
-    if (compiled == null) return input;
+    if (compiled == null) {
+      trace?.warn(
+        script,
+        ruleIndex,
+        'unsupported-pattern',
+        'The expanded regex could not be compiled; this rule was skipped.',
+      );
+      return input;
+    }
     final matches = compiled.global ? compiled.regex.allMatches(input) : compiled.regex.allMatches(input).take(1);
     final output = StringBuffer();
     var previousEnd = 0;
     for (final match in matches) {
+      if (trace != null) trace.replacements++;
       output.write(input.substring(previousEnd, match.start));
-      final template = script.replaceString.replaceAll(_matchMacro, r'$0');
+      final template = script._replacement.template;
       final replacement = _replaceTemplate(
         script,
         template,
@@ -408,6 +516,22 @@ final class RegexEngine {
     if (_cache.length >= 1000) _cache.remove(_cache.keys.first);
     _cache[input] = parsed;
     return parsed;
+  }
+}
+
+final class _RegexRunTrace {
+  final warnings = <RegexDisplayWarning>[];
+  int replacements = 0;
+  void warn(RegexScript script, int index, String reason, String message) {
+    warnings.add(
+      RegexDisplayWarning(
+        ruleId: script.id,
+        ruleName: script.scriptName,
+        ruleIndex: index,
+        reason: reason,
+        message: message,
+      ),
+    );
   }
 }
 
@@ -508,7 +632,7 @@ String _replaceTemplate(
 // still run on the owner; their internal allocations are outside this worker.
 String _replaceDisplayTemplate(
   RegexScript script,
-  String template,
+  _RegexReplacement plan,
   Object? Function(Match) capture,
   RegexMacroExpansion substitute,
   String? characterOverride,
@@ -518,8 +642,8 @@ String _replaceDisplayTemplate(
   // when expanded. Permit its original size, but no extra capture growth past
   // the greater of that size and the output budget. The outer builder still
   // enforces the strict final-output limit after expansion.
-  final templateBytes = regexUtf8Length(template);
-  final output = _BoundedText(templateBytes > maximum ? templateBytes : maximum);
+  final template = plan.template;
+  final output = _BoundedText(plan.templateBytes > maximum ? plan.templateBytes : maximum);
   var offset = 0;
   for (final reference in _captureReference.allMatches(template)) {
     output.add(template.substring(offset, reference.start));

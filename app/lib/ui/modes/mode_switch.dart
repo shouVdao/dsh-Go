@@ -18,30 +18,42 @@ import '../companion/companion_page.dart';
 import '../settings/settings_widgets.dart';
 import '../shell/page_frame.dart';
 import '../tavern/tavern_home_page.dart';
+import '../fx/waves/distortion_wave.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 
 /// The page of a mode other than 工作.
 Widget appModePage(AppMode mode) => switch (mode) {
-  AppMode.companion => const CompanionPage(),
+  AppMode.companion => const CompanionPage(sections: true),
   AppMode.tavern => const TavernHomePage(),
   AppMode.work => throw ArgumentError.value(mode, 'mode', '工作 is the home, not a page'),
 };
 
 const _modeRoutePrefix = 'mode:';
 
-/// Shows [mode]: back to the home, then that mode's page over it.
+/// Shows [mode]: back to the home, then that mode's page carried in over it on a
+/// soft wave of the theme's colour (Libraries.dev Distortion waves).
 void openAppMode(BuildContext context, AppMode mode) {
   final navigator = Navigator.of(context);
+  final closing = navigator.canPop();
   navigator.popUntil((route) => route.isFirst);
   if (mode == AppMode.work) return;
+  // The wave pictures the page under it as it starts: let the sheet and any page leave first.
+  final settle = closing ? AppMotion.of(context, AppMotion.emphasized) : Duration.zero;
   unawaited(
-    navigator.push(
-      MaterialPageRoute<void>(
-        settings: RouteSettings(name: '$_modeRoutePrefix${mode.name}'),
-        builder: (_) => appModePage(mode),
-      ),
-    ),
+    Future<void>.delayed(settle, () {
+      if (!navigator.mounted) return;
+      unawaited(
+        navigator.push(
+          DistortionWaveRoute<void>(
+            settings: RouteSettings(name: '$_modeRoutePrefix${mode.name}'),
+            // Quieter colour fringes than the author's 0.78: the words behind the front stay legible.
+            style: DistortionWaveStyle.vertical.copyWith(aberration: 0.35),
+            builder: (_) => appModePage(mode),
+          ),
+        ),
+      );
+    }),
   );
 }
 

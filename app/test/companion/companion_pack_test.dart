@@ -217,15 +217,21 @@ void main() {
 
   test('a Cubism 2 model is told apart from a zip with no model', () async {
     await store.install(zip({..._runtime(), ..._character()}));
+    // A `.moc` without its descriptor is still refused as the old format.
     await expectLater(
-      store.install(
-        zip({
-          'old/model.json': utf8.encode('{}'),
-          'old/old.moc': [1, 2],
-        }),
-      ),
+      store.install(zip({'old/old.moc': [1, 2]})),
       problem(CompanionPackProblem.legacyModel),
     );
+    // With `model.json` beside it, the pack is taken and the page picks the
+    // Cubism 2 backend.
+    await store.install(
+      zip({
+        'old/model.json': utf8.encode('{"model":"old.moc","textures":["tex.png"]}'),
+        'old/old.moc': [1, 2],
+        'old/tex.png': [3],
+      }),
+    );
+    expect(await store.installed(), isTrue);
   });
 
   test('a bare model needs a runtime first', () async {

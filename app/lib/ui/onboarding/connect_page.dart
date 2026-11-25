@@ -84,7 +84,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
   /// otherwise: reading it would start listening to the native side, which
   /// the page alone has no reason to do (the account controller holds back
   /// the same way).
-  SetupRuntime? get _runtime => ref.exists(localRuntimeProvider) ? ref.read(setupRuntimeProvider) : null;
+  SetupRuntime? get _runtime => ref.read(localRuntimeProvider.exists) ? ref.read(setupRuntimeProvider) : null;
 
   Future<void> _signIn() async {
     final runtime = _runtime;

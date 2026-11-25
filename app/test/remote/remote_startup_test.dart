@@ -162,7 +162,7 @@ void main() {
     seed(HostRef.local, autoConnect: false);
     final c = container();
     await loaded(c);
-    expect(c.exists(remoteAutoConnectProvider), isTrue);
+    expect(c.read(remoteAutoConnectProvider.exists), isTrue);
     expect(c.read(remoteAutoConnectProvider), isFalse);
   });
 }

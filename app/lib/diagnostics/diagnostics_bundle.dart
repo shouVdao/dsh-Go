@@ -3,12 +3,15 @@
 // itself is built by pure functions (and tested as such).
 //
 //   dsh-go-diagnostics-20261024-153012.zip
-//   ├── summary.json   app and DSH versions, device, Android, runtime manifest,
-//   │                  engine state, connection kind
-//   ├── settings.json  app settings, secrets reduced to "set or not"
-//   ├── crash.json     the last crash classification (when there is one)
-//   ├── engine.log     recent engine output
-//   └── failure.log    output around the last failure (when there is one)
+//   ├── summary.json       app and DSH versions, device, Android, runtime
+//   │                      manifest, engine state, connection kind
+//   ├── settings.json      app settings, secrets reduced to "set or not"
+//   ├── system-ime.json    input-method evidence, only when the person agreed
+//   ├── crash.json         the last crash classification (when there is one)
+//   ├── app-evidence.json  bounded failure evidence the native side kept
+//   ├── engine.log         recent engine output
+//   ├── failure.log        output around the last failure (when there is one)
+//   └── app-errors.json    the app's own error log (when there are errors)
 //
 // Every string goes through `redactDiagnostics` on the way in.
 
@@ -120,6 +123,7 @@ abstract final class DiagnosticsBundle {
       'connection': s.connection,
       'performance': s.performance,
       'voice': {...voiceDiagnosticsFacts(s.native.voice), 'mode': s.voiceMode.name},
+      'evidence': diagnosticEvidenceFacts(s.native.evidence),
     };
   }
 
@@ -181,6 +185,7 @@ abstract final class DiagnosticsBundle {
       jsonFile('settings.json', settingsSummary(s.settings)),
       if (s.systemIme case final evidence?) jsonFile('system-ime.json', evidence.toJson()),
       if (crash != null) jsonFile('crash.json', crash),
+      if (s.native.evidence.isNotEmpty) jsonFile('app-evidence.json', diagnosticEvidenceFacts(s.native.evidence)),
       if (s.engineLog.isNotEmpty) text('engine.log', log(s.engineLog)),
       if (s.failureLog.isNotEmpty) text('failure.log', log(s.failureLog)),
       if (s.appErrors.isNotEmpty) jsonFile('app-errors.json', s.appErrors.map((error) => error.toJson()).toList()),

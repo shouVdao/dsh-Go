@@ -17,11 +17,18 @@ import 'usage_ledger.dart';
 /// statistics on in a debug or profile build.
 const _endpointOverride = String.fromEnvironment('DSH_USAGE_ENDPOINT');
 
-/// The share host's endpoint (services/share-worker), contracts v1 and v2.
+/// The share host's endpoint (services/share-worker), contracts v1 to v3.
 final defaultUsageEndpoint = Uri.parse('https://go.dshtui.com/api/usage/v1');
 
 /// [defaultUsageEndpoint], or the build's override when it is usable.
 Uri get usageEndpoint => usageEndpointFrom(_endpointOverride) ?? defaultUsageEndpoint;
+
+Uri? get usageV4Endpoint {
+  final endpoint = usageEndpoint;
+  return endpoint.path.endsWith('/v1')
+      ? endpoint.replace(path: '${endpoint.path.substring(0, endpoint.path.length - 1)}4')
+      : null;
+}
 
 /// [text] as an endpoint: HTTPS, or HTTP to loopback. Null otherwise.
 Uri? usageEndpointFrom(String text) {

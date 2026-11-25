@@ -1,17 +1,25 @@
-// Portions derived from PiPilot (https://github.com/CikeSeven/pi_pilot), MIT, Copyright (c) 2026 CikeSeven. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'accent.dart';
 import 'app_icons.dart';
 import 'ink_glow.dart';
+import 'oklch.dart';
 import 'page_transitions.dart';
 import 'palette.dart';
 import 'semantic_colors.dart';
+import '../../themes/theme_pack.dart';
 import 'shapes.dart';
 import 'squircle.dart';
 import 'surfaces.dart';
+import 'theme_style.dart';
 import 'typography.dart';
 
 /// 浅色主题。
@@ -19,6 +27,11 @@ import 'typography.dart';
 /// [accent] 是整套配色(强调色 + 中性色的色调),见 `accent.dart`。
 /// [glassBlur] 关掉后所有玻璃改用近乎不透明的填充(设置里的"减少透明效果",
 /// 或性能探测判定为低端机时)。
+///
+/// [glassOpacity] 与 [glassBlurAmount] 是设置 › 主题里的材质滑杆:前者乘进
+/// 每层玻璃的透明度,后者乘进模糊半径。
+///
+/// [fontColor] 只取色相与彩度,明度由 [textInkFor] 按明暗另算。
 ///
 /// [glyphLocale] pins the locale CJK glyphs are picked by (the English UI
 /// passes zh_CN so Chinese content keeps Chinese shapes).
@@ -29,35 +42,78 @@ import 'typography.dart';
 ThemeData buildLightTheme({
   AppAccent accent = AppAccent.mist,
   bool glassBlur = true,
+  double glassOpacity = 1,
+  double glassBlurAmount = 1,
+  Color? fontColor,
   Locale? glyphLocale,
   bool instantPages = false,
   bool fluid = false,
-}) => _build(
-  DshPalette.lightScheme(accent),
-  DshColors.forAccent(Brightness.light, accent),
-  DshSurfaces.light(accent, blurEnabled: glassBlur),
-  accent,
-  glyphLocale,
-  instantPages,
-  fluid,
-);
+  ThemePack? themePack,
+  Map<String, String> loadedFonts = const {},
+}) {
+  final scheme = applyThemePackScheme(DshPalette.lightScheme(accent), themePack);
+  return _build(
+    _withInk(scheme, fontColor, Brightness.light),
+    applyThemePackColors(DshColors.forAccent(Brightness.light, accent), themePack, Brightness.light),
+    applyThemePackSurfaces(
+      DshSurfaces.light(accent, blurEnabled: glassBlur, opacity: glassOpacity, blurAmount: glassBlurAmount),
+      themePack,
+      Brightness.light,
+      blurEnabled: glassBlur,
+    ),
+    accent,
+    glyphLocale,
+    instantPages,
+    fluid,
+    themePack,
+    loadedFonts,
+  );
+}
 
 /// 深色主题。
 ThemeData buildDarkTheme({
   AppAccent accent = AppAccent.mist,
   bool glassBlur = true,
+  double glassOpacity = 1,
+  double glassBlurAmount = 1,
+  Color? fontColor,
   Locale? glyphLocale,
   bool instantPages = false,
   bool fluid = false,
-}) => _build(
-  DshPalette.darkScheme(accent),
-  DshColors.forAccent(Brightness.dark, accent),
-  DshSurfaces.dark(accent, blurEnabled: glassBlur),
-  accent,
-  glyphLocale,
-  instantPages,
-  fluid,
-);
+  ThemePack? themePack,
+  Map<String, String> loadedFonts = const {},
+}) {
+  final scheme = applyThemePackScheme(DshPalette.darkScheme(accent), themePack);
+  return _build(
+    _withInk(scheme, fontColor, Brightness.dark),
+    applyThemePackColors(DshColors.forAccent(Brightness.dark, accent), themePack, Brightness.dark),
+    applyThemePackSurfaces(
+      DshSurfaces.dark(accent, blurEnabled: glassBlur, opacity: glassOpacity, blurAmount: glassBlurAmount),
+      themePack,
+      Brightness.dark,
+      blurEnabled: glassBlur,
+    ),
+    accent,
+    glyphLocale,
+    instantPages,
+    fluid,
+    themePack,
+    loadedFonts,
+  );
+}
+
+/// 正文墨色:保留用户挑的色相与彩度,明度落到该明暗下可读的一档
+/// (浅色 0.32、深色 0.88),所以换明暗、换配色都不会让字读不清。
+Color textInkFor({required double hue, required double chroma, required Brightness brightness}) =>
+    Oklch(brightness == Brightness.dark ? 0.88 : 0.32, chroma.clamp(0.0, 0.2), hue).toColor();
+
+/// [scheme] 的正文墨色换成用户挑的颜色;没挑就原样返回。次要文字仍跟配色,
+/// 层级和对比度才不会塌。
+ColorScheme _withInk(ColorScheme scheme, Color? pick, Brightness brightness) {
+  if (pick == null) return scheme;
+  final o = Oklch.fromColor(pick);
+  return scheme.copyWith(onSurface: textInkFor(hue: o.h, chroma: o.c, brightness: brightness));
+}
 
 /// 边到边(edge-to-edge)的系统栏样式:状态栏、导航栏全透明,图标随明暗。
 ///
@@ -78,6 +134,12 @@ SystemUiOverlayStyle dshSystemOverlay(Brightness brightness) {
   );
 }
 
+/// What Material should behave as on [os]. HarmonyOS is meant to feel like the
+/// Android app: page transitions, ink, dialogs and text limits all read this.
+/// Written as the Android value because stock Flutter has no `TargetPlatform.ohos`.
+@visibleForTesting
+TargetPlatform? themePlatformFor(String os) => os == 'ohos' ? TargetPlatform.android : null;
+
 /// 雾蓝玻璃主题。三条铁律:
 ///
 /// 1. **层次靠材质,不靠阴影。** 页面是渐变,浮在内容上的(顶栏、输入条、
@@ -93,8 +155,10 @@ ThemeData _build(
   AppAccent accent,
   Locale? glyphLocale,
   bool instantPages,
-  bool fluid,
-) {
+  bool fluid, [
+  ThemePack? themePack,
+  Map<String, String> loadedFonts = const {},
+]) {
   // iOS 式水平推入,上一页左移变暗;系统预测返回与边缘右滑都跟手
   // (见 page_transitions.dart)。全平台同一套,二级页的观感只此一处。
   final pages = instantPages
@@ -112,10 +176,21 @@ ThemeData _build(
   final knobBlends = contrastRatio(lightKnob, scheme.primary) < 1.6;
   final onKnob = knobBlends ? scheme.onPrimary : lightKnob;
   final checkOn = knobBlends ? scheme.primary : (isDark ? scheme.inversePrimary : scheme.primary);
-  final textTheme = AppType.withGlyphLocale(
-    AppType.textTheme,
+  final baseTextTheme = AppType.withGlyphLocale(
+    AppType.tracked(AppType.textTheme),
     glyphLocale,
   ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
+  final textTheme = applyThemePackTypography(baseTextTheme, themePack, loadedFonts);
+  final themeStyle = buildDshThemeStyle(themePack, scheme.brightness, loadedFonts);
+  final rSm = themePack == null ? AppShape.sm : themeStyle.scaleRadius(AppShape.sm);
+  final rMd = themePack == null ? AppShape.md : themeStyle.scaleRadius(AppShape.md);
+  final rXl = themePack == null ? AppShape.xl : themeStyle.scaleRadius(AppShape.xl);
+  final radiusMd = themePack == null ? AppShape.radiusMd : BorderRadius.all(Radius.circular(rMd));
+  final borderW = themePack == null ? 0.5 : themeStyle.borderWidth;
+  final cardBorder = themePack == null ? AppShape.card : SquircleBorder(borderRadius: radiusMd);
+  final sheetBorder = themePack == null
+      ? AppShape.sheet
+      : SquircleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(rXl)));
   // 输入框 / Chip 的填充:与卡片玻璃同值,保证"表单是长在页面上的"。
   final fieldFill = surfaces.card.fallbackFill;
   // 弹出层(对话框、菜单)用不透明面:它们压在遮罩上,不需要也不应该透。
@@ -123,15 +198,20 @@ ThemeData _build(
 
   return ThemeData(
     useMaterial3: true,
+    adaptations: const [_SwitchAdaptation()],
+    platform: themePlatformFor(Platform.operatingSystem),
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
     canvasColor: scheme.surface,
     textTheme: textTheme,
-    extensions: [colors, surfaces],
+    extensions: [colors, surfaces, themeStyle],
     pageTransitionsTheme: transitions,
     visualDensity: VisualDensity.standard,
     // 水波保留但更含蓄。
-    splashFactory: fluid ? AppInkGlow.splashFactory : null,
+    // iOS 的控件按下只变一层底色,没有水波。
+    splashFactory: fluid
+        ? AppInkGlow.splashFactory
+        : (defaultTargetPlatform == TargetPlatform.iOS ? NoSplash.splashFactory : null),
     splashColor: scheme.primary.withValues(alpha: 0.08),
     highlightColor: scheme.primary.withValues(alpha: 0.04),
     hoverColor: scheme.onSurface.withValues(alpha: 0.04),
@@ -156,7 +236,9 @@ ThemeData _build(
       elevation: 0,
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: AppShape.outlined(hairline, width: 0.5),
+      shape: themePack == null
+          ? AppShape.outlined(hairline, radius: rMd, width: borderW)
+          : themeStyle.cardShape(hairline, borderW),
     ),
 
     // 输入框:长在页面上的玻璃片。描边用 outline(≥ 3:1,WCAG 1.4.11),
@@ -166,27 +248,27 @@ ThemeData _build(
       fillColor: fieldFill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: AppShape.radiusMd,
+        borderRadius: radiusMd,
         borderSide: BorderSide(color: scheme.outline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: AppShape.radiusMd,
+        borderRadius: radiusMd,
         borderSide: BorderSide(color: scheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: AppShape.radiusMd,
+        borderRadius: radiusMd,
         borderSide: BorderSide(color: scheme.primary, width: 1.6),
       ),
       disabledBorder: OutlineInputBorder(
-        borderRadius: AppShape.radiusMd,
+        borderRadius: radiusMd,
         borderSide: BorderSide(color: hairline),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: AppShape.radiusMd,
+        borderRadius: radiusMd,
         borderSide: BorderSide(color: scheme.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: AppShape.radiusMd,
+        borderRadius: radiusMd,
         borderSide: BorderSide(color: scheme.error, width: 1.6),
       ),
       hintStyle: TextStyle(color: colors.textTertiary),
@@ -207,7 +289,7 @@ ThemeData _build(
             minimumSize: const Size(64, 50),
             padding: const EdgeInsets.symmetric(horizontal: 24),
             elevation: 0,
-            shape: AppShape.card,
+            shape: cardBorder,
             textStyle: textTheme.labelLarge?.copyWith(fontSize: 15),
           ),
     ),
@@ -219,7 +301,7 @@ ThemeData _build(
         elevation: 0,
         backgroundColor: fieldFill,
         foregroundColor: scheme.onSurface,
-        shape: AppShape.outlined(hairline),
+        shape: AppShape.outlined(hairline, radius: rMd, width: themePack == null ? 1 : borderW),
         textStyle: textTheme.labelLarge?.copyWith(fontSize: 15),
       ),
     ),
@@ -232,7 +314,7 @@ ThemeData _build(
             minimumSize: const Size(64, 50),
             padding: const EdgeInsets.symmetric(horizontal: 22),
             foregroundColor: scheme.onSurface,
-            shape: AppShape.card,
+            shape: cardBorder,
             textStyle: textTheme.labelLarge?.copyWith(fontSize: 15),
           ).copyWith(
             side: WidgetStateProperty.resolveWith(
@@ -247,7 +329,7 @@ ThemeData _build(
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 40),
         foregroundColor: scheme.primary,
-        shape: Squircle.border(AppShape.sm),
+        shape: Squircle.border(rSm),
         textStyle: textTheme.labelLarge,
       ),
     ),
@@ -257,7 +339,7 @@ ThemeData _build(
     ),
 
     chipTheme: ChipThemeData(
-      shape: Squircle.border(AppShape.sm),
+      shape: Squircle.border(rSm),
       side: BorderSide(color: hairline),
       backgroundColor: fieldFill,
       selectedColor: scheme.primaryContainer,
@@ -317,7 +399,7 @@ ThemeData _build(
       backgroundColor: popupFill,
       surfaceTintColor: Colors.transparent,
       barrierColor: surfaces.scrim,
-      shape: AppShape.outlined(hairline, radius: AppShape.xl, width: 0.5),
+      shape: AppShape.outlined(hairline, radius: rXl, width: borderW),
       titleTextStyle: textTheme.headlineSmall,
       contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
     ),
@@ -334,7 +416,7 @@ ThemeData _build(
       dragHandleColor: scheme.onSurfaceVariant.withValues(alpha: 0.35),
       dragHandleSize: const Size(36, 4),
       clipBehavior: Clip.antiAlias,
-      shape: AppShape.sheet,
+      shape: sheetBorder,
       showDragHandle: true,
     ),
 
@@ -345,7 +427,7 @@ ThemeData _build(
       contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onInverseSurface),
       actionTextColor: scheme.inversePrimary,
       insetPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      shape: AppShape.card,
+      shape: cardBorder,
     ),
 
     dividerTheme: DividerThemeData(color: hairline, thickness: 0.5, space: 1),
@@ -367,7 +449,7 @@ ThemeData _build(
       surfaceTintColor: Colors.transparent,
       elevation: 2,
       shadowColor: scheme.shadow.withValues(alpha: 0.5),
-      shape: AppShape.outlined(hairline, width: 0.5),
+      shape: AppShape.outlined(hairline, radius: rMd, width: borderW),
       textStyle: textTheme.bodyMedium,
     ),
 
@@ -377,7 +459,7 @@ ThemeData _build(
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(2),
         shadowColor: WidgetStatePropertyAll(scheme.shadow.withValues(alpha: 0.5)),
-        shape: WidgetStatePropertyAll(AppShape.outlined(hairline, width: 0.5)),
+        shape: WidgetStatePropertyAll(AppShape.outlined(hairline, radius: rMd, width: borderW)),
       ),
     ),
 
@@ -389,7 +471,7 @@ ThemeData _build(
       selectedTileColor: scheme.primaryContainer,
       minVerticalPadding: 10,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      shape: AppShape.card,
+      shape: cardBorder,
     ),
 
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -499,4 +581,19 @@ ThemeData _build(
       crossAxisMargin: 2,
     ),
   );
+}
+
+/// `Switch.adaptive` on iOS draws the system's switch, in the app's colours and without Material's
+/// check mark. Other platforms keep the theme as it is.
+class _SwitchAdaptation extends Adaptation<SwitchThemeData> {
+  const _SwitchAdaptation();
+
+  @override
+  SwitchThemeData adapt(ThemeData theme, SwitchThemeData defaultValue) => theme.platform == TargetPlatform.iOS
+      ? SwitchThemeData(
+          thumbColor: defaultValue.thumbColor,
+          trackColor: defaultValue.trackColor,
+          trackOutlineColor: defaultValue.trackOutlineColor,
+        )
+      : defaultValue;
 }

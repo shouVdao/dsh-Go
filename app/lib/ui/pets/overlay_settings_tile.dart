@@ -14,10 +14,12 @@ import '../../companion/companion_state.dart';
 import '../../l10n/l10n.dart';
 import '../../pets/overlay_channel.dart';
 import '../../pets/pet_prefs.dart';
+import '../../pets/pet_state.dart';
 import '../common/expand_reveal.dart';
 import '../common/risk_notice.dart';
 import '../phone/restricted_settings_guide.dart';
 import '../settings/settings_widgets.dart';
+import 'pet_custom_size.dart';
 
 /// 「App 外显示」. Nothing without the native side (tests, desktop).
 class PetOverlaySettingsSection extends ConsumerStatefulWidget {
@@ -57,6 +59,7 @@ class _PetOverlaySettingsSectionState extends ConsumerState<PetOverlaySettingsSe
     if (!s.native) return const SizedBox.shrink();
     final overlay = ref.read(petOverlayProvider.notifier);
     final on = s.working;
+    final refused = s.refused || (s.enabled && !s.permission.usable);
     // Sideloaded on Android 13+: the system switch may be greyed out until
     // 「允许受限制的设置」. Offered once a trip there came back empty.
     final restricted = s.refused && s.sdk >= 33 && s.permission != PetOverlayPermission.blocked;
@@ -64,7 +67,7 @@ class _PetOverlaySettingsSectionState extends ConsumerState<PetOverlaySettingsSe
       children: [
         SettingsSwitchTile(
           spot: Spots.petOutsideApp,
-          subtitle: s.refused ? l10n.botsPetNotAuthorized : null,
+          subtitle: refused ? l10n.botsPetNotAuthorized : null,
           value: on,
           onChanged: (v) => unawaited(v ? _turnOn(s) : overlay.turnOff()),
         ),
@@ -78,6 +81,8 @@ class _PetOverlaySettingsSectionState extends ConsumerState<PetOverlaySettingsSe
           ),
         ),
         if (on) const _OverlayRendererTile(),
+        if (on) const _OverlaySizeTile(),
+        if (on) const _OverlayCustomSizePanel(),
         if (on) const _OverlayFramingTile(),
         if (restricted)
           SettingsTile(
@@ -134,6 +139,9 @@ class _OverlayRendererTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The iOS PiP source renders pixel frames. It has no native WebView
+    // configureCompanion endpoint, so offering this choice would only fail.
+    if (ref.watch(petOverlayProvider.select((s) => s.ios))) return const SizedBox.shrink();
     final l10n = context.l10n;
     final availability = ref.watch(companionFloatAvailabilityProvider);
     final running = ref.watch(companionFloatProvider);
@@ -183,6 +191,47 @@ class _OverlayRendererTile extends ConsumerWidget {
       onChanged: selected || available
           ? (value) => unawaited(ref.read(petPrefsProvider.notifier).setOverlayRenderer(value))
           : null,
+    );
+  }
+}
+
+/// 「悬浮窗大小」: the floating window's own body height. The page's 「大小」
+/// does not move it, and this does not move the page (docs/design/pets.md §2.10).
+class _OverlaySizeTile extends ConsumerWidget {
+  const _OverlaySizeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = ref.watch(petPrefsProvider);
+    // The companion is framed by 取景, not drawn at the pixel pet's size.
+    if (prefs.overlayRenderer != PetOverlayRenderer.pixel) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    return SettingsSegmentTile<PetSize>(
+      spot: Spots.petOverlaySize,
+      subtitle: l10n.botsPetOverlaySizeHint,
+      segments: [for (final s in PetSize.values) PillSegment(s, s.label)],
+      selected: prefs.overlaySize ?? prefs.size,
+      onChanged: (size) => unawaited(ref.read(petPrefsProvider.notifier).setOverlaySize(size)),
+    );
+  }
+}
+
+/// 自定义, for the floating window; its own height while the page keeps its own.
+class _OverlayCustomSizePanel extends ConsumerWidget {
+  const _OverlayCustomSizePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = ref.watch(petPrefsProvider);
+    final selected = prefs.overlaySize ?? prefs.size;
+    return ExpandReveal(
+      open: prefs.overlayRenderer == PetOverlayRenderer.pixel && selected == PetSize.custom,
+      child: PetCustomSizePanel(
+        height: prefs.overlayCustomHeight ?? prefs.customHeight,
+        title: context.l10n.botsPetOverlayCustomSize,
+        sliderKey: const ValueKey('pet-overlay-custom-size'),
+        onChanged: ref.read(petPrefsProvider.notifier).setOverlayCustomHeight,
+      ),
     );
   }
 }

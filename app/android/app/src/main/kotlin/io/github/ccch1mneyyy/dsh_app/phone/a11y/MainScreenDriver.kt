@@ -1,4 +1,6 @@
-// Portions derived from Phase (https://github.com/CikeSeven/phase), used with the author's permission. See THIRD_PARTY_NOTICES.md.
+// SPDX-FileCopyrightText: 2026 CikeSeven
+// SPDX-License-Identifier: MIT
+// See THIRD_PARTY_NOTICES.md.
 // Local changes: the screen text format instead of JSON; fingerprints re-checked against a fresh
 // capture; password fields marked rather than failing the screen; collect, open, numbered
 // screenshots, tap_xy; blocking calls with time budgets.
@@ -1286,7 +1288,7 @@ internal class MainScreenDriver(private val service: PhoneA11yService, private v
                 io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillNavigationWitness(it.uid, it.version, it.updated, it.signers)
             } else null
             return ActionResult(ok, message + note + visualNote, toSnapshot(snap, text + ocrText).copy(secure = snap.hidden || screenshotSecure),
-                navigationWitness = witness)
+                navigationWitness = witness, screenChanged = changed.takeIf { comparable })
         } finally { cap.recycle() }
     }
 

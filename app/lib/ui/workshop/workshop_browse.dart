@@ -116,6 +116,7 @@ class _WorkshopBrowseSliverState extends ConsumerState<WorkshopBrowseSliver> {
                   (WorkshopKindFilter.all, l10n.workshopKindAll),
                   (WorkshopKindFilter.pet, l10n.workshopKindPet),
                   (WorkshopKindFilter.companion, l10n.workshopKindCompanion),
+                  (WorkshopKindFilter.theme, AppLocale.isEnglish ? 'Themes' : '主题包'),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -208,7 +209,7 @@ class WorkshopItemRow extends ConsumerWidget {
     final description = meta.description.trim();
     void open() => unawaited(showWorkshopItemSheet(context, item, onReport: onReport));
     return ListPageRow(
-      leading: WorkshopAvatar(meta),
+      leading: WorkshopEntryAvatar(item.entry),
       leadingWidth: 40,
       title: workshopTitleOf(meta, locale),
       subtitle: [meta.author, if (description.isNotEmpty) description.split('\n').first].join(' · '),

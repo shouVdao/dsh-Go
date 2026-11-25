@@ -74,6 +74,81 @@ class PetTier {
 /// Which way the roam animation looks.
 enum PetFacing { left, right, front }
 
+/// Marks a pack whose `poster.png` is still the blank the importer wrote:
+/// the chat's stage draws the model and `PetLive2dView` replaces the file
+/// with that first frame (docs/pets/README.md §3.5).
+const posterPendingName = '.poster-pending';
+
+/// Marks a pack written by the converter, whose `canvas` and `contentBox` are
+/// guesses: nobody had seen the model when the zip was built. The first frame
+/// the stage draws is at the model's own proportions, and its opaque box is
+/// the body (live2d_pet_kit.dart), so the view rewrites both from that frame
+/// and deletes this. A hand-written pack has no marker and is left alone.
+const contentBoxAutoName = '.content-box-auto';
+
+/// A pet whose art is a Cubism model instead of sprite sheets
+/// (docs/pets/README.md §11). The sprites it still carries are one still
+/// frame — the poster the floating window shows; the chat draws the model.
+@immutable
+class PetLive2d {
+  const PetLive2d({required this.model, this.states = const {}, this.reactions = const {}, this.fallback});
+
+  /// The model descriptor, relative to the pack's `character/` folder:
+  /// `*.model3.json` for Cubism 3/5, or `model.json` + a `.moc` for Cubism 2.
+  final String model;
+
+  /// Pet state name → the model's motion group (docs/pets/README.md §5).
+  final Map<String, String> states;
+
+  /// Reaction key (`tapLeft`, `tapRight`, `tickle`, `annoyed`, `drag`) → a
+  /// motion group, played once and then back to the state's own motion.
+  final Map<String, String> reactions;
+
+  /// Played when a state has no motion of its own (a plain idle fallback).
+  final String? fallback;
+
+  /// Null when [raw] isn't a map; throws when it is one but malformed.
+  static PetLive2d? parse(Object? raw) {
+    if (raw == null) return null;
+    if (raw is! Map) throw const FormatException('pack.json: live2d');
+    final model = raw['model'];
+    if (model is! String || model.isEmpty || model.startsWith('/') || model.contains('\\')) {
+      throw const FormatException('pack.json: live2d.model');
+    }
+    if (model.split('/').any((part) => part.isEmpty || part == '.' || part == '..')) {
+      throw const FormatException('pack.json: live2d.model');
+    }
+    final known = {for (final state in PetStateName.values) state.name};
+    final states = <String, String>{};
+    final statesRaw = raw['states'];
+    if (statesRaw is Map) {
+      for (final MapEntry(:key, :value) in statesRaw.entries) {
+        if (!known.contains('$key')) throw FormatException('pack.json: live2d.states.$key');
+        if (value is! String || value.isEmpty) throw FormatException('pack.json: live2d.states.$key');
+        states['$key'] = value;
+      }
+    }
+    final reactions = <String, String>{};
+    final reactionsRaw = raw['reactions'];
+    if (reactionsRaw is Map) {
+      for (final MapEntry(:key, :value) in reactionsRaw.entries) {
+        if (value is! String || value.isEmpty) throw FormatException('pack.json: live2d.reactions.$key');
+        reactions['$key'] = value;
+      }
+    }
+    final fallback = raw['fallback'];
+    if (fallback != null && (fallback is! String || fallback.isEmpty)) {
+      throw const FormatException('pack.json: live2d.fallback');
+    }
+    return PetLive2d(
+      model: model,
+      states: Map.unmodifiable(states),
+      reactions: Map.unmodifiable(reactions),
+      fallback: fallback as String?,
+    );
+  }
+}
+
 /// A pet: its art and how app states map onto it.
 @immutable
 class PetPack {
@@ -105,6 +180,7 @@ class PetPack {
     this.idlePool = const [],
     this.idleEvery = const PetEvery(),
     this.bonus = const {},
+    this.live2d,
     this.dir,
   });
 
@@ -153,8 +229,9 @@ class PetPack {
   /// Animation name → how long a one-off play lasts, ms.
   final Map<String, int> playMs;
 
-  /// tapLeft / tapRight / tickle / drag → animation.
-  final Map<String, String> reactions;
+  /// Reaction name (tapLeft / tapRight / tickle / drag / annoyed / …) → its
+  /// animations: one plays as written, several are picked one per play.
+  final Map<String, List<String>> reactions;
 
   final String? roamAnim;
 
@@ -180,6 +257,10 @@ class PetPack {
 
   /// State name → an occasional alternative (attention's extras).
   final Map<String, PetBonus> bonus;
+
+  /// Set for a Live2D pet: the chat draws the model, the sprites are its
+  /// still poster frame.
+  final PetLive2d? live2d;
 
   static const schema = 1;
 
@@ -221,7 +302,15 @@ class PetPack {
     for (final name in (states[state.name] ?? const <String>[]).skip(1)) animations[name]!,
   ];
 
-  PetAnimation? reaction(String key) => animations[reactions[key]];
+  /// [key]'s fixed animation: the first variant (drag, a lone tap reaction).
+  PetAnimation? reaction(String key) => animations[reactions[key]?.firstOrNull];
+
+  /// [key]'s animation for this play: one of its variants, picked with [random].
+  PetAnimation? reactionOutOf(String key, math.Random random) {
+    final names = reactions[key];
+    if (names == null || names.isEmpty) return null;
+    return animations[names.length == 1 ? names.first : names[random.nextInt(names.length)]];
+  }
 
   PetAnimation get roam => animations[roamAnim] ?? animFor(PetStateName.idle);
 
@@ -299,6 +388,29 @@ class PetPack {
       throw FormatException('pack.json: $where → $name');
     }
 
+    /// Reaction name → its animations. `tickle2`, `tickle3`… (a number after
+    /// a plain name this map already has) are further alternatives: older apps
+    /// read only the plain name and ignore the rest, so a shared pack still
+    /// works there while this one picks among all of them.
+    Map<String, List<String>> reactionMap(Object? raw) {
+      final map = <String, List<String>>{};
+      for (final MapEntry(:key, :value) in _map(raw).entries) {
+        final names = [
+          for (final name in value is List ? value : [value]) known(name, 'reactions.$key'),
+        ];
+        if (names.isNotEmpty) map[key] = names;
+      }
+      for (final key in map.keys.toList()) {
+        final match = RegExp(r'^(.*?)(\d+)$').firstMatch(key);
+        final base = match?.group(1);
+        // From 2 on: `tickle` is the first, `tickle2` the second.
+        if (base == null || !map.containsKey(base) || int.parse(match!.group(2)!) < 2) continue;
+        final extra = map.remove(key)!;
+        map.update(base, (names) => [...names, ...extra]);
+      }
+      return map;
+    }
+
     final states = <String, List<String>>{
       for (final MapEntry(:key, :value) in _map(json['states']).entries)
         key: [for (final name in _list(value)) known(name, 'states.$key')],
@@ -348,6 +460,7 @@ class PetPack {
         ], chance: (_num(_map(value)['chance']) ?? 0).clamp(0, 1).toDouble()),
     }..removeWhere((_, b) => b.anims.isEmpty || b.chance <= 0);
     final faces = _string(roam['faces']) ?? _string(roam['facing']);
+    final live2d = PetLive2d.parse(json['live2d']);
 
     return PetPack(
       id: id,
@@ -367,9 +480,7 @@ class PetPack {
       minDisplay: ms(timings['minDisplay']),
       autoReturn: ms(timings['autoReturn']),
       playMs: ms(timings['playMs']),
-      reactions: {
-        for (final MapEntry(:key, :value) in _map(json['reactions']).entries) key: known(value, 'reactions.$key'),
-      },
+      reactions: reactionMap(json['reactions']),
       roamAnim: roam['anim'] == null ? null : known(roam['anim'], 'roam'),
       // An explicit `flip: false` keeps front-facing art unmirrored.
       roamFacing: roam['flip'] == false ? PetFacing.front : PetFacing.values.asNameMap()[faces] ?? PetFacing.front,
@@ -384,6 +495,7 @@ class PetPack {
         max: (_num(every['max']) ?? 300000).round(),
       ),
       bonus: bonus,
+      live2d: live2d,
       dir: dir,
     );
   }
@@ -403,6 +515,7 @@ class PetPack {
     if (!number.isFinite) throw const FormatException('pack.json: non-finite number');
     return number;
   }
+
   static Map<String, Object?> _map(Object? v) =>
       v is Map ? {for (final MapEntry(:key, :value) in v.entries) '$key': value} : const {};
   static List<Object?> _list(Object? v) => v is List ? v : const [];
